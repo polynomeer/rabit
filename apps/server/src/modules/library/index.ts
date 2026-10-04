@@ -3,7 +3,12 @@ import type { Module } from '../../app/modules.js';
 import { BUCKETS } from '../../platform/storage/blob-store.js';
 import type { AccountDataDeleter } from '../identity/index.js';
 import type { CatalogAccess } from '../playback/index.js';
-import { buildExport, expireExports, type ExportSection } from './export.js';
+import {
+  buildExport,
+  expireExports,
+  invalidateExportsForSource,
+  type ExportSection,
+} from './export.js';
 import { attachUploadToLibrary } from './library.js';
 import { libraryRoutes } from './routes.js';
 
@@ -49,6 +54,7 @@ export function libraryModule(deps: {
             .where('ref_type', '=', 'audio_source')
             .where('ref_id', '=', p.audio_source_id)
             .execute();
+          await invalidateExportsForSource(ctx, p.audio_source_id);
         },
       },
       {

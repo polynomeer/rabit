@@ -253,7 +253,9 @@ export async function buildExport(
       contentType: 'application/zip',
       bytes,
     });
-    await ctx.db
+    // If the request or the account disappeared while building (account deletion
+    // runs concurrently), the archive must not outlive it (review #8).
+    const marked = await ctx.db
       .updateTable('export_request')
       .set({
         state: 'ready',
@@ -263,10 +265,44 @@ export async function buildExport(
         updated_at: new Date(),
       })
       .where('id', '=', exportId)
-      .execute();
+      .where('state', '=', 'building')
+      .where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('app_user as u')
+            .select('u.id')
+            .whereRef('u.id', '=', 'export_request.user_id')
+            .where('u.status', '=', 'active'),
+        ),
+      )
+      .executeTakeFirst();
+    if (Number(marked.numUpdatedRows) === 0) await ctx.blobs.delete(BUCKETS.exports, key);
   } finally {
     await rm(work, { recursive: true, force: true });
   }
+}
+
+/** Exports that contain a deleted source are withdrawn immediately (privacy.md §2). */
+export async function invalidateExportsForSource(
+  ctx: AppContext,
+  sourceId: string,
+): Promise<number> {
+  const owner = await ctx.db
+    .selectFrom('audio_source as s')
+    .innerJoin('workspace as w', 'w.id', 's.workspace_id')
+    .select('w.owner_user_id')
+    .where('s.id', '=', sourceId)
+    .executeTakeFirst();
+  if (!owner?.owner_user_id) return 0;
+  const rows = await ctx.db
+    .updateTable('export_request')
+    .set({ state: 'expired', updated_at: new Date() })
+    .where('user_id', '=', owner.owner_user_id)
+    .where('state', 'in', ['ready', 'requested', 'building'])
+    .returning(['object_key'])
+    .execute();
+  for (const r of rows) if (r.object_key) await ctx.blobs.delete(BUCKETS.exports, r.object_key);
+  return rows.length;
 }
 
 export async function expireExports(ctx: AppContext): Promise<number> {

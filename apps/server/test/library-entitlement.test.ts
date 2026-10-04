@@ -713,6 +713,31 @@ describe('mixed playlists (PB Phase 13)', () => {
 });
 
 describe('export (LIB-006/007)', () => {
+  it('invalidates ready exports when audio they contain is deleted (review #8)', async () => {
+    const u = await listener();
+    const src = await uploadReady(h, u, fixtures.wav());
+    const req = await h.api.inject({
+      method: 'POST',
+      url: '/v1/exports',
+      headers: { ...u.headers, 'idempotency-key': 'export-key-0002' },
+      payload: {},
+    });
+    await h.worker.drain();
+    const ready = await h.ctx.db
+      .selectFrom('export_request')
+      .select(['state', 'object_key'])
+      .where('id', '=', req.json().export_id)
+      .executeTakeFirstOrThrow();
+    expect(ready.state).toBe('ready');
+    await h.api.inject({ method: 'DELETE', url: `/v1/audio-sources/${src}`, headers: u.headers });
+    await h.worker.drain();
+    const after = (
+      await h.api.inject({ url: `/v1/exports/${req.json().export_id}`, headers: u.headers })
+    ).json();
+    expect(after).toMatchObject({ state: 'expired', download_url: null });
+    expect(await h.ctx.blobs.head('rabit-exports', ready.object_key!)).toBeNull();
+  });
+
   it("packages only the user's own originals and metadata", async () => {
     const u = await listener({ country: 'KR', subscribe: true });
     const src = await uploadReady(h, u, fixtures.flac(), { filename: 'mine.flac' });
