@@ -49,7 +49,9 @@ describe('architecture (ADR-0001, domain-boundaries §2)', () => {
   });
 
   it('never uses console logging in server code', () => {
-    const offenders = files.filter((f) => /\bconsole\.(log|info|warn|error)\(/.test(readFileSync(f, 'utf8')));
+    const offenders = files.filter((f) =>
+      /\bconsole\.(log|info|warn|error)\(/.test(readFileSync(f, 'utf8')),
+    );
     expect(offenders).toEqual([]);
   });
 });
