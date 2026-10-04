@@ -2,7 +2,7 @@
 
 - Status: Phase 5 (2026-10-04). Domain: [domain-model](domain-model.md). Database: PostgreSQL 16 (ADR-0003).
 - Migrations live in `apps/server/src/platform/db/migrations/` and are authoritative; this document must be updated in the same commit as any migration.
-- Implemented so far: `0001_platform` (job, outbox_event, audit_log, idempotency_record), `0002_identity`, `0003_audio`, `0004_playback`, `0005_audio_log`, `0006_catalog_entitlement`, `0007_library`.
+- Implemented so far: `0001_platform` (job, outbox_event, audit_log, idempotency_record), `0002_identity`, `0003_audio`, `0004_playback`, `0005_audio_log`, `0006_catalog_entitlement`, `0007_library`, `0008_dig`.
 
 ## 1. Conventions
 

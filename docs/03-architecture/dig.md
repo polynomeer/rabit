@@ -1,0 +1,63 @@
+# DIG MVP Specification
+
+- Status: Phase 14 (2026-10-04). Requirements: DIG-001–007, DIG-018–023, DIG-025. Code: `apps/server/src/modules/dig/`.
+- DIG is a core product axis (product owner decision, CNF-01). Recommendation ≠ DIG: the system shows possible paths and their reasons; the user chooses (DIG-001).
+
+## 1. Axes
+
+| Axis | Group | Applies to | Derived from |
+|---|---|---|---|
+| `credits` | people | recording, release → contributors; person/artist → credited recordings | `credit` |
+| `same_producer` | people | recording | shared `producer` credit |
+| `session_musicians` | people | recording | shared `performer` credit |
+| `artists` | people | recording, release | `recording_artist`, `release_artist` |
+| `members` / `member_of` | people | artist, person | `music_relation member_of` (in/out) |
+| `tracks` | history | release, artist | `release_track`, `recording_artist` |
+| `releases` | history | recording, artist, label | tracklists, `release.label_id` |
+| `same_label` | history | recording, release | shared label |
+| `samples` / `sampled_by` | history | recording | `music_relation samples` (out/in) |
+| `covers` / `covered_by` | history | recording | `music_relation covers` |
+| `remix_of` / `remixes` | history | recording | `music_relation remix_of` |
+| `influenced_by` / `influences` | history | recording, artist, person | `music_relation influenced_by` |
+
+`sound` (Similar Sound, Instrument) and `place` (Local Scene) groups are reserved for P2 (DIG V2/V3) and return no axes in MVP (OQ-DIG-10 partly answered: MVP exposes only axes backed by stored data).
+
+## 2. Evidence on every connection (DIG-004, DIG-018)
+
+`evidence = {basis, verification_state, source, confidence, license_status, explanation}`.
+
+- Credit- and relation-based connections carry the stored provenance.
+- Shared-person axes (`same_producer`, `session_musicians`) take the **weaker** of the two credits.
+- Structural catalog metadata (artists, tracklists, labels) is shown as `declared` / `self_declared` from source `catalog`: it is supplier data, not independently verified.
+- `ml_inferred` relations carry `confidence` and can be excluded with `include_inferred=false`.
+- `license_status` describes permission to use (e.g. a sample), independent from the factual relation.
+
+## 3. Ordering (DIG-019)
+
+MVP order: evidence strength (`verified_fact` > `declared` > `ml_inferred`), then name. Popularity is **not** a ranking signal. Novelty/diversity re-ranking and the integrity exclusion hook (`excludedEntities`, DIG-020) are wired; the integrity rules arrive with Phase 16.
+
+## 4. Deep Cut — relative popularity (DIG-007)
+
+Policy `popularity/v1`, recomputed daily (`playback.compute_popularity`):
+
+1. A **listener** of a recording = a user whose accepted played time for it in the last 90 days is ≥ min(30 s, half the duration). Events are server-validated (session ownership, wall-clock bound, duplicates ignored).
+2. `percentile` = share of catalog recordings (with audio) that have **strictly fewer** listeners. Absolute counts (`distinct_listeners`) are stored separately and never used by the filter.
+3. No qualifying listens anywhere → all percentiles `null` → tier `unknown`.
+4. Tiers: `top` ≥ 0.9, `upper` ≥ 0.5, `deep_cut` ≥ 0.1, `obscure` < 0.1, `unknown` = null.
+5. Filters apply to recording targets: `any`; `below_top_50` (< 0.5); `deep_cuts` (< 0.25); `obscure` (< 0.1). **Unknown always passes**, so new or unheard artists are never filtered out for lack of plays.
+
+Thresholds are proposals; they are versioned in `policy_version` and revisited with real data (R-series evaluation).
+
+## 5. Sessions and trails (DIG-005, DIG-022, DIG-025)
+
+- Start from a catalog entity, or from the caller's own audio. Own audio enters the graph only through an explicit catalog link (Audio Log `linked_recording_id`); otherwise the session opens with `empty_state.reason = no_catalog_link`. Never from another user's audio (404).
+- A step names the target entity and axis (optionally the relation/credit id). The server recomputes the parent's connections and rejects edges that do not exist (`422 INVALID_RELATION_STEP`, T29). Evidence is snapshotted on the node.
+- Going back moves the cursor; nodes are never deleted. Branching from an earlier node is recorded via `parent_seq`.
+- Node actions: `played`, `saved`. Summary: nodes, distinct artists, axes used, played, saved.
+- Trail → private playlist of its recordings in trail order, each once.
+- Sessions are private. Public trails/crates wait for a moderation policy (OQ-DIG-07, P1).
+- DIG history is included in the user's export and deleted with the account.
+
+## 6. Open items
+
+OQ-DIG-01 (graph storage — relational tables chosen, ADR-0006), OQ-DIG-06 (supplier data licensing for credits/samples — Legal), OQ-DIG-07 (public trails), OQ-DIG-08 (Dig Session Summary stage: summary fields implemented in the session view; persisted Archive summary P1).
