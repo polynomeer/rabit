@@ -1,0 +1,1481 @@
+openapi: 3.1.0
+info:
+  title: Rabit API
+  version: 1.0.0-mvp
+  description: |
+    Contract-first MVP API (ADR-0010). Rules in api-guidelines.md.
+    Operations marked `x-rabit-status: planned` are reserved and not implemented in MVP.
+servers:
+  - url: http://localhost:8080
+    description: Local api (control plane)
+  - url: http://localhost:8081
+    description: Local media gateway (data plane)
+security:
+  - bearer: []
+tags:
+  - name: account
+  - name: uploads
+  - name: audio
+  - name: audio-logs
+  - name: playback
+  - name: catalog
+  - name: library
+  - name: playlists
+  - name: exports
+  - name: entitlements
+  - name: dig
+  - name: search
+  - name: integrity
+  - name: ops
+  - name: media
+  - name: system
+
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      operationId: healthz
+      security: []
+      responses:
+        '200': { description: Process is alive, content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } } }
+  /readyz:
+    get:
+      tags: [system]
+      operationId: readyz
+      security: []
+      responses:
+        '200': { description: Dependencies reachable, content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } } }
+        '503': { description: Not ready, content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } } }
+
+  /v1/me:
+    get:
+      tags: [account]
+      operationId: getMe
+      responses:
+        '200': { description: Current account, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [account]
+      operationId: requestAccountDeletion
+      description: Starts asynchronous deletion of the account and all owned content. New access is blocked immediately.
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      responses:
+        '202': { description: Deletion accepted, content: { application/json: { schema: { $ref: '#/components/schemas/AccountDeletion' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /v1/uploads:
+    post:
+      tags: [uploads]
+      operationId: createUpload
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateUploadRequest' } } }
+      responses:
+        '201': { description: Upload intent, content: { application/json: { schema: { $ref: '#/components/schemas/UploadIntent' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /v1/uploads/{upload_id}:
+    parameters: [ { $ref: '#/components/parameters/UploadId' } ]
+    get:
+      tags: [uploads]
+      operationId: getUpload
+      responses:
+        '200': { description: Upload status, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [uploads]
+      operationId: cancelUpload
+      responses:
+        '200': { description: Cancelled, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/uploads/{upload_id}/finalize:
+    parameters: [ { $ref: '#/components/parameters/UploadId' } ]
+    post:
+      tags: [uploads]
+      operationId: finalizeUpload
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKeyRequired' } ]
+      responses:
+        '202': { description: Bytes verified; processing queued, content: { application/json: { schema: { $ref: '#/components/schemas/Upload' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /v1/audio-sources:
+    get:
+      tags: [audio]
+      operationId: listAudioSources
+      parameters:
+        - { name: origin, in: query, schema: { type: string, enum: [private_upload, audio_log] } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { description: Caller's own sources, content: { application/json: { schema: { $ref: '#/components/schemas/AudioSourcePage' } } } }
+  /v1/audio-sources/{audio_source_id}:
+    parameters: [ { $ref: '#/components/parameters/AudioSourceId' } ]
+    get:
+      tags: [audio]
+      operationId: getAudioSource
+      responses:
+        '200': { description: Source, content: { application/json: { schema: { $ref: '#/components/schemas/AudioSource' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [audio]
+      operationId: updateAudioSource
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAudioSourceRequest' } } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/AudioSource' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [audio]
+      operationId: deleteAudioSource
+      responses:
+        '202': { description: Deletion accepted; access blocked immediately, content: { application/json: { schema: { $ref: '#/components/schemas/AudioSource' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/audio-sources/{audio_source_id}/waveform:
+    parameters: [ { $ref: '#/components/parameters/AudioSourceId' } ]
+    get:
+      tags: [audio]
+      operationId: getWaveform
+      responses:
+        '200': { description: Waveform peaks, content: { application/json: { schema: { $ref: '#/components/schemas/Waveform' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /v1/audio-logs:
+    get:
+      tags: [audio-logs]
+      operationId: listAudioLogs
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200': { description: Caller's audio logs, content: { application/json: { schema: { $ref: '#/components/schemas/AudioLogPage' } } } }
+    post:
+      tags: [audio-logs]
+      operationId: createAudioLog
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateAudioLogRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/AudioLog' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /v1/audio-logs/{audio_log_id}:
+    parameters: [ { name: audio_log_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [audio-logs]
+      operationId: getAudioLog
+      responses:
+        '200': { description: Audio log, content: { application/json: { schema: { $ref: '#/components/schemas/AudioLog' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [audio-logs]
+      operationId: updateAudioLog
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAudioLogRequest' } } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/AudioLog' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+
+  /v1/playback-sessions:
+    post:
+      tags: [playback]
+      operationId: createPlaybackSession
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreatePlaybackSessionRequest' } } }
+      responses:
+        '201': { description: Session issued, content: { application/json: { schema: { $ref: '#/components/schemas/PlaybackSession' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/playback-sessions/{session_id}/refresh:
+    parameters: [ { name: session_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [playback]
+      operationId: refreshPlaybackSession
+      responses:
+        '200': { description: Refreshed (policy re-evaluated), content: { application/json: { schema: { $ref: '#/components/schemas/PlaybackSession' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/listening-events/batch:
+    post:
+      tags: [playback]
+      operationId: submitListeningEvents
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ListeningEventBatch' } } }
+      responses:
+        '202': { description: Accepted for processing, content: { application/json: { schema: { $ref: '#/components/schemas/ListeningEventBatchResult' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /v1/recordings/{recording_id}:
+    parameters: [ { name: recording_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [catalog]
+      operationId: getRecording
+      responses:
+        '200': { description: Recording, content: { application/json: { schema: { $ref: '#/components/schemas/Recording' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/recordings/{recording_id}/passport:
+    parameters: [ { name: recording_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [integrity]
+      operationId: getPassport
+      responses:
+        '200': { description: Music Passport, content: { application/json: { schema: { $ref: '#/components/schemas/Passport' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/releases/{release_id}:
+    parameters: [ { name: release_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [catalog]
+      operationId: getRelease
+      responses:
+        '200': { description: Release with tracks and per-track playability, content: { application/json: { schema: { $ref: '#/components/schemas/Release' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/entities/{entity_id}:
+    parameters: [ { $ref: '#/components/parameters/EntityId' } ]
+    get:
+      tags: [catalog]
+      operationId: getEntity
+      responses:
+        '200': { description: Music entity summary, content: { application/json: { schema: { $ref: '#/components/schemas/EntitySummary' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /v1/library:
+    get:
+      tags: [library]
+      operationId: listLibrary
+      parameters:
+        - { name: ref_type, in: query, schema: { $ref: '#/components/schemas/LibraryRefType' } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { description: Library items with availability, content: { application/json: { schema: { $ref: '#/components/schemas/LibraryPage' } } } }
+    post:
+      tags: [library]
+      operationId: addLibraryItem
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AddLibraryItemRequest' } } }
+      responses:
+        '201': { description: Added, content: { application/json: { schema: { $ref: '#/components/schemas/LibraryItem' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/library/{library_item_id}:
+    parameters: [ { name: library_item_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    delete:
+      tags: [library]
+      operationId: removeLibraryItem
+      responses:
+        '204': { description: Removed (never revokes entitlements) }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /v1/playlists:
+    get:
+      tags: [playlists]
+      operationId: listPlaylists
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200': { description: Caller's playlists, content: { application/json: { schema: { $ref: '#/components/schemas/PlaylistSummaryPage' } } } }
+    post:
+      tags: [playlists]
+      operationId: createPlaylist
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreatePlaylistRequest' } } }
+      responses:
+        '201':
+          description: Created
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Playlist' } } }
+  /v1/playlists/{playlist_id}:
+    parameters: [ { $ref: '#/components/parameters/PlaylistId' } ]
+    get:
+      tags: [playlists]
+      operationId: getPlaylist
+      responses:
+        '200':
+          description: Playlist with items and per-item availability
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Playlist' } } }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [playlists]
+      operationId: updatePlaylist
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdatePlaylistRequest' } } }
+      responses:
+        '200':
+          description: Updated
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Playlist' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [playlists]
+      operationId: deletePlaylist
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      responses:
+        '204': { description: Deleted }
+        '404': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+  /v1/playlists/{playlist_id}/items:
+    parameters: [ { $ref: '#/components/parameters/PlaylistId' } ]
+    post:
+      tags: [playlists]
+      operationId: addPlaylistItem
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AddPlaylistItemRequest' } } }
+      responses:
+        '201':
+          description: Added; returns the full playlist
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Playlist' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+  /v1/playlists/{playlist_id}/items/{item_id}:
+    parameters: [ { $ref: '#/components/parameters/PlaylistId' }, { name: item_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    delete:
+      tags: [playlists]
+      operationId: removePlaylistItem
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      responses:
+        '200':
+          description: Removed; returns the full playlist
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Playlist' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+  /v1/playlists/{playlist_id}/items/{item_id}/move:
+    parameters: [ { $ref: '#/components/parameters/PlaylistId' }, { name: item_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [playlists]
+      operationId: movePlaylistItem
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/MovePlaylistItemRequest' } } }
+      responses:
+        '200':
+          description: Moved; returns the full playlist
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Playlist' } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+
+  /v1/exports:
+    post:
+      tags: [exports]
+      operationId: createExport
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKeyRequired' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateExportRequest' } } }
+      responses:
+        '202': { description: Export queued, content: { application/json: { schema: { $ref: '#/components/schemas/Export' } } } }
+        '429': { $ref: '#/components/responses/Error' }
+  /v1/exports/{export_id}:
+    parameters: [ { name: export_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [exports]
+      operationId: getExport
+      responses:
+        '200': { description: Export status; download_url present only when ready, content: { application/json: { schema: { $ref: '#/components/schemas/Export' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /v1/entitlements:
+    get:
+      tags: [entitlements]
+      operationId: listEntitlements
+      responses:
+        '200': { description: Caller's entitlements, content: { application/json: { schema: { $ref: '#/components/schemas/EntitlementList' } } } }
+  /v1/subscription:
+    get:
+      tags: [entitlements]
+      operationId: getSubscription
+      responses:
+        '200': { description: Current subscription or null, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionEnvelope' } } } }
+
+  /v1/dig/entities/{entity_id}/axes:
+    parameters: [ { $ref: '#/components/parameters/EntityId' } ]
+    get:
+      tags: [dig]
+      operationId: getDigAxes
+      responses:
+        '200': { description: Available exploration axes with counts, content: { application/json: { schema: { $ref: '#/components/schemas/DigAxes' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/dig/entities/{entity_id}/connections:
+    parameters: [ { $ref: '#/components/parameters/EntityId' } ]
+    get:
+      tags: [dig]
+      operationId: getDigConnections
+      parameters:
+        - { name: axis, in: query, required: true, schema: { $ref: '#/components/schemas/DigAxis' } }
+        - { name: popularity, in: query, schema: { $ref: '#/components/schemas/PopularityFilter' } }
+        - { name: include_inferred, in: query, schema: { type: boolean, default: true } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { description: Connections with evidence, content: { application/json: { schema: { $ref: '#/components/schemas/DigConnectionPage' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/dig-sessions:
+    get:
+      tags: [dig]
+      operationId: listDigSessions
+      parameters:
+        - { name: saved, in: query, schema: { type: boolean } }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { description: Caller's sessions, content: { application/json: { schema: { $ref: '#/components/schemas/DigSessionSummaryPage' } } } }
+    post:
+      tags: [dig]
+      operationId: startDigSession
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/StartDigSessionRequest' } } }
+      responses:
+        '201': { description: Session started (may be in empty state), content: { application/json: { schema: { $ref: '#/components/schemas/DigSession' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/dig-sessions/{dig_session_id}:
+    parameters: [ { $ref: '#/components/parameters/DigSessionId' } ]
+    get:
+      tags: [dig]
+      operationId: getDigSession
+      responses:
+        '200': { description: Session with trail, content: { application/json: { schema: { $ref: '#/components/schemas/DigSession' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [dig]
+      operationId: updateDigSession
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateDigSessionRequest' } } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/DigSession' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/dig-sessions/{dig_session_id}/steps:
+    parameters: [ { $ref: '#/components/parameters/DigSessionId' } ]
+    post:
+      tags: [dig]
+      operationId: addDigStep
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKey' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/AddDigStepRequest' } } }
+      responses:
+        '201': { description: Step recorded, content: { application/json: { schema: { $ref: '#/components/schemas/DigSession' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /v1/dig-sessions/{dig_session_id}/cursor:
+    parameters: [ { $ref: '#/components/parameters/DigSessionId' } ]
+    post:
+      tags: [dig]
+      operationId: moveDigCursor
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [seq], properties: { seq: { type: integer, minimum: 0 } } } } }
+      responses:
+        '200': { description: Cursor moved to an earlier node, content: { application/json: { schema: { $ref: '#/components/schemas/DigSession' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /v1/dig-sessions/{dig_session_id}/nodes/{seq}/actions:
+    parameters:
+      - { $ref: '#/components/parameters/DigSessionId' }
+      - { name: seq, in: path, required: true, schema: { type: integer, minimum: 0 } }
+    post:
+      tags: [dig]
+      operationId: recordDigNodeAction
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [action], properties: { action: { type: string, enum: [played, saved] } } } } }
+      responses:
+        '200': { description: Recorded, content: { application/json: { schema: { $ref: '#/components/schemas/DigSession' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/dig-sessions/{dig_session_id}/end:
+    parameters: [ { $ref: '#/components/parameters/DigSessionId' } ]
+    post:
+      tags: [dig]
+      operationId: endDigSession
+      responses:
+        '200': { description: Ended, content: { application/json: { schema: { $ref: '#/components/schemas/DigSession' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/dig-sessions/{dig_session_id}/playlist:
+    parameters: [ { $ref: '#/components/parameters/DigSessionId' } ]
+    post:
+      tags: [dig]
+      operationId: createPlaylistFromTrail
+      requestBody:
+        required: false
+        content: { application/json: { schema: { type: object, additionalProperties: false, properties: { title: { type: string, minLength: 1, maxLength: 200 } } } } }
+      responses:
+        '201':
+          description: Playlist with the trail's recordings in order
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Playlist' } } }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /v1/search:
+    get:
+      tags: [search]
+      operationId: search
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: scope, in: query, schema: { type: string, enum: [all, catalog, mine], default: all } }
+        - { name: types, in: query, description: Comma-separated kinds, schema: { type: string } }
+        - { name: mode, in: query, schema: { type: string, enum: [text], default: text }, description: '`semantic` reserved (P2)' }
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200': { description: Results, content: { application/json: { schema: { $ref: '#/components/schemas/SearchPage' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
+  /v1/reports:
+    post:
+      tags: [integrity]
+      operationId: createReport
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateReportRequest' } } }
+      responses:
+        '201': { description: Report received, content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+
+  /v1/ops/rights-grants:
+    post:
+      tags: [ops]
+      operationId: opsCreateRightsGrant
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKeyRequired' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateRightsGrantRequest' } } }
+      responses:
+        '201':
+          description: Created
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/RightsGrant' } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/rights-grants/{rights_grant_id}/status:
+    parameters: [ { name: rights_grant_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [ops]
+      operationId: opsChangeRightsGrantStatus
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ChangeStatusRequest' } } }
+      responses:
+        '200':
+          description: Changed; affected sessions revoked asynchronously (≤ 60 s)
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/RightsGrant' } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+  /v1/ops/entitlements:
+    post:
+      tags: [ops]
+      operationId: opsGrantEntitlement
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKeyRequired' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/GrantEntitlementRequest' } } }
+      responses:
+        '201':
+          description: Granted
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Entitlement' } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/entitlements/{entitlement_id}/status:
+    parameters: [ { name: entitlement_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [ops]
+      operationId: opsChangeEntitlementStatus
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ChangeStatusRequest' } } }
+      responses:
+        '200':
+          description: Changed
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Entitlement' } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+  /v1/ops/users/{user_id}/subscription:
+    parameters: [ { name: user_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    put:
+      tags: [ops]
+      operationId: opsSetSubscription
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SetSubscriptionRequest' } } }
+      responses:
+        '200': { description: Subscription state set (operator/sandbox only), content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionEnvelope' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/users/{user_id}/license-country:
+    parameters: [ { name: user_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    put:
+      tags: [ops]
+      operationId: opsSetLicenseCountry
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [license_country, reason], properties: { license_country: { $ref: '#/components/schemas/Country' }, reason: { $ref: '#/components/schemas/Reason' } } } } }
+      responses:
+        '200': { description: Set, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/jobs:
+    get:
+      tags: [ops]
+      operationId: opsListJobs
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [queued, running, succeeded, failed, dead] } }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200': { description: Jobs (payload omitted), content: { application/json: { schema: { $ref: '#/components/schemas/JobList' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+  /v1/ops/jobs/{job_id}/retry:
+    parameters: [ { name: job_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [ops]
+      operationId: opsRetryJob
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [reason], properties: { reason: { $ref: '#/components/schemas/Reason' } } } } }
+      responses:
+        '200': { description: Requeued, content: { application/json: { schema: { $ref: '#/components/schemas/Job' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
+  /media/v1/{media_token}/{path}:
+    get:
+      tags: [media]
+      operationId: getMedia
+      security: []
+      description: Data-plane gateway. Token is HMAC-signed, ≤ 60 s, bound to a playback session; the session must still be active.
+      parameters:
+        - { name: media_token, in: path, required: true, schema: { type: string } }
+        - { name: path, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_.-]+$' } }
+      responses:
+        '200': { description: Manifest or segment bytes }
+        '403': { description: Token invalid/expired or session revoked }
+        '404': { description: Unknown path }
+
+  /dev/token:
+    post:
+      tags: [system]
+      operationId: devIssueToken
+      security: []
+      x-rabit-status: dev-only
+      description: Development issuer (ADR-0009). Disabled unless NODE_ENV != production and AUTH_DEV_ISSUER_ENABLED=true.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [subject], properties: { subject: { type: string, minLength: 1, maxLength: 64 }, operator: { type: boolean, default: false } } } } }
+      responses:
+        '200': { description: Token, content: { application/json: { schema: { type: object, required: [access_token, expires_in], properties: { access_token: { type: string }, expires_in: { type: integer } } } } } }
+
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  headers:
+    ETag: { description: Aggregate version, schema: { type: string } }
+  parameters:
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: false, schema: { $ref: '#/components/schemas/IdempotencyKey' } }
+    IdempotencyKeyRequired: { name: Idempotency-Key, in: header, required: true, schema: { $ref: '#/components/schemas/IdempotencyKey' } }
+    IfMatch: { name: If-Match, in: header, required: false, description: Required for mutation (428 if missing), schema: { type: string } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 512 } }
+    UploadId: { name: upload_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    AudioSourceId: { name: audio_source_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    PlaylistId: { name: playlist_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    EntityId: { name: entity_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    DigSessionId: { name: dig_session_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+  responses:
+    Error:
+      description: Error envelope
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  schemas:
+    Id: { type: string, pattern: '^[a-z]{3}_[0-9A-HJKMNP-TV-Z]{26}$' }
+    IdempotencyKey: { type: string, pattern: '^[A-Za-z0-9_-]{8,128}$' }
+    Timestamp: { type: string, format: date-time }
+    Country: { type: string, pattern: '^[A-Z]{2}$' }
+    Reason: { type: string, minLength: 3, maxLength: 500 }
+    Sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+    NextCursor: { type: [string, 'null'] }
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok, degraded, down] }
+        checks: { type: object, additionalProperties: { type: string } }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id, retryable]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            request_id: { type: string }
+            retryable: { type: boolean }
+            details: { type: object }
+
+    Me:
+      type: object
+      required: [user_id, status, personal_workspace_id, license_country, quota, subscription_state, is_operator]
+      properties:
+        user_id: { $ref: '#/components/schemas/Id' }
+        status: { type: string, enum: [active, deletion_requested, deleted] }
+        personal_workspace_id: { $ref: '#/components/schemas/Id' }
+        license_country: { type: [string, 'null'] }
+        subscription_state: { type: string, enum: [none, active, past_due, cancelled, expired] }
+        is_operator: { type: boolean }
+        quota:
+          type: object
+          required: [policy_id, max_total_bytes, used_bytes, reserved_bytes, max_file_bytes, max_duration_ms]
+          properties:
+            policy_id: { type: string }
+            max_total_bytes: { type: integer }
+            used_bytes: { type: integer }
+            reserved_bytes: { type: integer }
+            max_file_bytes: { type: integer }
+            max_duration_ms: { type: integer }
+    AccountDeletion:
+      type: object
+      required: [user_id, state]
+      properties:
+        user_id: { $ref: '#/components/schemas/Id' }
+        state: { type: string, enum: [requested, in_progress, completed] }
+
+    CreateUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [intent, size_bytes, sha256]
+      properties:
+        intent: { type: string, enum: [private_upload, audio_log] }
+        size_bytes: { type: integer, minimum: 1 }
+        sha256: { $ref: '#/components/schemas/Sha256' }
+        filename: { type: string, maxLength: 255, description: Untrusted; used only as default title }
+        content_type: { type: string, maxLength: 100, description: Untrusted hint }
+    UploadIntent:
+      type: object
+      required: [upload, upload_url, upload_method, upload_headers, expires_at]
+      properties:
+        upload: { $ref: '#/components/schemas/Upload' }
+        upload_url: { type: string }
+        upload_method: { type: string, enum: [PUT] }
+        upload_headers: { type: object, additionalProperties: { type: string } }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+    Upload:
+      type: object
+      required: [upload_id, intent, state, size_bytes, created_at, expires_at, audio_source_id, failure_code]
+      properties:
+        upload_id: { $ref: '#/components/schemas/Id' }
+        intent: { type: string, enum: [private_upload, audio_log] }
+        state: { type: string, enum: [created, uploading, quarantined, processing, ready, failed, cancelled, expired] }
+        size_bytes: { type: integer }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        audio_source_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        failure_code: { type: [string, 'null'] }
+
+    Capabilities:
+      type: object
+      required: [play, download_export, publish, analyze]
+      properties:
+        play: { type: boolean }
+        download_export: { type: boolean }
+        publish: { type: boolean }
+        analyze: { type: boolean }
+    AudioSource:
+      type: object
+      required: [audio_source_id, audio_object_id, version_id, kind, origin, visibility, status, title, duration_ms, created_at, capabilities, technical]
+      properties:
+        audio_source_id: { $ref: '#/components/schemas/Id' }
+        audio_object_id: { $ref: '#/components/schemas/Id' }
+        version_id: { $ref: '#/components/schemas/Id' }
+        kind: { type: string, enum: [private_audio, audio_log, recording] }
+        origin: { type: string, enum: [private_upload, audio_log, catalog] }
+        visibility: { type: string, enum: [private, public] }
+        status: { type: string, enum: [processing, ready, failed, deleting, deleted] }
+        title: { type: [string, 'null'] }
+        duration_ms: { type: [integer, 'null'] }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        failure_code: { type: [string, 'null'] }
+        capabilities: { $ref: '#/components/schemas/Capabilities' }
+        technical:
+          type: object
+          properties:
+            sample_rate: { type: integer }
+            channels: { type: integer }
+            codec: { type: string }
+            integrated_lufs: { type: number }
+            true_peak_dbtp: { type: number }
+    AudioSourcePage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AudioSource' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
+    UpdateAudioSourceRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+    Waveform:
+      type: object
+      required: [audio_source_id, samples_per_peak, sample_rate, peaks]
+      properties:
+        audio_source_id: { $ref: '#/components/schemas/Id' }
+        samples_per_peak: { type: integer }
+        sample_rate: { type: integer }
+        peaks: { type: array, items: { type: number, minimum: 0, maximum: 1 } }
+
+    CreateAudioLogRequest:
+      type: object
+      additionalProperties: false
+      required: [audio_source_id, title, recorded_at, recorded_tz]
+      properties:
+        audio_source_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        note: { type: string, maxLength: 5000 }
+        recorded_at: { $ref: '#/components/schemas/Timestamp' }
+        recorded_tz: { type: string, maxLength: 64, description: IANA time zone }
+        linked_recording_id: { $ref: '#/components/schemas/Id' }
+        tags: { type: array, maxItems: 20, items: { type: string, minLength: 1, maxLength: 40 } }
+    UpdateAudioLogRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        note: { type: [string, 'null'], maxLength: 5000 }
+        recorded_at: { $ref: '#/components/schemas/Timestamp' }
+        recorded_tz: { type: string, maxLength: 64 }
+        linked_recording_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        tags: { type: array, maxItems: 20, items: { type: string, minLength: 1, maxLength: 40 } }
+    AudioLog:
+      type: object
+      required: [audio_log_id, audio_source_id, title, note, recorded_at, recorded_tz, linked_recording_id, tags, source_status, created_at]
+      properties:
+        audio_log_id: { $ref: '#/components/schemas/Id' }
+        audio_source_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        note: { type: [string, 'null'] }
+        recorded_at: { $ref: '#/components/schemas/Timestamp' }
+        recorded_tz: { type: string }
+        linked_recording_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        tags: { type: array, items: { type: string } }
+        source_status: { type: string, enum: [processing, ready, failed, deleting, deleted] }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+    AudioLogPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AudioLog' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+    CreatePlaybackSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [device_id]
+      description: Exactly one of audio_source_id or recording_id.
+      properties:
+        audio_source_id: { $ref: '#/components/schemas/Id' }
+        recording_id: { $ref: '#/components/schemas/Id' }
+        device_id: { type: string, pattern: '^[A-Za-z0-9_-]{8,64}$' }
+        desired_quality: { type: string, enum: [auto], default: auto }
+        mode: { type: string, enum: [original], default: original }
+    PlaybackSession:
+      type: object
+      required: [session_id, audio_source_id, manifest_url, expires_at, media_token_expires_at, quality, capabilities, source]
+      properties:
+        session_id: { $ref: '#/components/schemas/Id' }
+        audio_source_id: { $ref: '#/components/schemas/Id' }
+        manifest_url: { type: string }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        media_token_expires_at: { $ref: '#/components/schemas/Timestamp' }
+        source: { type: string, enum: [catalog, private_upload, audio_log] }
+        quality:
+          type: object
+          required: [codec, bitrate_kbps, lossless, provisional]
+          properties:
+            codec: { type: string }
+            bitrate_kbps: { type: integer }
+            lossless: { type: boolean }
+            provisional: { type: boolean, description: True while the codec ladder is provisional (ADR-0008) }
+        capabilities:
+          type: object
+          required: [seek, offline, stems, transform]
+          properties:
+            seek: { type: boolean }
+            offline: { type: boolean }
+            stems: { type: boolean }
+            transform: { type: boolean }
+    ListeningEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, session_id, sequence, type, position_ms, played_ms, client_time]
+      properties:
+        event_id: { type: string, format: uuid }
+        session_id: { $ref: '#/components/schemas/Id' }
+        sequence: { type: integer, minimum: 0 }
+        type: { type: string, enum: [started, heartbeat, seek, paused, ended] }
+        position_ms: { type: integer, minimum: 0 }
+        played_ms: { type: integer, minimum: 0 }
+        client_time: { $ref: '#/components/schemas/Timestamp' }
+    ListeningEventBatch:
+      type: object
+      additionalProperties: false
+      required: [events]
+      properties:
+        events: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/ListeningEvent' } }
+    ListeningEventBatchResult:
+      type: object
+      required: [accepted, duplicates, rejected]
+      properties:
+        accepted: { type: integer }
+        duplicates: { type: integer }
+        rejected:
+          type: array
+          items: { type: object, required: [event_id, reason], properties: { event_id: { type: string }, reason: { type: string } } }
+
+    Playability:
+      type: object
+      required: [playable, reason]
+      properties:
+        playable: { type: boolean }
+        reason: { type: [string, 'null'], enum: [null, not_ready, rights_unavailable, subscription_required, purchase_available, no_audio, deleted, not_found] }
+    ArtistRef:
+      type: object
+      required: [entity_id, name]
+      properties:
+        entity_id: { $ref: '#/components/schemas/Id' }
+        name: { type: string }
+    Recording:
+      type: object
+      required: [recording_id, title, artists, duration_ms, isrc, releases, playability]
+      properties:
+        recording_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        artists: { type: array, items: { $ref: '#/components/schemas/ArtistRef' } }
+        duration_ms: { type: [integer, 'null'] }
+        isrc: { type: [string, 'null'] }
+        releases:
+          type: array
+          items: { type: object, required: [release_id, title], properties: { release_id: { $ref: '#/components/schemas/Id' }, title: { type: string } } }
+        playability: { $ref: '#/components/schemas/Playability' }
+    Release:
+      type: object
+      required: [release_id, title, release_type, artists, label, release_date, tracks]
+      properties:
+        release_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        release_type: { type: string, enum: [album, single, ep, compilation] }
+        artists: { type: array, items: { $ref: '#/components/schemas/ArtistRef' } }
+        label: { oneOf: [ { $ref: '#/components/schemas/ArtistRef' }, { type: 'null' } ] }
+        release_date: { type: [string, 'null'], format: date }
+        tracks:
+          type: array
+          items:
+            type: object
+            required: [disc_no, position, recording_id, title, duration_ms, playability]
+            properties:
+              disc_no: { type: integer }
+              position: { type: integer }
+              recording_id: { $ref: '#/components/schemas/Id' }
+              title: { type: string }
+              duration_ms: { type: [integer, 'null'] }
+              playability: { $ref: '#/components/schemas/Playability' }
+    EntitySummary:
+      type: object
+      required: [entity_id, entity_type, name]
+      properties:
+        entity_id: { $ref: '#/components/schemas/Id' }
+        entity_type: { type: string, enum: [artist, person, label, release, recording] }
+        name: { type: string }
+        subtitle: { type: [string, 'null'] }
+
+    Passport:
+      type: object
+      required: [recording_id, creation, credits, claims, integrity, report_url]
+      properties:
+        recording_id: { $ref: '#/components/schemas/Id' }
+        creation:
+          type: array
+          description: Creation method per stage; stages without a claim are `unknown`.
+          items:
+            type: object
+            required: [stage, method, verification_state, basis]
+            properties:
+              stage: { type: string, enum: [composition, lyrics, vocals, instruments, mixing, mastering, artwork] }
+              method: { type: string, enum: [human, ai_assisted, ai_generated, unknown] }
+              verification_state: { type: [string, 'null'], enum: [null, self_declared, distributor_verified, signature_valid, process_evidence_reviewed, rights_reviewed] }
+              basis: { type: [string, 'null'], enum: [null, verified_fact, declared, ml_inferred] }
+        credits: { type: array, items: { $ref: '#/components/schemas/Credit' } }
+        claims:
+          type: array
+          items:
+            type: object
+            required: [claim_type, value, issuer, verification_state, basis]
+            properties:
+              claim_type: { type: string }
+              value: { type: string }
+              issuer: { type: string }
+              verification_state: { type: string }
+              basis: { type: string }
+        integrity:
+          type: array
+          description: Independent axes; never a single quality score; internal scores are never exposed.
+          items:
+            type: object
+            required: [axis, value, basis]
+            properties:
+              axis: { type: string, enum: [ai_generation, technical_quality, spam_risk, rights_status, recommendation_eligibility] }
+              value: { type: string }
+              basis: { type: string, enum: [declared, automated, reviewed] }
+        report_url: { type: string }
+    Credit:
+      type: object
+      required: [credit_id, contributor, role, instrument, creation_method, basis, verification_state, source]
+      properties:
+        credit_id: { $ref: '#/components/schemas/Id' }
+        contributor: { $ref: '#/components/schemas/ArtistRef' }
+        role: { type: string }
+        instrument: { type: [string, 'null'] }
+        creation_method: { type: string, enum: [human, ai_assisted, ai_generated, unknown] }
+        basis: { type: string, enum: [verified_fact, declared, ml_inferred] }
+        verification_state: { type: string }
+        source: { type: string }
+
+    LibraryRefType: { type: string, enum: [audio_source, recording, release] }
+    AddLibraryItemRequest:
+      type: object
+      additionalProperties: false
+      required: [ref_type, ref_id]
+      properties:
+        ref_type: { $ref: '#/components/schemas/LibraryRefType' }
+        ref_id: { $ref: '#/components/schemas/Id' }
+        note: { type: string, maxLength: 1000 }
+    LibraryItem:
+      type: object
+      required: [library_item_id, ref_type, ref_id, origin, title, subtitle, note, saved_at, ownership, playability]
+      properties:
+        library_item_id: { $ref: '#/components/schemas/Id' }
+        ref_type: { $ref: '#/components/schemas/LibraryRefType' }
+        ref_id: { $ref: '#/components/schemas/Id' }
+        origin: { type: string, enum: [uploaded, logged, saved] }
+        title: { type: [string, 'null'] }
+        subtitle: { type: [string, 'null'] }
+        note: { type: [string, 'null'] }
+        saved_at: { $ref: '#/components/schemas/Timestamp' }
+        ownership: { type: string, enum: [private, audio_log, streaming, purchased, granted], description: Ownership/source status label (BRD Ownership Visible) }
+        playability: { $ref: '#/components/schemas/Playability' }
+    LibraryPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/LibraryItem' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+    CreatePlaylistRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 2000 }
+    UpdatePlaylistRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+    AddPlaylistItemRequest:
+      type: object
+      additionalProperties: false
+      required: [ref_type, ref_id]
+      properties:
+        ref_type: { type: string, enum: [audio_source, recording] }
+        ref_id: { $ref: '#/components/schemas/Id' }
+        position: { type: integer, minimum: 0, description: Default append }
+    MovePlaylistItemRequest:
+      type: object
+      additionalProperties: false
+      required: [position]
+      properties:
+        position: { type: integer, minimum: 0 }
+    PlaylistItem:
+      type: object
+      required: [item_id, position, ref_type, ref_id, title, subtitle, ownership, playability, added_at]
+      properties:
+        item_id: { $ref: '#/components/schemas/Id' }
+        position: { type: integer }
+        ref_type: { type: string, enum: [audio_source, recording] }
+        ref_id: { $ref: '#/components/schemas/Id' }
+        title: { type: [string, 'null'] }
+        subtitle: { type: [string, 'null'] }
+        ownership: { type: [string, 'null'], enum: [null, private, audio_log, streaming, purchased, granted] }
+        playability: { $ref: '#/components/schemas/Playability' }
+        added_at: { $ref: '#/components/schemas/Timestamp' }
+    Playlist:
+      type: object
+      required: [playlist_id, title, description, visibility, version, items, created_at, updated_at]
+      properties:
+        playlist_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        visibility: { type: string, enum: [private] }
+        version: { type: integer }
+        items: { type: array, items: { $ref: '#/components/schemas/PlaylistItem' } }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    PlaylistSummary:
+      type: object
+      required: [playlist_id, title, item_count, version, updated_at]
+      properties:
+        playlist_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        item_count: { type: integer }
+        version: { type: integer }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    PlaylistSummaryPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PlaylistSummary' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+    CreateExportRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        include_originals: { type: boolean, default: true }
+    Export:
+      type: object
+      required: [export_id, state, include_originals, created_at, download_url, expires_at, failure_code]
+      properties:
+        export_id: { $ref: '#/components/schemas/Id' }
+        state: { type: string, enum: [requested, building, ready, expired, failed] }
+        include_originals: { type: boolean }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        download_url: { type: [string, 'null'] }
+        expires_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        failure_code: { type: [string, 'null'] }
+
+    Entitlement:
+      type: object
+      required: [entitlement_id, scope, resource_id, capabilities, origin, status, valid_from, valid_to, version]
+      properties:
+        entitlement_id: { $ref: '#/components/schemas/Id' }
+        scope: { type: string, enum: [catalog_all, release, recording] }
+        resource_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        capabilities: { type: array, items: { type: string } }
+        origin: { type: string, enum: [subscription, purchase, grant] }
+        status: { type: string, enum: [active, suspended, revoked, expired] }
+        valid_from: { $ref: '#/components/schemas/Timestamp' }
+        valid_to: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        version: { type: integer }
+    EntitlementList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Entitlement' } }
+    Subscription:
+      type: object
+      required: [subscription_id, plan, state, paid_through, source]
+      properties:
+        subscription_id: { $ref: '#/components/schemas/Id' }
+        plan: { type: string }
+        state: { type: string, enum: [active, past_due, cancelled, expired] }
+        paid_through: { $ref: '#/components/schemas/Timestamp' }
+        source: { type: string, enum: [operator, sandbox] }
+    SubscriptionEnvelope:
+      type: object
+      required: [subscription]
+      properties:
+        subscription: { oneOf: [ { $ref: '#/components/schemas/Subscription' }, { type: 'null' } ] }
+
+    DigAxis:
+      type: string
+      enum: [credits, same_producer, session_musicians, same_label, samples, sampled_by, covers, covered_by, remixes, remix_of, influences, influenced_by, members, member_of, releases, tracks, artists]
+    PopularityFilter:
+      type: string
+      enum: [any, below_top_50, deep_cuts, obscure]
+      default: any
+    Evidence:
+      type: object
+      required: [basis, verification_state, source, confidence, license_status, explanation]
+      properties:
+        basis: { type: string, enum: [verified_fact, declared, ml_inferred] }
+        verification_state: { type: string }
+        source: { type: string }
+        confidence: { type: [number, 'null'] }
+        license_status: { type: [string, 'null'], enum: [null, unknown, licensed, not_applicable] }
+        explanation: { type: string, description: 'Human-readable reason, for example "Same producer - X"' }
+    DigAxes:
+      type: object
+      required: [entity, axes]
+      properties:
+        entity: { $ref: '#/components/schemas/EntitySummary' }
+        axes:
+          type: array
+          items:
+            type: object
+            required: [axis, group, count]
+            properties:
+              axis: { $ref: '#/components/schemas/DigAxis' }
+              group: { type: string, enum: [people, history, sound, place] }
+              count: { type: integer }
+    DigConnection:
+      type: object
+      required: [entity, axis, via, evidence, popularity_tier, playability]
+      properties:
+        entity: { $ref: '#/components/schemas/EntitySummary' }
+        axis: { $ref: '#/components/schemas/DigAxis' }
+        via:
+          type: object
+          required: [relation_id, credit_id]
+          properties:
+            relation_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+            credit_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+            via_entity: { oneOf: [ { $ref: '#/components/schemas/EntitySummary' }, { type: 'null' } ] }
+        evidence: { $ref: '#/components/schemas/Evidence' }
+        popularity_tier: { type: string, enum: [top, upper, deep_cut, obscure, unknown] }
+        playability: { oneOf: [ { $ref: '#/components/schemas/Playability' }, { type: 'null' } ] }
+    DigConnectionPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/DigConnection' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
+    StartDigSessionRequest:
+      type: object
+      additionalProperties: false
+      description: Exactly one of entity_id or audio_source_id.
+      properties:
+        entity_id: { $ref: '#/components/schemas/Id' }
+        audio_source_id: { $ref: '#/components/schemas/Id' }
+    AddDigStepRequest:
+      type: object
+      additionalProperties: false
+      required: [entity_id, axis]
+      properties:
+        from_seq: { type: integer, minimum: 0, description: Defaults to the session cursor }
+        entity_id: { $ref: '#/components/schemas/Id' }
+        axis: { $ref: '#/components/schemas/DigAxis' }
+        relation_id: { $ref: '#/components/schemas/Id' }
+        credit_id: { $ref: '#/components/schemas/Id' }
+    UpdateDigSessionRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title: { type: [string, 'null'], maxLength: 200 }
+        saved: { type: boolean }
+    DigTrailNode:
+      type: object
+      required: [seq, parent_seq, entity, via_axis, evidence, played, saved, created_at]
+      properties:
+        seq: { type: integer }
+        parent_seq: { type: [integer, 'null'] }
+        entity: { $ref: '#/components/schemas/EntitySummary' }
+        via_axis: { oneOf: [ { $ref: '#/components/schemas/DigAxis' }, { type: 'null' } ] }
+        evidence: { oneOf: [ { $ref: '#/components/schemas/Evidence' }, { type: 'null' } ] }
+        played: { type: boolean }
+        saved: { type: boolean }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+    DigSession:
+      type: object
+      required: [dig_session_id, state, title, saved, visibility, current_seq, empty_state, trail, started_at, ended_at, summary]
+      properties:
+        dig_session_id: { $ref: '#/components/schemas/Id' }
+        state: { type: string, enum: [active, ended] }
+        title: { type: [string, 'null'] }
+        saved: { type: boolean }
+        visibility: { type: string, enum: [private] }
+        current_seq: { type: integer }
+        empty_state:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [reason, message]
+              properties:
+                reason: { type: string, enum: [no_catalog_link, no_connections] }
+                message: { type: string }
+        trail: { type: array, items: { $ref: '#/components/schemas/DigTrailNode' } }
+        started_at: { $ref: '#/components/schemas/Timestamp' }
+        ended_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        summary:
+          type: object
+          required: [nodes, distinct_artists, axes_used, played, saved]
+          properties:
+            nodes: { type: integer }
+            distinct_artists: { type: integer }
+            axes_used: { type: array, items: { type: string } }
+            played: { type: integer }
+            saved: { type: integer }
+    DigSessionSummary:
+      type: object
+      required: [dig_session_id, title, saved, state, start_entity, nodes, started_at]
+      properties:
+        dig_session_id: { $ref: '#/components/schemas/Id' }
+        title: { type: [string, 'null'] }
+        saved: { type: boolean }
+        state: { type: string, enum: [active, ended] }
+        start_entity: { $ref: '#/components/schemas/EntitySummary' }
+        nodes: { type: integer }
+        started_at: { $ref: '#/components/schemas/Timestamp' }
+    DigSessionSummaryPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/DigSessionSummary' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+    SearchResult:
+      type: object
+      required: [kind, id, title, subtitle, match, scope]
+      properties:
+        kind: { type: string, enum: [recording, release, artist, person, label, private_audio, audio_log] }
+        id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        subtitle: { type: [string, 'null'] }
+        match: { type: string, enum: [exact, text, fuzzy] }
+        scope: { type: string, enum: [catalog, mine] }
+    SearchPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
+
+    CreateReportRequest:
+      type: object
+      additionalProperties: false
+      required: [subject_type, subject_id, reason_code]
+      properties:
+        subject_type: { type: string, enum: [recording, release, artist, relation, credit] }
+        subject_id: { $ref: '#/components/schemas/Id' }
+        reason_code: { type: string, enum: [wrong_credit, wrong_relation, undisclosed_ai, spam, impersonation, rights_infringement, other] }
+        details: { type: string, maxLength: 2000 }
+    Report:
+      type: object
+      required: [report_id, status, created_at]
+      properties:
+        report_id: { $ref: '#/components/schemas/Id' }
+        status: { type: string, enum: [received, triaged, actioned, dismissed] }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+
+    CreateRightsGrantRequest:
+      type: object
+      additionalProperties: false
+      required: [recording_id, rights_holder, territories, uses, valid_from, contract_ref, reason]
+      properties:
+        recording_id: { $ref: '#/components/schemas/Id' }
+        rights_holder: { type: string, minLength: 1, maxLength: 200 }
+        territories: { type: array, minItems: 1, items: { type: string, pattern: '^([A-Z]{2}|WORLD)$' } }
+        uses: { type: array, minItems: 1, items: { type: string, enum: [stream, download, preview, transform, stem, analysis] } }
+        valid_from: { $ref: '#/components/schemas/Timestamp' }
+        valid_to: { $ref: '#/components/schemas/Timestamp' }
+        contract_ref: { type: string, minLength: 1, maxLength: 200 }
+        reason: { $ref: '#/components/schemas/Reason' }
+    RightsGrant:
+      type: object
+      required: [rights_grant_id, recording_id, rights_holder, territories, uses, valid_from, valid_to, status, contract_ref, version]
+      properties:
+        rights_grant_id: { $ref: '#/components/schemas/Id' }
+        recording_id: { $ref: '#/components/schemas/Id' }
+        rights_holder: { type: string }
+        territories: { type: array, items: { type: string } }
+        uses: { type: array, items: { type: string } }
+        valid_from: { $ref: '#/components/schemas/Timestamp' }
+        valid_to: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        status: { type: string, enum: [active, suspended, revoked, expired] }
+        contract_ref: { type: string }
+        version: { type: integer }
+    ChangeStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [status, reason]
+      properties:
+        status: { type: string, enum: [active, suspended, revoked] }
+        reason: { $ref: '#/components/schemas/Reason' }
+    GrantEntitlementRequest:
+      type: object
+      additionalProperties: false
+      required: [user_id, scope, capabilities, reason]
+      properties:
+        user_id: { $ref: '#/components/schemas/Id' }
+        scope: { type: string, enum: [release, recording] }
+        resource_id: { $ref: '#/components/schemas/Id' }
+        capabilities: { type: array, minItems: 1, items: { type: string, enum: [play] } }
+        valid_to: { $ref: '#/components/schemas/Timestamp' }
+        reason: { $ref: '#/components/schemas/Reason' }
+    SetSubscriptionRequest:
+      type: object
+      additionalProperties: false
+      required: [state, paid_through, reason]
+      properties:
+        plan: { type: string, default: listen_sandbox }
+        state: { type: string, enum: [active, past_due, cancelled, expired] }
+        paid_through: { $ref: '#/components/schemas/Timestamp' }
+        reason: { $ref: '#/components/schemas/Reason' }
+    Job:
+      type: object
+      required: [job_id, kind, status, attempts, max_attempts, last_error, created_at, updated_at]
+      properties:
+        job_id: { $ref: '#/components/schemas/Id' }
+        kind: { type: string }
+        status: { type: string, enum: [queued, running, succeeded, failed, dead] }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        last_error: { type: [string, 'null'] }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        updated_at: { $ref: '#/components/schemas/Timestamp' }
+    JobList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Job' } }

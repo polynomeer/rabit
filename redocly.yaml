@@ -1,0 +1,8 @@
+extends:
+  - recommended
+rules:
+  operation-summary: off          # operationId + description are used instead
+  info-license: off               # proprietary, no public license
+  no-server-example.com: off      # local servers documented intentionally
+  tag-description: off
+  operation-4xx-response: warn
