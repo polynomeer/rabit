@@ -52,6 +52,53 @@ jobs:
       - name: OpenAPI lint
         run: npx --yes @redocly/cli@1 lint docs/05-api/openapi.yaml
 
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rabit
+          POSTGRES_PASSWORD: rabit
+          POSTGRES_DB: rabit
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U rabit -d rabit" --health-interval 2s --health-retries 30
+    env:
+      E2E_PG_URL: postgres://rabit:rabit@127.0.0.1:5432
+      S3_ENDPOINT: http://127.0.0.1:9000
+      S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start MinIO with SSE-S3 enabled
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=rabit -e MINIO_ROOT_PASSWORD=rabit-dev-secret \
+            -e MINIO_KMS_SECRET_KEY=rabit-dev-key:3hUCJbDY8VZPzNTKXJTpjS8LUxW1zaZ6ub5K/0Y2Y8g= \
+            -v "$PWD/infra/minio:/init:ro" \
+            minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
+          docker exec minio sh -c "sed 's#http://minio:9000#http://127.0.0.1:9000#' /init/create-buckets.sh | sh"
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium for Playwright
+        run: pnpm --filter @rabit/web exec playwright install --with-deps chromium
+      - run: pnpm e2e
+      - name: Upload E2E report and stack log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: apps/web/e2e-results/
+          retention-days: 7
+
   security:
     runs-on: ubuntu-24.04
     steps:
