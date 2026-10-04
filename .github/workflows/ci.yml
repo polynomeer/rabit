@@ -27,7 +27,7 @@ jobs:
       S3_ENDPOINT: http://127.0.0.1:9000
       S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Start SeaweedFS (S3) with SSE-S3 enabled
         run: |
           docker run -d --name s3 -p 9000:8333 \
@@ -40,8 +40,8 @@ jobs:
           docker exec s3 sh /init/create-buckets.sh localhost:9333
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -71,7 +71,7 @@ jobs:
       S3_ENDPOINT: http://127.0.0.1:9000
       S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Start SeaweedFS (S3) with SSE-S3 enabled
         run: |
           docker run -d --name s3 -p 9000:8333 \
@@ -84,8 +84,8 @@ jobs:
           docker exec s3 sh /init/create-buckets.sh localhost:9333
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -95,7 +95,7 @@ jobs:
       - run: pnpm e2e
       - name: Upload E2E report and stack log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-results
           path: apps/web/e2e-results/
@@ -104,9 +104,9 @@ jobs:
   security:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
