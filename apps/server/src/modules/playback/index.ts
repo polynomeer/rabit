@@ -8,10 +8,12 @@ export {
   evaluatePolicy,
   evaluatePolicies,
   playability,
+  playabilities,
   denyAllCatalog,
   type CatalogAccess,
   type CatalogDecision,
   type DenyReason,
+  type Playability,
   type PolicyDecision,
 } from './policy.js';
 export { computePopularity, tierFor, POPULARITY_POLICY } from './listening.js';

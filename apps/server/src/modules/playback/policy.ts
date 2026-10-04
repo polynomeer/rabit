@@ -173,14 +173,32 @@ export async function evaluatePolicies(
   return out;
 }
 
+export type Playability = { playable: boolean; reason: DenyReason | 'no_audio' | 'deleted' | null };
+
 /** Playability summary for listings (openapi `Playability`). */
 export async function playability(
   db: DbOrTx,
   catalogAccess: CatalogAccess,
   principal: Principal,
   sourceId: string | null,
-): Promise<{ playable: boolean; reason: DenyReason | 'no_audio' | 'deleted' | null }> {
+): Promise<Playability> {
   if (!sourceId) return { playable: false, reason: 'no_audio' };
   const d = await evaluatePolicy(db, catalogAccess, principal, sourceId, 'play');
   return d.allow ? { playable: true, reason: null } : { playable: false, reason: d.reason };
+}
+
+/** {@link playability} for many sources with a constant number of queries (review #6). */
+export async function playabilities(
+  db: DbOrTx,
+  catalogAccess: CatalogAccess,
+  principal: Principal,
+  sourceIds: readonly string[],
+): Promise<Map<string, Playability>> {
+  const decisions = await evaluatePolicies(db, catalogAccess, principal, sourceIds, 'play');
+  return new Map(
+    [...decisions].map(([id, d]) => [
+      id,
+      d.allow ? { playable: true, reason: null } : { playable: false, reason: d.reason },
+    ]),
+  );
 }

@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { KyselyPlugin } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { catalogAccess } from '../src/app/registry.js';
 import { resolveRef, resolveRefs, type RefType } from '../src/modules/library/resolve.js';
@@ -10,6 +9,7 @@ import type { Principal } from '../src/platform/http/principal.js';
 import { newId, type Id } from '../src/platform/ids.js';
 import { enqueue } from '../src/platform/jobs/queue.js';
 import { fixtures } from './helpers/audio-fixtures.js';
+import { countQueries } from './helpers/query-count.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
 import {
   createHarness,
@@ -725,27 +725,6 @@ describe('large playlists and batched availability (review #6)', () => {
     isOperator: false,
   });
 
-  /** Counts the SQL statements issued through `h.ctx.db` while `fn` runs. */
-  async function countQueries(fn: () => Promise<unknown>): Promise<number> {
-    let n = 0;
-    const counter: KyselyPlugin = {
-      transformQuery: (a) => {
-        n++;
-        return a.node;
-      },
-      transformResult: (a) => Promise.resolve(a.result),
-    };
-    const ctx = h.ctx as { db: typeof h.ctx.db };
-    const original = ctx.db;
-    ctx.db = original.withPlugin(counter);
-    try {
-      await fn();
-    } finally {
-      ctx.db = original;
-    }
-    return n;
-  }
-
   async function seedPlaylist(
     u: TestUser,
     refs: { ref_type: 'recording' | 'audio_source'; ref_id: string }[],
@@ -851,7 +830,7 @@ describe('large playlists and batched availability (review #6)', () => {
     const small = await seedPlaylist(u, refs(8));
     const large = await seedPlaylist(u, refs(1000));
     const read = (plId: string) =>
-      countQueries(async () => {
+      countQueries(h, async () => {
         const r = await h.api.inject({ url: `/v1/playlists/${plId}`, headers: u.headers });
         expect(r.statusCode).toBe(200);
       });

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { enqueue } from '../src/platform/jobs/queue.js';
 import { fixtures } from './helpers/audio-fixtures.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
+import { countQueries } from './helpers/query-count.js';
 import { createHarness, uploadReady, type Harness, type TestUser } from './helpers/harness.js';
 
 let h: Harness;
@@ -42,7 +43,7 @@ async function connections(entity: string, axis: string, query = '', who: TestUs
       explanation: string;
     };
     popularity_tier: string;
-    playability: { playable: boolean } | null;
+    playability: { playable: boolean; reason: string | null } | null;
   }[];
 }
 
@@ -112,6 +113,18 @@ describe('Rabbit Hole axes (DIG-003/004)', () => {
     const other = await h.user();
     const blocked = await connections(id('album'), 'tracks', '', other);
     expect(blocked.every((t) => t.playability?.playable === false)).toBe(true);
+    const single = await connections(id('single'), 'tracks');
+    expect(
+      Object.fromEntries(single.map((t) => [t.entity.entity_id, t.playability?.reason])),
+    ).toEqual({ [id('r3')]: null, [id('r4')]: 'no_audio' });
+  });
+
+  it('computes playability for a page in one batch (review #6)', async () => {
+    const read = (limit: number) =>
+      countQueries(h, () => connections(id('album'), 'tracks', `&limit=${limit}`));
+    const one = await read(1);
+    const two = await read(2);
+    expect(two).toBe(one);
   });
 
   it('rejects unknown axes', async () => {
@@ -179,7 +192,7 @@ describe('listening events (PLY-015) and Deep Cut (DIG-007)', () => {
       headers: listener.headers,
       payload: { events },
     });
-    expect(r.statusCode).toBe(202);
+    expect(r.statusCode, r.body).toBe(202);
     return { session: s, events, result: r.json() };
   }
 

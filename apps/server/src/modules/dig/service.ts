@@ -6,9 +6,9 @@ import { errors } from '../../platform/errors.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
 import { getOwnSource } from '../audio/index.js';
-import { entitySummaries, recordingSource, type EntitySummary } from '../catalog/index.js';
+import { entitySummaries, recordingSources, type EntitySummary } from '../catalog/index.js';
 import { createPlaylist } from '../library/index.js';
-import { playability, type CatalogAccess } from '../playback/index.js';
+import { playabilities, type CatalogAccess, type Playability } from '../playback/index.js';
 import {
   axesFor,
   connectionsFor,
@@ -81,32 +81,37 @@ export async function explore(
   const page = list.slice(offset, offset + q.limit);
   const viaIds = page.map((c) => c.viaEntityId).filter((x): x is string => x !== null);
   const vias = await entitySummaries(ctx.db, viaIds);
+  // One batch per page (review #6): recordings → catalog sources → policy decisions.
+  const recordingIds = page
+    .filter((c) => summaries.get(c.entityId)?.entity_type === 'recording')
+    .map((c) => c.entityId);
+  const sources = await recordingSources(ctx.db, recordingIds);
+  const playable = await playabilities(ctx.db, deps.catalogAccess, principal, [
+    ...sources.values(),
+  ]);
+  const playabilityOf = (recordingId: string) => {
+    const sourceId = sources.get(recordingId);
+    // Same as playability(): a recording without ingested audio is `no_audio`.
+    return sourceId
+      ? (playable.get(sourceId) as Playability)
+      : { playable: false, reason: 'no_audio' as const };
+  };
   return {
-    items: await Promise.all(
-      page.map(async (c) => {
-        const entity = summaries.get(c.entityId) as EntitySummary;
-        return {
-          entity,
-          axis: c.axis,
-          via: {
-            relation_id: c.relationId,
-            credit_id: c.creditId,
-            via_entity: c.viaEntityId ? (vias.get(c.viaEntityId) ?? null) : null,
-          },
-          evidence: c.evidence,
-          popularity_tier: pop.get(c.entityId)?.tier ?? 'unknown',
-          playability:
-            entity.entity_type === 'recording'
-              ? await playability(
-                  ctx.db,
-                  deps.catalogAccess,
-                  principal,
-                  await recordingSource(ctx.db, c.entityId),
-                )
-              : null,
-        };
-      }),
-    ),
+    items: page.map((c) => {
+      const entity = summaries.get(c.entityId) as EntitySummary;
+      return {
+        entity,
+        axis: c.axis,
+        via: {
+          relation_id: c.relationId,
+          credit_id: c.creditId,
+          via_entity: c.viaEntityId ? (vias.get(c.viaEntityId) ?? null) : null,
+        },
+        evidence: c.evidence,
+        popularity_tier: pop.get(c.entityId)?.tier ?? 'unknown',
+        playability: entity.entity_type === 'recording' ? playabilityOf(c.entityId) : null,
+      };
+    }),
     next_cursor:
       offset + q.limit < list.length ? ctx.cursors.encode(scope, [offset + q.limit]) : null,
   };
