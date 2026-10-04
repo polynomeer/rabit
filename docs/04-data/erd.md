@@ -65,7 +65,8 @@ audio_version(id PK, audio_object_id FK, version_no int, recording_id FK music_e
   UNIQUE(audio_object_id, version_no)
 audio_source(id PK, audio_version_id FK, workspace_id FK, origin CHECK(catalog|private_upload|audio_log),
              visibility CHECK(private|public), status CHECK(processing|ready|failed|deleting|deleted),
-             title text NULL, created_by FK app_user NULL, failure_code NULL, deleted_at NULL, created_at, updated_at)
+             title text NULL, created_by FK app_user NULL, failure_code NULL, storage_prefix text UNIQUE,
+             deleted_at NULL, created_at, updated_at)
   CHECK((origin='catalog') = (visibility='public'))
   INDEX(workspace_id, status, created_at DESC, id)
   INDEX(audio_version_id)
@@ -214,7 +215,7 @@ search_document(id text PK  -- = subject id, doc_kind CHECK(recording|release|ar
 | Quarantine | `rabit-quarantine` | client PUT via presigned URL (one key, size, expiry); worker read | never GET for clients |
 | Exports | `rabit-exports` | requesting user via short presigned GET | `GET /v1/exports/{id}` returns link |
 
-Object keys: `<namespace>/<asr id>/<asset kind>/<random>` — random component prevents guessing; keys are still not authorization (NFR-SEC-006).
+Object keys: `<asr id>/<random>/<asset kind>…` (`audio_source.storage_prefix`, chosen at source creation) — the random component prevents guessing; keys are still not authorization (NFR-SEC-006).
 
 ## 4. Retention (proposals; legal periods are Legal items)
 
