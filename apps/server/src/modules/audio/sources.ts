@@ -193,6 +193,14 @@ export async function markDeleting(
     .where('status', 'not in', ['deleting', 'deleted'])
     .executeTakeFirst();
   if (Number(res.numUpdatedRows) === 0) return;
+  // An upload still in flight for this source ends now: its quota reservation and
+  // concurrent-upload slot are released (review #1); processing sees the tombstone.
+  await db
+    .updateTable('upload_session')
+    .set({ state: 'cancelled', reserved_bytes: 0, updated_at: now })
+    .where('audio_source_id', '=', sourceId)
+    .where('state', 'in', ['created', 'uploading', 'quarantined', 'processing'])
+    .execute();
   await emit(db, {
     type: 'SourceDeletionRequested',
     schemaVersion: 1,

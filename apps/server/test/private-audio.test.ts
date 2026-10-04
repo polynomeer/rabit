@@ -597,6 +597,27 @@ describe('private audio: deletion (LIB-008, T16)', () => {
     expect(me.quota.used_bytes).toBe(0);
   });
 
+  it('deleting before processing releases the quota reservation and upload slot (review #1)', async () => {
+    const u = await h.user();
+    for (let i = 0; i < 4; i++) {
+      const { audioSourceId, uploadId } = await uploadBytes(h, u, fixtures.wav());
+      await h.api.inject({
+        method: 'DELETE',
+        url: `/v1/audio-sources/${audioSourceId}`,
+        headers: u.headers,
+      });
+      await h.worker.drain();
+      const up = (
+        await h.api.inject({ url: `/v1/uploads/${uploadId}`, headers: u.headers })
+      ).json();
+      expect(up.state).toBe('cancelled');
+    }
+    const me = (await h.api.inject({ url: '/v1/me', headers: u.headers })).json();
+    expect(me.quota).toMatchObject({ reserved_bytes: 0, used_bytes: 0 });
+    // More deletes than the concurrent-upload cap (3) never lock the user out.
+    await uploadBytes(h, u, fixtures.wav());
+  });
+
   it('deleting during processing leaves no derivatives behind', async () => {
     const u = await h.user();
     const { audioSourceId } = await uploadBytes(h, u, fixtures.wav());
