@@ -31,7 +31,9 @@ export async function enqueue(db: DbOrTx, input: EnqueueInput): Promise<boolean>
       payload: JSON.stringify(input.payload),
       dedupe_key: input.dedupeKey,
       max_attempts: input.maxAttempts ?? 5,
-      run_after: input.runAfter ?? new Date(),
+      // Due times use the database clock, the same clock claims compare against: an
+      // app host whose clock runs ahead would otherwise delay its own jobs.
+      run_after: input.runAfter ?? sql<Date>`now()`,
       correlation_id: input.correlationId ?? null,
       locked_by: null,
       locked_until: null,
@@ -107,7 +109,9 @@ export async function failJob(
     .updateTable('job')
     .set({
       status: dead ? 'dead' : 'queued',
-      run_after: dead ? new Date() : new Date(Date.now() + backoffMs(job.attempts)),
+      run_after: dead
+        ? sql<Date>`now()`
+        : sql<Date>`now() + make_interval(secs => ${backoffMs(job.attempts) / 1000})`,
       last_error: error.slice(0, 2000),
       locked_by: null,
       locked_until: null,
@@ -166,7 +170,7 @@ export async function requeueJob(db: DbOrTx, id: string): Promise<boolean> {
     .set({
       status: 'queued',
       attempts: 0,
-      run_after: new Date(),
+      run_after: sql<Date>`now()`,
       last_error: null,
       updated_at: new Date(),
     })

@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { dispatchOutbox, emit } from '../../src/platform/jobs/outbox.js';
 import {
   backoffMs,
@@ -146,6 +146,35 @@ describe('job queue', () => {
     expect(job?.attempts).toBe(2);
     expect(job?.last_error).toMatch(/lease expired/);
     expect(dead).toBe(1);
+  });
+
+  it('runs a job enqueued by a process whose clock is ahead of the database', async () => {
+    // run_after must come from the database clock: claims compare it with now().
+    const kind = `t.skew.${ulid()}`;
+    let ran = 0;
+    const runner = new JobRunner({
+      db: ctx.db,
+      log: ctx.log,
+      concurrency: 1,
+      handlers: [
+        {
+          kind,
+          leaseMs: 5_000,
+          handle: () => {
+            ran++;
+            return Promise.resolve();
+          },
+        },
+      ],
+    });
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 5_000 });
+    try {
+      await enqueue(ctx.db, { kind, payload: {}, dedupeKey: `${kind}:1` });
+    } finally {
+      vi.useRealTimers();
+    }
+    await runner.drain();
+    expect(ran).toBe(1);
   });
 
   it('computes bounded backoff', () => {
