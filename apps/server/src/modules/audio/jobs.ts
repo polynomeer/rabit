@@ -346,14 +346,24 @@ export function audioJobs(ctx: AppContext): JobHandler[] {
       },
       async onDead(job, error) {
         const p = processPayload.parse(job.job.payload);
-        const code = error instanceof PermanentJobError ? error.code : 'PROCESSING_FAILED';
-        await markFailed(ctx, p.audio_source_id, p.upload_session_id, code);
-        const session = await ctx.db
-          .selectFrom('upload_session')
-          .select('quarantine_key')
-          .where('id', '=', p.upload_session_id)
-          .executeTakeFirst();
-        if (session) await ctx.blobs.delete(BUCKETS.quarantine, session.quarantine_key);
+        const permanent = error instanceof PermanentJobError;
+        await markFailed(
+          ctx,
+          p.audio_source_id,
+          p.upload_session_id,
+          permanent ? error.code : 'PROCESSING_FAILED',
+        );
+        // Untrusted bytes that failed validation are removed now. After transient
+        // failures the upload is kept so an operator retry can succeed; the
+        // quarantine bucket lifecycle (2 days) removes it otherwise.
+        if (permanent) {
+          const session = await ctx.db
+            .selectFrom('upload_session')
+            .select('quarantine_key')
+            .where('id', '=', p.upload_session_id)
+            .executeTakeFirst();
+          if (session) await ctx.blobs.delete(BUCKETS.quarantine, session.quarantine_key);
+        }
       },
     },
     {
