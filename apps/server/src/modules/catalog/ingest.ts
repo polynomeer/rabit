@@ -114,7 +114,8 @@ export const manifestSchema = z.strictObject({
     .default([]),
 });
 
-export type CatalogManifest = z.infer<typeof manifestSchema>;
+/** Input shape (defaults applied on parse). */
+export type CatalogManifest = z.input<typeof manifestSchema>;
 
 export interface IngestResult {
   ids: Record<string, string>;

@@ -94,6 +94,8 @@ export class DevIssuer {
   async issue(opts: {
     subject: string;
     operator?: boolean;
+    /** Operators get MFA in `amr` unless this is false (tests the MFA requirement). */
+    mfa?: boolean;
     emailVerified?: boolean;
     ttlSeconds?: number;
     audience?: string;
@@ -103,7 +105,9 @@ export class DevIssuer {
     const ttl = opts.ttlSeconds ?? 3600;
     const jwt = new SignJWT({
       email_verified: opts.emailVerified ?? true,
-      ...(opts.operator ? { rabit_roles: [OPERATOR_ROLE], amr: ['pwd', 'mfa'] } : { amr: ['pwd'] }),
+      ...(opts.operator
+        ? { rabit_roles: [OPERATOR_ROLE], amr: opts.mfa === false ? ['pwd'] : ['pwd', 'mfa'] }
+        : { amr: ['pwd'] }),
     })
       .setProtectedHeader({ alg: 'ES256', kid: 'dev-1' })
       .setSubject(opts.subject)
