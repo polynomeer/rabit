@@ -1,6 +1,9 @@
 import type { Kysely } from 'kysely';
 import { Migrator, type Migration, type MigrationResultSet } from 'kysely/migration';
 import * as m0001 from './migrations/0001_platform.js';
+import * as m0002 from './migrations/0002_identity.js';
+import * as m0003 from './migrations/0003_audio.js';
+import * as m0004 from './migrations/0004_playback.js';
 
 // Migrations operate on the raw schema, independent of the current table types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -12,6 +15,9 @@ type AnyDb = Kysely<any>;
  */
 export const migrations: Record<string, Migration> = {
   '0001_platform': m0001,
+  '0002_identity': m0002,
+  '0003_audio': m0003,
+  '0004_playback': m0004,
 };
 
 export function createMigrator(db: AnyDb): Migrator {
