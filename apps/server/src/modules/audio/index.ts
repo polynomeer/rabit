@@ -7,6 +7,7 @@ import { markDeleting } from './sources.js';
 
 export {
   getSourceUnchecked,
+  getSourcesUnchecked,
   getOwnSource,
   mediaBucket,
   sourceView,

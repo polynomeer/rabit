@@ -60,10 +60,41 @@ export async function activePlayEntitlement(
   userId: string,
   recordingId: string,
   now: Date,
-): Promise<{ id: string; version: number; origin: EntRow['origin'] } | null> {
-  const row = await db
+): Promise<PlayEntitlement | null> {
+  return (await activePlayEntitlements(db, userId, [recordingId], now)).get(recordingId) ?? null;
+}
+
+type PlayEntitlement = { id: string; version: number; origin: EntRow['origin'] };
+
+const ORIGIN_PRIORITY: Record<EntRow['origin'], number> = {
+  purchase: 0,
+  grant: 1,
+  subscription: 2,
+};
+
+/**
+ * {@link activePlayEntitlement} for many recordings with two queries regardless
+ * of their number (review #6). Ties within one origin go to the lowest id so the
+ * choice is stable between reads.
+ */
+export async function activePlayEntitlements(
+  db: DbOrTx,
+  userId: string,
+  recordingIds: readonly string[],
+  now: Date,
+): Promise<Map<string, PlayEntitlement>> {
+  const unique = [...new Set(recordingIds)];
+  const out = new Map<string, PlayEntitlement>();
+  if (unique.length === 0) return out;
+  const tracks = await db
+    .selectFrom('release_track')
+    .select(['release_id', 'recording_id'])
+    .where('recording_id', 'in', unique)
+    .execute();
+  const releaseIds = [...new Set(tracks.map((t) => t.release_id))];
+  const ents = await db
     .selectFrom('entitlement as e')
-    .select(['e.id', 'e.version', 'e.origin'])
+    .select(['e.id', 'e.version', 'e.origin', 'e.scope', 'e.resource_id'])
     .where('e.user_id', '=', userId)
     .where('e.status', '=', 'active')
     .where('e.valid_from', '<=', now)
@@ -72,23 +103,34 @@ export async function activePlayEntitlement(
     .where((eb) =>
       eb.or([
         eb('e.scope', '=', 'catalog_all'),
-        eb.and([eb('e.scope', '=', 'recording'), eb('e.resource_id', '=', recordingId)]),
-        eb.and([
-          eb('e.scope', '=', 'release'),
-          eb(
-            'e.resource_id',
-            'in',
-            eb
-              .selectFrom('release_track')
-              .select('release_id')
-              .where('recording_id', '=', recordingId),
-          ),
-        ]),
+        eb.and([eb('e.scope', '=', 'recording'), eb('e.resource_id', 'in', unique)]),
+        ...(releaseIds.length > 0
+          ? [eb.and([eb('e.scope', '=', 'release'), eb('e.resource_id', 'in', releaseIds)])]
+          : []),
       ]),
     )
-    .orderBy(sql`CASE e.origin WHEN 'purchase' THEN 0 WHEN 'grant' THEN 1 ELSE 2 END`)
-    .executeTakeFirst();
-  return row ?? null;
+    .execute();
+  ents.sort(
+    (x, y) => ORIGIN_PRIORITY[x.origin] - ORIGIN_PRIORITY[y.origin] || (x.id < y.id ? -1 : 1),
+  );
+  const releasesOf = new Map<string, Set<string>>();
+  for (const t of tracks) {
+    const set = releasesOf.get(t.recording_id) ?? new Set<string>();
+    set.add(t.release_id);
+    releasesOf.set(t.recording_id, set);
+  }
+  for (const rec of unique) {
+    const best = ents.find(
+      (e) =>
+        e.scope === 'catalog_all' ||
+        (e.scope === 'recording' && e.resource_id === rec) ||
+        (e.scope === 'release' &&
+          e.resource_id !== null &&
+          releasesOf.get(rec)?.has(e.resource_id)),
+    );
+    if (best) out.set(rec, { id: best.id, version: best.version, origin: best.origin });
+  }
+  return out;
 }
 
 export async function listEntitlements(db: DbOrTx, userId: string) {

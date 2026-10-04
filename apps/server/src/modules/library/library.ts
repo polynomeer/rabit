@@ -6,7 +6,7 @@ import { newId } from '../../platform/ids.js';
 import { getOwnSource } from '../audio/index.js';
 import { recordingExists, releaseExists } from '../catalog/index.js';
 import type { CatalogAccess } from '../playback/index.js';
-import { resolveRef, type RefType } from './resolve.js';
+import { resolveRefs, type RefType, type ResolvedRef } from './resolve.js';
 
 /** A reference must be visible to the caller before it can be saved (T05). */
 export async function assertRefAccessible(
@@ -33,16 +33,7 @@ interface ItemRow {
   saved_at: Date;
 }
 
-async function itemView(
-  ctx: AppContext,
-  catalogAccess: CatalogAccess,
-  principal: Principal,
-  row: ItemRow,
-) {
-  const r = await resolveRef(ctx.db, catalogAccess, principal, {
-    type: row.ref_type,
-    id: row.ref_id,
-  });
+function itemView(row: ItemRow, r: ResolvedRef) {
   return {
     library_item_id: row.id,
     ref_type: row.ref_type,
@@ -55,6 +46,21 @@ async function itemView(
     ownership: r.ownership ?? 'private',
     playability: r.playability,
   };
+}
+
+async function itemViews(
+  ctx: AppContext,
+  catalogAccess: CatalogAccess,
+  principal: Principal,
+  rows: readonly ItemRow[],
+) {
+  const resolved = await resolveRefs(
+    ctx.db,
+    catalogAccess,
+    principal,
+    rows.map((r) => ({ type: r.ref_type, id: r.ref_id })),
+  );
+  return rows.map((row, i) => itemView(row, resolved[i] as ResolvedRef));
 }
 
 export async function addLibraryItem(
@@ -77,7 +83,7 @@ export async function addLibraryItem(
       })
       .returningAll()
       .executeTakeFirstOrThrow();
-    return await itemView(ctx, catalogAccess, principal, row);
+    return (await itemViews(ctx, catalogAccess, principal, [row]))[0];
   } catch (err) {
     if (isUniqueViolation(err)) throw errors.alreadyExists('This item is already in your library.');
     throw err;
@@ -111,7 +117,7 @@ export async function listLibrary(
   const page = rows.slice(0, q.limit);
   const last = page.at(-1);
   return {
-    items: await Promise.all(page.map((r) => itemView(ctx, catalogAccess, principal, r))),
+    items: await itemViews(ctx, catalogAccess, principal, page),
     next_cursor:
       rows.length > q.limit && last
         ? ctx.cursors.encode(scope, [last.saved_at.toISOString(), last.id])

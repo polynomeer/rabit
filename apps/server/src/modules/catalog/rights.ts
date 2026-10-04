@@ -33,21 +33,39 @@ export async function activeGrant(
   db: DbOrTx,
   recordingId: string,
   territory: string,
-  use: 'stream' | 'download' | 'preview' | 'transform' | 'stem' | 'analysis',
+  use: GrantUse,
   now: Date,
 ): Promise<{ id: string; version: number } | null> {
-  const row = await db
+  return (await activeGrants(db, [recordingId], territory, use, now)).get(recordingId) ?? null;
+}
+
+type GrantUse = 'stream' | 'download' | 'preview' | 'transform' | 'stem' | 'analysis';
+
+/** {@link activeGrant} for many recordings in one query (review #6); the oldest grant wins. */
+export async function activeGrants(
+  db: DbOrTx,
+  recordingIds: readonly string[],
+  territory: string,
+  use: GrantUse,
+  now: Date,
+): Promise<Map<string, { id: string; version: number }>> {
+  const unique = [...new Set(recordingIds)];
+  if (unique.length === 0) return new Map();
+  const rows = await db
     .selectFrom('rights_grant')
-    .select(['id', 'version'])
-    .where('recording_id', '=', recordingId)
+    .distinctOn('recording_id')
+    .select(['recording_id', 'id', 'version'])
+    .where('recording_id', 'in', unique)
     .where('status', '=', 'active')
     .where('valid_from', '<=', now)
     .where((eb) => eb.or([eb('valid_to', 'is', null), eb('valid_to', '>', now)]))
     .where(sql<boolean>`${use} = ANY(uses)`)
     .where(sql<boolean>`(${territory} = ANY(territories) OR 'WORLD' = ANY(territories))`)
+    .orderBy('recording_id')
     .orderBy('created_at')
-    .executeTakeFirst();
-  return row ?? null;
+    .orderBy('id')
+    .execute();
+  return new Map(rows.map((r) => [r.recording_id, { id: r.id, version: r.version }]));
 }
 
 async function emitChanged(db: DbOrTx, g: GrantRow, correlationId: string | null) {

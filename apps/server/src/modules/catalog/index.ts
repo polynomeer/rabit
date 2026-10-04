@@ -8,13 +8,14 @@ export {
   recordingExists,
   releaseExists,
   recordingSource,
+  recordingSources,
   getRecording,
   getRelease,
   creditsOf,
   artistsOf,
   type EntitySummary,
 } from './entities.js';
-export { activeGrant, createGrant } from './rights.js';
+export { activeGrant, activeGrants, createGrant } from './rights.js';
 export { ingestCatalog, manifestSchema, type CatalogManifest } from './ingest.js';
 export type { CatalogPlayability, Playability } from './routes.js';
 

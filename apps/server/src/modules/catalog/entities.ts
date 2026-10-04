@@ -99,12 +99,23 @@ export async function releaseExists(db: DbOrTx, id: string): Promise<boolean> {
 
 /** The catalog audio source for a recording, if the recording has licensed audio ingested. */
 export async function recordingSource(db: DbOrTx, recordingId: string): Promise<string | null> {
-  const r = await db
+  return (await recordingSources(db, [recordingId])).get(recordingId) ?? null;
+}
+
+/** {@link recordingSource} for many recordings in one query; recordings without audio are absent. */
+export async function recordingSources(
+  db: DbOrTx,
+  recordingIds: readonly string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(recordingIds)];
+  if (unique.length === 0) return new Map();
+  const rows = await db
     .selectFrom('recording')
-    .select('catalog_audio_source_id')
-    .where('id', '=', recordingId)
-    .executeTakeFirst();
-  return r?.catalog_audio_source_id ?? null;
+    .select(['id', 'catalog_audio_source_id'])
+    .where('id', 'in', unique)
+    .where('catalog_audio_source_id', 'is not', null)
+    .execute();
+  return new Map(rows.map((r) => [r.id, r.catalog_audio_source_id as string]));
 }
 
 export async function getRecording(db: DbOrTx, id: string) {

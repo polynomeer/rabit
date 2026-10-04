@@ -44,6 +44,17 @@ export async function getSourceUnchecked(db: DbOrTx, id: string): Promise<Source
   return sourceQuery(db).where('s.id', '=', id).executeTakeFirst();
 }
 
+/** {@link getSourceUnchecked} for many ids in one query. Callers must apply the playback policy. */
+export async function getSourcesUnchecked(
+  db: DbOrTx,
+  ids: readonly string[],
+): Promise<Map<string, SourceRow>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const rows = await sourceQuery(db).where('s.id', 'in', unique).execute();
+  return new Map(rows.map((r) => [r.id, r]));
+}
+
 /**
  * A source the principal's workspace owns. Not-owned and missing are the same
  * 404 so private existence never leaks (T04). Deleted sources are hidden.
