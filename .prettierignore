@@ -1,0 +1,7 @@
+# Source planning documents are kept verbatim
+audio-platform/
+docs/
+*.md
+pnpm-lock.yaml
+dist/
+coverage/

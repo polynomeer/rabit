@@ -9,3 +9,11 @@ Thumbs.db
 
 # Office lock files
 ~$*
+
+# Node
+node_modules/
+dist/
+coverage/
+.env
+*.log
+.tmp/

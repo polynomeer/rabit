@@ -1,0 +1,42 @@
+{
+  "name": "@rabit/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:api": "tsx watch --env-file-if-exists=.env src/entry/api.ts",
+    "dev:worker": "tsx watch --env-file-if-exists=.env src/entry/worker.ts",
+    "dev:media": "tsx watch --env-file-if-exists=.env src/entry/media.ts",
+    "migrate:up": "tsx --env-file-if-exists=.env src/entry/migrate.ts up",
+    "migrate:down": "tsx --env-file-if-exists=.env src/entry/migrate.ts down",
+    "catalog:ingest": "tsx --env-file-if-exists=.env src/entry/catalog-ingest.ts",
+    "start:api": "node dist/entry/api.js",
+    "start:worker": "node dist/entry/worker.js",
+    "start:media": "node dist/entry/media.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1146.0",
+    "@aws-sdk/s3-request-presigner": "^3.1146.0",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/rate-limit": "^11.2.0",
+    "fastify": "^5.12.5",
+    "jose": "^6.2.12",
+    "kysely": "^0.29.6",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "prom-client": "^15.1.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "@types/pg": "^8.23.1",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "tsx": "^4.23.15",
+    "vitest": "^4.1.11",
+    "yaml": "^2.9.1"
+  }
+}
