@@ -79,6 +79,16 @@ function Upload({ onDone }: { onDone: () => void }) {
           recorded_tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
       }
+      // The Archive entry is created asynchronously after processing (AudioReady
+      // consumer); wait briefly so the list does not reload before it exists.
+      setBusy('보관함에 추가하는 중…');
+      for (let i = 0; i < 20; i++) {
+        const lib = await get<{ items: LibraryItem[] }>(
+          '/v1/library?ref_type=audio_source&limit=100',
+        );
+        if (lib.items.some((x) => x.ref_id === fin.audio_source_id)) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
       setBusy(null);
       input.value = '';
       onDone();
