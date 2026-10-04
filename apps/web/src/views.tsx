@@ -234,6 +234,25 @@ export function Playlists() {
     setOpen(r.data);
     setEtag(r.etag);
   };
+  // Later pages are bound to the version they were read with; a 409 means it changed.
+  const loadMore = async () => {
+    if (!open?.items_next_cursor) return;
+    try {
+      const page = await get<{ items: Playlist['items']; next_cursor: string | null }>(
+        `/v1/playlists/${open.playlist_id}/items?limit=100&cursor=${encodeURIComponent(open.items_next_cursor)}`,
+      );
+      setOpen({
+        ...open,
+        items: [...open.items, ...page.items],
+        items_next_cursor: page.next_cursor,
+      });
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        setMsg('다른 곳에서 변경되어 다시 불러왔습니다.');
+        await openPl(open.playlist_id);
+      } else setMsg(errorText(e));
+    }
+  };
   const mutate = async (method: string, path: string, body?: unknown) => {
     if (!etag) return;
     try {
@@ -305,12 +324,12 @@ export function Playlists() {
                   <button
                     type="button"
                     aria-label="위로"
-                    disabled={idx === 0}
+                    disabled={i.position === 0}
                     onClick={() =>
                       void mutate(
                         'POST',
                         `/v1/playlists/${open.playlist_id}/items/${i.item_id}/move`,
-                        { position: idx - 1 },
+                        { position: i.position - 1 },
                       )
                     }
                   >
@@ -328,6 +347,11 @@ export function Playlists() {
               </li>
             ))}
           </ol>
+          {open.items_next_cursor ? (
+            <button type="button" onClick={() => void loadMore()}>
+              더 보기 ({open.items.length}/{open.item_count})
+            </button>
+          ) : null}
         </div>
       ) : null}
     </section>

@@ -96,7 +96,9 @@ export interface Playlist {
   playlist_id: string;
   title: string;
   version: number;
+  item_count: number;
   items: PlaylistItem[];
+  items_next_cursor: string | null;
 }
 export interface EntitySummary {
   entity_id: string;
