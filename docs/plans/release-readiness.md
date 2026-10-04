@@ -1,0 +1,48 @@
+# Release Readiness Audit
+
+- Status: Phase 23 (2026-10-04), audit of `main` at the end of the build track. Written without code changes. Independent code review: [phase-24-code-review](phase-24-code-review.md).
+- Classification: **Blocker** (must be resolved before the named release), **Must fix** (before the release, smaller), **Follow-up** (tracked, not blocking).
+- Two release targets are assessed separately, because the MVP was cut as an internal alpha behind the Commercial Gate (mvp-scope §0.3):
+  - **A. Internal alpha** — invited team members, self-made fixture catalog, no payments.
+  - **B. External launch** — real users, real catalog.
+
+## Verdict
+
+| Target | Verdict |
+|---|---|
+| A. Internal alpha | **Not yet release-ready.** Code-level gates pass (141 tests, lint, typecheck, contract, audit), but hosting, backup/restore drill and the Phase 24 findings must be closed first (see A-blockers). |
+| B. External launch | **Not release-ready.** Blocked by human decisions (catalog contracts, legal review, payments, privacy notice, retention, staffing) in addition to everything in A. |
+
+## Findings
+
+| # | Area | Finding | Evidence | A | B |
+|---|---|---|---|---|---|
+| R1 | Requirements coverage | All P0 server requirements in mvp-scope §0.6 are implemented and tested, except client-side items (PLY-002 display, PLY-014 persistent player, PLY-017 calm playback, LIB-001 Archive views, DIG-026 graph UI) — no client exists yet (ADR-0011 web reference client not built) | test-strategy §1; `apps/` has no `web` | Must fix | Blocker |
+| R2 | Migrations / rollback | 10 reversible migrations; full down/up tested on every run; expand/contract policy documented; no destructive migration exists | `migrations.test.ts`, erd §5 | OK | OK |
+| R3 | Security P0 | Threat-model P0 tests exist and pass (T01–T17, T24–T30); production worker sandbox is process-level only (ADR-0007 Proposed) | threat-model §2–4 | **Blocker** (sandbox before any non-team user) | Blocker |
+| R4 | Security P1 | Artist impersonation, public UGC abuse, payment webhook replay not applicable yet (features absent) | threat-model T18–T23 | Follow-up | Blocker when features ship |
+| R5 | Rights / legal gates | Catalog content is fixtures only; G-CAT, G-SALE, G-UGC, G-LOCKER, G-CD, G-DATA all open | rights-model §4 | OK (fixtures only) | **Blocker** |
+| R6 | Privacy | No email/name/location stored; logs redacted; export and deletion implemented; privacy notice, retention periods (Legal), minors (Q01) undecided | privacy.md | Must fix (internal notice to testers) | Blocker |
+| R7 | API compatibility | Contract test passes both directions; `/v1` only; no breaking change policy violations | `contract.test.ts` | OK | OK |
+| R8 | SLO / alerts | SLIs/SLOs proposed, alert rules written but not deployed; client-side SLIs (TTFP, rebuffer) need a client | slo.md, alerts.yml | Must fix (deploy alerts) | Blocker |
+| R9 | Backup / restore | Restore procedure documented (re-apply tombstones) but no drill performed; RPO/RTO unverified | runbooks#backup-restore | **Blocker** | Blocker |
+| R10 | Object lifecycle | Quarantine/exports lifecycle (2 d) + expiry jobs; deletion sweeps prefixes; catalog object removal has no API | audio-pipeline §5 | OK | Must fix (catalog takedown removal path) |
+| R11 | Moderation / takedown | Reports + triage + grant suspension implemented; uploader notification, appeals, counter-notice absent; staffing Q18 | moderation.md | Follow-up | Blocker |
+| R12 | Feature flags | No feature-flag system; all P0 features always on; P2 features absent rather than flagged | — | OK | Follow-up |
+| R13 | Rate limits | Per-user and per-route limits on; in-memory store (single instance only); multi-instance deployment needs a shared store | `installApiAuth` | Must fix if >1 api instance | Must fix |
+| R14 | Secrets | Validated at startup, never logged; `.env.example` has dev-only values; production secret store undecided (ADR-0012) | config.ts | Must fix (secret store for hosted alpha) | Must fix |
+| R15 | Dependency vulnerabilities | `pnpm audit --prod`: no known vulnerabilities (2026-10-04); Dependabot configured | CI `security` job | OK | OK |
+| R16 | Load test | Baseline measured on one laptop; media gateway not load-tested; no staging environment | performance-baseline.md | Follow-up | Blocker |
+| R17 | Runbooks | Written for the main failure modes; not rehearsed | runbooks.md | Must fix (one game day) | Blocker |
+| R18 | Support / admin tooling | Operator API only (rights, entitlements, subscriptions, license country, jobs, reports, integrity); no admin UI; no support tooling to view a user's state without DB access | ops endpoints | Follow-up | Must fix |
+| R19 | Hosting | Cloud provider, CDN, KMS, region undecided (ADR-0004/0008/0012 Proposed) | ADR index | **Blocker** (for any hosted alpha) | Blocker |
+| R20 | Codec ladder | Single provisional AAC 160 kbps rendition; no listening test | ADR-0008 | Follow-up | Must fix |
+| R21 | Payments / ledger | Not implemented (ADR-0018 Proposed) | — | OK | Blocker |
+| R22 | CI | Workflow written but never executed on GitHub (remote has no pushed history) | `.github/workflows/ci.yml` | Must fix (first green run) | Must fix |
+| R23 | Phase 24 code review | See [phase-24-code-review](phase-24-code-review.md); Blocker/High findings there gate both targets | — | Pending | Pending |
+
+## A-blockers summary (internal alpha)
+R3 production worker isolation, R9 backup/restore drill, R19 hosting decision, plus any Blocker/High from Phase 24. R19 and the sandbox design depend on a human decision (cost/provider, Playbook §9).
+
+## Human decisions needed (not resolvable by engineering)
+Q01, Q02, Q04, Q05, Q07, Q08, Q11, Q12, Q13, Q18; hosting/CDN/KMS provider; legal review of private storage of third-party audio; privacy notice and retention periods; codec ladder approval after listening tests.
