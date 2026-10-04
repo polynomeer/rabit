@@ -68,7 +68,7 @@
 | CNF-06 | Requirement ID: REQ-01–24 vs PB의 도메인 ID | AP-02 vs PB Phase 1 | Phase 1에서 도메인 ID를 주 ID로 쓰고 REQ를 보존 매핑함 (제안) | — | **decided** 2026-10-04 (Phase 1): 도메인 ID가 주 ID, REQ는 매핑 보존 |
 | CNF-07 | Provenance 검증 수준 enum 불일치 | AP-03 AC-09 vs AP-10 §Passport | 최종 enum (distributor_verified 포함 여부, process_evidence_reviewed 포함 여부) | Phase 4, 16 | open |
 | CNF-08 | "Verified Human Performance" vs "Human Verified" | AP-10 vs PB | 공식 명칭 | Phase 16 | open |
-| CNF-09 | 재생 판정 순서 불일치 | AP-03 §공통 재생 vs AP-08 §재생 판단 | AP-00 규칙상 권한 정본은 AP-08. AP-03 갱신 여부 확인 | Phase 6–7 | open |
+| CNF-09 | 재생 판정 순서 불일치 | AP-03 §공통 재생 vs AP-08 §재생 판단 | AP-00 규칙상 권한 정본은 AP-08. AP-03 갱신 여부 확인 | Phase 6–7 | **decided** 2026-10-04 (ADR-0016): 구현은 AP-08 순서를 따름 |
 | CNF-10 | Visibility에 `Unlisted` 포함 여부, `Release`를 visibility로 볼지 상태로 볼지 | PB Phase 4 vs AP-03/05/07 | Visibility enum | Phase 4 | open |
 | CNF-11 | "Track" 엔티티 부재 | PB Phase 4 vs AP-05 | Track 정의 (glossary 잠정 해석 승인 여부) | Phase 4 | open |
 | CNF-12 | DIG 데이터 모델(AudioObject에 rights/fingerprint, 범용 MusicRelation, Label/Scene/Place 엔티티) vs AP-05 모델 | DIG §6 vs AP-05 | 통합 도메인 모델 | Phase 4 | open |
@@ -76,10 +76,20 @@
 | CNF-14 | UI 라벨 "Physical Verified" vs `self_declared/evidence_reviewed` | BRD §6/§10 vs AP-03 | 라벨 매핑 | UX | open |
 | CNF-15 | Identity board 카피 "Stream without limits" vs 무제한 약속 금지·무료 카탈로그 없음 | BRD board vs AP-02/03 | 카피 수정 여부 | 마케팅 | open |
 | CNF-16 | Atlas 카테고리: Decades 포함 여부, Local Top 표기 "NOW" | AP-03/10 vs BRD §9 | 카테고리·명칭 | Phase 17 | open |
-| CNF-17 | ADR 번호: `ADR-01..18` vs `ADR-xxxx-*.md` | AP-15 vs PB §2 | 번호 매핑 규칙 | Phase 3 | open |
+| CNF-17 | ADR 번호: `ADR-01..18` vs `ADR-xxxx-*.md` | AP-15 vs PB §2 | 번호 매핑 규칙 | Phase 3 | **decided** 2026-10-04 (ADR-0000) |
 | CNF-18 | 문서 구조: `audio-platform/` vs `docs/` | — | 원본 보존 + docs/를 정본으로 할지 | — | open |
 | CNF-19 | Instrument Digging의 stem 활용(V2) vs stems M3·별도 특약 | DIG §3.8 vs AP-02 REQ-14, AP-09 | 권리 확보 전 stem 미사용 여부 | Phase 19 | open — **Legal Review Required** |
 | CNF-20 | REQ-16 우선순위 "P0 개인정보, P1 기능" 이중 표기 | AP-02 | 분리 (Phase 1은 LOC-002/003/004=P0 privacy, 기능=P1로 분리 기록) | Phase 2 | **decided** 2026-10-04: LOC-002/003/004 = P0 privacy 원칙(위치 기능 자체는 P2) |
+
+## 4.1 설계 중 발견된 질문 (Phase 4+)
+
+| ID | 질문 | 출처 | 담당 | 상태 |
+|---|---|---|---|---|
+| DM-01 | 개인 업로드를 카탈로그 Recording에 연결할 수 있게 할 것인가? (예: 내가 녹음한 X의 라이브) MVP는 Audio Log의 `linked_recording_id`만 허용 | domain-model §5 | 제품 | open |
+| DM-02 | 계정 삭제 유예(취소 가능) 기간 | domain-model §5 | 제품·법무 | open |
+| DM-04 | Audio Log에 연결된 recording에서 DIG를 시작하는 것을 허용할 것인가 (MVP: 허용) | domain-model §5 | 제품 확인 | open |
+| CNF-11 | Track 정의 | glossary | 기술 | **decided** 2026-10-04 (Phase 4): Track = ReleaseTrack/Recording의 UI 용어, 별도 aggregate 없음 |
+| CNF-12 | DIG 데이터 모델 통합 | DIG §6 vs AP-05 | 기술 | **decided** 2026-10-04 (Phase 4): MusicEntity registry + 타입별 테이블, MusicRelation(저장 edge) + Credit/Release에서 파생되는 axis |
 
 ## 5. Playbook §9: 사람이 결정해야 하는 항목 (재확인)
 
