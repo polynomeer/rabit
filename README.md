@@ -75,6 +75,7 @@ curl -s -X POST localhost:8080/dev/token -H 'content-type: application/json' -d 
 | `pnpm typecheck` | `tsc --noEmit` with `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
 | `pnpm build` | compiled output for production |
 | `pnpm test` | Vitest against real Postgres + MinIO; migrations are rolled back and re-applied at start |
+| `pnpm e2e` | Playwright browser tests against an isolated stack (database `rabit_e2e`, ports 18080/18081/15173); needs `pnpm infra:up` and ffmpeg |
 | `npx @redocly/cli@1 lint docs/05-api/openapi.yaml` | OpenAPI contract |
 | `pnpm audit --prod` | dependency vulnerabilities (CI) |
 

@@ -15,11 +15,21 @@
 | Media pipeline | Sniffing, probe limits, malformed inputs, HLS output, loudness, waveform | `private-audio.test.ts` | ✅ |
 | Queue / retry | Dedupe, SKIP LOCKED claims, backoff, DLQ, lease reclaim, outbox fan-out, operator retry | `jobs.test.ts`, `integrity-ops.test.ts` | ✅ |
 | Migration | Full rollback and re-apply | `migrations.test.ts` + global setup on every run | ✅ |
-| End-to-end | Real api/worker/media processes with curl (upload → ready → manifest) | manual smoke in Phase 11; automated E2E with the web client is P1 | ⚠️ partial |
+| End-to-end (browser) | Real Chromium against an isolated stack (api, worker, media, web; database `rabit_e2e` recreated per run; demo catalog). Scenarios: search → play → DIG with playback continuing → trail to playlist; upload → play → private to others → delete; playlist paging and stale cursor; 375 px layout | `apps/web/e2e/` (`pnpm e2e`, CI job `e2e`) | ✅ |
 | Load | Measured baseline with autocannon | `apps/server/bench/` + [performance-baseline](performance-baseline.md) | ✅ baseline |
 | Chaos / failure | Transient storage outage → retry/DLQ/operator retry; delete during processing; crashed worker lease | `private-audio`, `integrity-ops`, `jobs` | ✅ partial (DB failover, CDN invalidation: P1, need staging) |
 | Security regression | Threat-model P0 tests (below) | all | ✅ |
 | Architecture | Module boundaries, no console logging, platform ↛ modules | `architecture.test.ts` | ✅ |
+
+### Running the browser E2E tests
+`pnpm infra:up`, then `pnpm e2e`. Playwright starts `apps/web/e2e/stack.ts`: it recreates `rabit_e2e`, migrates, ingests the demo catalog, and starts the four processes on ports 18080/18081/15173 (dev servers can keep running). It reports ready only when catalog processing and all event consumers are done. Logs go to `apps/web/e2e-results/stack.log`; traces and screenshots of failures go to `apps/web/e2e-results/artifacts/`.
+
+Defects the first runs found (all fixed, each with a regression test or an E2E assertion):
+- The Archive upload form overflowed a 375 px screen (file input width).
+- DIG kept a stale axis after a quick click (out-of-order responses).
+- An upload was missing from the Archive right after processing (the library entry is created asynchronously).
+- A territory change revoked sessions started after the change.
+- Tests set job due times from the app clock.
 
 ## 2. Required negative tests (PB Phase 21)
 
