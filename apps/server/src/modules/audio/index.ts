@@ -2,6 +2,7 @@ import type { Module } from '../../app/modules.js';
 import type { AccountDataDeleter } from '../identity/index.js';
 import { audioJobs, deleteSourceNow } from './jobs.js';
 import { audioRoutes } from './routes.js';
+import type { RecordingExists } from './audio-logs.js';
 import { markDeleting } from './sources.js';
 
 export {
@@ -14,6 +15,7 @@ export {
 } from './sources.js';
 export { storageUsage } from './uploads.js';
 export { processSource, deleteSourceNow } from './jobs.js';
+export type { RecordingExists } from './audio-logs.js';
 export { LADDER } from './media/render.js';
 
 /** Account deletion: tombstone and delete every source in the workspace (idempotent). */
@@ -39,10 +41,10 @@ export const deleteAccountAudio: AccountDataDeleter = async (ctx, account) => {
   for (const o of open) await ctx.blobs.delete('rabit-quarantine', o.quarantine_key);
 };
 
-export function audioModule(): Module {
+export function audioModule(deps: { recordingExists: RecordingExists }): Module {
   return {
     name: 'audio',
-    routes: audioRoutes,
+    routes: audioRoutes(deps),
     jobs: audioJobs,
     subscriptions: {
       UploadFinalized: ['audio.process'],

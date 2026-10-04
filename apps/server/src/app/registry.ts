@@ -13,7 +13,7 @@ export function allModules(): Module[] {
       },
       accountDeleters: () => [deleteAccountAudio],
     }),
-    audioModule(),
+    audioModule({ recordingExists: () => Promise.resolve(false) }),
     playbackModule({
       catalogAccess: denyAllCatalog,
       resolveRecordingSource: () => Promise.resolve(null),

@@ -190,7 +190,22 @@ export interface PlaybackSessionTable {
   revoked_reason: string | null;
 }
 
+export interface AudioLogTable {
+  id: string;
+  audio_source_id: string;
+  author_user_id: string;
+  title: string;
+  note: string | null;
+  recorded_at: Timestamp;
+  recorded_tz: string;
+  linked_recording_id: string | null;
+  tags: string[];
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
 export interface Database {
+  audio_log: AudioLogTable;
   audio_object: AudioObjectTable;
   audio_version: AudioVersionTable;
   audio_source: AudioSourceTable;

@@ -392,6 +392,8 @@ export async function deleteSourceNow(ctx: AppContext, sourceId: string): Promis
   for (const s of sessions) await ctx.blobs.delete(BUCKETS.quarantine, s.quarantine_key);
   await ctx.db.transaction().execute(async (tx) => {
     await tx.deleteFrom('audio_asset').where('audio_source_id', '=', sourceId).execute();
+    // Audio Log title/note/tags are personal data: removed with the audio (privacy.md §2).
+    await tx.deleteFrom('audio_log').where('audio_source_id', '=', sourceId).execute();
     await tx
       .updateTable('upload_session')
       .set({ default_title: null, updated_at: new Date() })
