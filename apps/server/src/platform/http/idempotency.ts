@@ -2,6 +2,9 @@ import { createHash } from 'node:crypto';
 import type { Db } from '../db/db.js';
 import { errors } from '../errors.js';
 
+/** A reservation without a stored response older than this is treated as abandoned. */
+export const STALE_RESERVATION_MS = 10 * 60_000;
+
 export interface IdempotentResult<T> {
   status: number;
   body: T;
@@ -49,6 +52,21 @@ export async function withIdempotency<T>(
       .where('idempotency_key', '=', scope.key)
       .executeTakeFirst();
     if (!existing) throw errors.idempotencyInProgress();
+    if (
+      existing.response_status === null &&
+      existing.created_at.getTime() < Date.now() - STALE_RESERVATION_MS
+    ) {
+      // The request that reserved this key died before storing its response.
+      // Release the reservation so the client's retry can proceed (review #10).
+      await db
+        .deleteFrom('idempotency_record')
+        .where('user_id', '=', scope.userId)
+        .where('operation', '=', scope.operation)
+        .where('idempotency_key', '=', scope.key)
+        .where('response_status', 'is', null)
+        .execute();
+      return withIdempotency(db, scope, fn);
+    }
     if (existing.request_hash !== hash) throw errors.idempotencyReused();
     if (existing.response_status === null) throw errors.idempotencyInProgress();
     return { status: existing.response_status, body: existing.response_body as T, replayed: true };

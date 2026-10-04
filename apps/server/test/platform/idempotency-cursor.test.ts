@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { afterAll, describe, expect, it } from 'vitest';
 import { CursorCodec } from '../../src/platform/http/cursor.js';
 import { withIdempotency } from '../../src/platform/http/idempotency.js';
@@ -50,6 +51,28 @@ describe('idempotency', () => {
       Promise.resolve({ status: 200, body: { ok: true } }),
     );
     expect(ok.replayed).toBe(false);
+  });
+
+  it('reclaims a reservation abandoned by a crashed request (review #10)', async () => {
+    const key = `k${ulid()}`;
+    await ctx.db
+      .insertInto('idempotency_record')
+      .values({
+        user_id: 'usr_test',
+        operation: 'test.op',
+        idempotency_key: key,
+        request_hash: 'x'.repeat(64),
+        response_status: null,
+        response_body: null,
+      })
+      .execute();
+    await sql`UPDATE idempotency_record SET created_at = now() - interval '11 minutes' WHERE idempotency_key = ${key}`.execute(
+      ctx.db,
+    );
+    const r = await withIdempotency(ctx.db, scope(key, {}), () =>
+      Promise.resolve({ status: 200, body: 'ok' }),
+    );
+    expect(r).toEqual({ status: 200, body: 'ok', replayed: false });
   });
 
   it('runs without a key', async () => {
