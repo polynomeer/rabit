@@ -2,7 +2,12 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { KyselyPlugin } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { catalogAccess } from '../src/app/registry.js';
+import { resolveRef, resolveRefs, type RefType } from '../src/modules/library/resolve.js';
+import type { Principal } from '../src/platform/http/principal.js';
+import { newId, type Id } from '../src/platform/ids.js';
 import { enqueue } from '../src/platform/jobs/queue.js';
 import { fixtures } from './helpers/audio-fixtures.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
@@ -709,6 +714,207 @@ describe('mixed playlists (PB Phase 13)', () => {
       (await h.api.inject({ url: `/v1/playlists/${pl.playlist_id}`, headers: u.headers }))
         .statusCode,
     ).toBe(404);
+  });
+});
+
+describe('large playlists and batched availability (review #6)', () => {
+  const principalOf = (u: TestUser): Principal => ({
+    userId: u.userId as Id<'user'>,
+    personalWorkspaceId: u.workspaceId as Id<'workspace'>,
+    status: 'active',
+    isOperator: false,
+  });
+
+  /** Counts the SQL statements issued through `h.ctx.db` while `fn` runs. */
+  async function countQueries(fn: () => Promise<unknown>): Promise<number> {
+    let n = 0;
+    const counter: KyselyPlugin = {
+      transformQuery: (a) => {
+        n++;
+        return a.node;
+      },
+      transformResult: (a) => Promise.resolve(a.result),
+    };
+    const ctx = h.ctx as { db: typeof h.ctx.db };
+    const original = ctx.db;
+    ctx.db = original.withPlugin(counter);
+    try {
+      await fn();
+    } finally {
+      ctx.db = original;
+    }
+    return n;
+  }
+
+  async function seedPlaylist(
+    u: TestUser,
+    refs: { ref_type: 'recording' | 'audio_source'; ref_id: string }[],
+  ) {
+    const pl = (
+      await h.api.inject({
+        method: 'POST',
+        url: '/v1/playlists',
+        headers: u.headers,
+        payload: { title: `big ${refs.length}` },
+      })
+    ).json<{ playlist_id: string }>();
+    if (refs.length === 0) return pl.playlist_id;
+    await h.ctx.db
+      .insertInto('playlist_item')
+      .values(
+        refs.map((r, rank) => ({
+          id: newId('playlistItem'),
+          playlist_id: pl.playlist_id,
+          rank,
+          ...r,
+        })),
+      )
+      .execute();
+    return pl.playlist_id;
+  }
+
+  it('pages playlist items with version-bound cursors and per-item availability', async () => {
+    const u = await listener({ country: 'KR', subscribe: true });
+    const mine = await uploadReady(h, u, fixtures.wav());
+    const cycle = [
+      { ref_type: 'recording' as const, ref_id: id('r1') },
+      { ref_type: 'recording' as const, ref_id: id('r4') },
+      { ref_type: 'audio_source' as const, ref_id: mine },
+    ];
+    const refs = Array.from({ length: 250 }, (_, i) => cycle[i % 3]!);
+    const plId = await seedPlaylist(u, refs);
+
+    const first = await h.api.inject({ url: `/v1/playlists/${plId}`, headers: u.headers });
+    expect(first.statusCode).toBe(200);
+    const view = first.json();
+    expect(view.item_count).toBe(250);
+    expect(view.items).toHaveLength(100);
+    expect(first.headers.etag).toBe(`"${view.version}"`);
+
+    const seen = [...view.items];
+    let cursor: string | null = view.items_next_cursor;
+    while (cursor) {
+      const r = await h.api.inject({
+        url: `/v1/playlists/${plId}/items?limit=100&cursor=${encodeURIComponent(cursor)}`,
+        headers: u.headers,
+      });
+      expect(r.statusCode).toBe(200);
+      seen.push(...r.json().items);
+      cursor = r.json().next_cursor;
+    }
+    expect(seen.map((i: { position: number }) => i.position)).toEqual(refs.map((_, i) => i));
+    expect(seen.map((i: { ref_id: string }) => i.ref_id)).toEqual(refs.map((r) => r.ref_id));
+    const reasons = seen
+      .slice(-3)
+      .map((i: { playability: { reason: string | null } }) => i.playability.reason);
+    // positions 247, 248, 249 → r4 (no audio), private source, r1
+    expect(reasons).toEqual(['no_audio', null, null]);
+
+    // An edit invalidates older cursors instead of silently skipping or repeating items.
+    const stale = view.items_next_cursor as string;
+    const edit = await h.api.inject({
+      method: 'PATCH',
+      url: `/v1/playlists/${plId}`,
+      headers: { ...u.headers, 'if-match': `"${view.version}"` },
+      payload: { title: 'renamed' },
+    });
+    expect(edit.statusCode).toBe(200);
+    const after = await h.api.inject({
+      url: `/v1/playlists/${plId}/items?cursor=${encodeURIComponent(stale)}`,
+      headers: u.headers,
+    });
+    expect(after.statusCode).toBe(409);
+    expect(after.json().error.code).toBe('INVALID_STATE');
+
+    // Cursors are bound to the caller and the playlist.
+    const other = await listener();
+    const foreign = await h.api.inject({
+      url: `/v1/playlists/${plId}/items?cursor=${encodeURIComponent(stale)}`,
+      headers: other.headers,
+    });
+    expect([400, 404]).toContain(foreign.statusCode);
+    const otherPl = await seedPlaylist(u, []);
+    const crossed = await h.api.inject({
+      url: `/v1/playlists/${otherPl}/items?cursor=${encodeURIComponent(stale)}`,
+      headers: u.headers,
+    });
+    expect(crossed.statusCode).toBe(400);
+  });
+
+  it('reads a playlist with a constant number of queries, independent of its size', async () => {
+    const u = await listener({ country: 'KR', subscribe: true });
+    const refs = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({
+        ref_type: 'recording' as const,
+        ref_id: id(['r1', 'r2', 'r3', 'r4'][i % 4]!),
+      }));
+    const small = await seedPlaylist(u, refs(8));
+    const large = await seedPlaylist(u, refs(1000));
+    const read = (plId: string) =>
+      countQueries(async () => {
+        const r = await h.api.inject({ url: `/v1/playlists/${plId}`, headers: u.headers });
+        expect(r.statusCode).toBe(200);
+      });
+    const smallQueries = await read(small);
+    const largeQueries = await read(large);
+    expect(largeQueries).toBe(smallQueries);
+    expect(largeQueries).toBeLessThanOrEqual(15);
+  });
+
+  it('resolves a batch exactly like resolving each reference alone', async () => {
+    const u = await listener({ country: 'KR' }); // territory but no subscription
+    const stranger = await listener();
+    const mine = await uploadReady(h, u, fixtures.wav());
+    const log = await uploadReady(h, u, fixtures.wav(), { intent: 'audio_log' });
+    const gone = await uploadReady(h, u, fixtures.wav());
+    const theirs = await uploadReady(h, stranger, fixtures.wav());
+    await h.api.inject({ method: 'DELETE', url: `/v1/audio-sources/${gone}`, headers: u.headers });
+    // A release-scoped grant covers both album tracks (r1, r2) and nothing else.
+    const grant = await h.api.inject({
+      method: 'POST',
+      url: '/v1/ops/entitlements',
+      headers: { ...ops.op.headers, 'idempotency-key': `batch-${u.userId}` },
+      payload: {
+        user_id: u.userId,
+        scope: 'release',
+        resource_id: id('album'),
+        capabilities: ['play'],
+        reason: 'batch test',
+      },
+    });
+    expect(grant.statusCode).toBe(201);
+    const refs: { type: RefType; id: string }[] = [
+      { type: 'audio_source', id: mine },
+      { type: 'audio_source', id: log },
+      { type: 'audio_source', id: gone },
+      { type: 'audio_source', id: theirs },
+      { type: 'audio_source', id: cat.sources['r1']! },
+      { type: 'recording', id: id('r1') },
+      { type: 'recording', id: id('r2') },
+      { type: 'recording', id: id('r4') },
+      { type: 'release', id: id('album') },
+      { type: 'release', id: id('single') },
+      { type: 'recording', id: newId('recording') },
+      { type: 'recording', id: id('r1') },
+    ];
+    const p = principalOf(u);
+    const batch = await resolveRefs(h.ctx.db, catalogAccess, p, refs);
+    const single = await Promise.all(refs.map((r) => resolveRef(h.ctx.db, catalogAccess, p, r)));
+    expect(batch).toEqual(single);
+    expect(batch.map((r) => [r.ownership, r.playability.reason])).toEqual([
+      ['private', null],
+      ['audio_log', null],
+      [null, 'deleted'],
+      [null, 'not_found'],
+      [null, 'not_found'], // catalog audio is never addressable as a private source
+      ['granted', null],
+      ['granted', null],
+      ['streaming', 'no_audio'],
+      ['granted', null],
+      ['streaming', 'subscription_required'],
+      [null, 'not_found'],
+      ['granted', null],
+    ]);
   });
 });
 

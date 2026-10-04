@@ -169,9 +169,7 @@ export const digRoutes =
         req.body ?? {},
       );
       const row = await trailToPlaylist(ctx.db, p, dig_session_id, body.title);
-      return reply
-        .status(201)
-        .header('etag', etag(row.version))
-        .send(await playlistView(ctx, deps.catalogAccess, p, row));
+      const view = await playlistView(ctx, deps.catalogAccess, p, row);
+      return reply.status(201).header('etag', etag(view.version)).send(view);
     });
   };

@@ -7,54 +7,126 @@ import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
 import type { CatalogAccess } from '../playback/index.js';
 import { assertRefAccessible } from './library.js';
-import { resolveRef } from './resolve.js';
+import { resolveRefs, type ResolvedRef } from './resolve.js';
 
 export const MAX_PLAYLIST_ITEMS = 10_000;
 
 type PlaylistRow = Selectable<PlaylistTable>;
 type ItemRef = { ref_type: 'audio_source' | 'recording'; ref_id: string };
 
-export async function playlistView(
+/** Items per page of a playlist read; the playlist itself carries the first page (review #6). */
+export const PLAYLIST_ITEMS_PAGE = 100;
+
+const itemsScope = (principal: Principal, playlistId: string) => ({
+  userId: principal.userId,
+  query: `playlist-items:${playlistId}`,
+});
+
+/** Reads a playlist and its items from one snapshot, so a page always matches its version. */
+function readSnapshot<T>(db: Db, fn: (tx: DbOrTx) => Promise<T>): Promise<T> {
+  return db
+    .transaction()
+    .setIsolationLevel('repeatable read')
+    .setAccessMode('read only')
+    .execute(fn);
+}
+
+/**
+ * One page of items from `fromRank`. Availability is re-evaluated on every read,
+ * because playback rights and visibility may have changed, in one batch per page.
+ * The cursor is bound to the playlist version; ranks shift on every edit.
+ */
+async function itemsPage(
   ctx: AppContext,
+  tx: DbOrTx,
   catalogAccess: CatalogAccess,
   principal: Principal,
   p: PlaylistRow,
+  fromRank: number,
+  limit: number,
 ) {
-  const items = await ctx.db
+  const rows = await tx
     .selectFrom('playlist_item')
     .selectAll()
     .where('playlist_id', '=', p.id)
+    .where('rank', '>=', fromRank)
     .orderBy('rank')
+    .limit(limit + 1)
     .execute();
+  const page = rows.slice(0, limit);
+  const resolved = await resolveRefs(
+    tx,
+    catalogAccess,
+    principal,
+    page.map((i) => ({ type: i.ref_type, id: i.ref_id })),
+  );
+  const last = page.at(-1);
   return {
-    playlist_id: p.id,
-    title: p.title,
-    description: p.description,
-    visibility: p.visibility,
-    version: p.version,
-    created_at: p.created_at.toISOString(),
-    updated_at: p.updated_at.toISOString(),
-    items: await Promise.all(
-      items.map(async (i) => {
-        // Re-evaluated on every read: playback rights/visibility may have changed.
-        const r = await resolveRef(ctx.db, catalogAccess, principal, {
-          type: i.ref_type,
-          id: i.ref_id,
-        });
-        return {
-          item_id: i.id,
-          position: i.rank,
-          ref_type: i.ref_type,
-          ref_id: i.ref_id,
-          title: r.title,
-          subtitle: r.subtitle,
-          ownership: r.ownership,
-          playability: r.playability,
-          added_at: i.added_at.toISOString(),
-        };
-      }),
-    ),
+    items: page.map((i, idx) => {
+      const r = resolved[idx] as ResolvedRef;
+      return {
+        item_id: i.id,
+        position: i.rank,
+        ref_type: i.ref_type,
+        ref_id: i.ref_id,
+        title: r.title,
+        subtitle: r.subtitle,
+        ownership: r.ownership,
+        playability: r.playability,
+        added_at: i.added_at.toISOString(),
+      };
+    }),
+    next_cursor:
+      rows.length > limit && last
+        ? ctx.cursors.encode(itemsScope(principal, p.id), [p.version, last.rank + 1])
+        : null,
   };
+}
+
+/** The playlist with its first page of items. `version` matches the items returned. */
+export function playlistView(
+  ctx: AppContext,
+  catalogAccess: CatalogAccess,
+  principal: Principal,
+  playlist: Pick<PlaylistRow, 'id'>,
+) {
+  return readSnapshot(ctx.db, async (tx) => {
+    const p = await ownPlaylist(tx, principal, playlist.id);
+    const itemCount = await count(tx, p.id);
+    const page = await itemsPage(ctx, tx, catalogAccess, principal, p, 0, PLAYLIST_ITEMS_PAGE);
+    return {
+      playlist_id: p.id,
+      title: p.title,
+      description: p.description,
+      visibility: p.visibility,
+      version: p.version,
+      created_at: p.created_at.toISOString(),
+      updated_at: p.updated_at.toISOString(),
+      item_count: itemCount,
+      items: page.items,
+      items_next_cursor: page.next_cursor,
+    };
+  });
+}
+
+/** Later pages of a playlist's items. A cursor from an older version is refused (409). */
+export function listPlaylistItems(
+  ctx: AppContext,
+  catalogAccess: CatalogAccess,
+  principal: Principal,
+  id: string,
+  q: { limit: number; cursor?: string | undefined },
+) {
+  const pos = ctx.cursors.decode(itemsScope(principal, id), q.cursor);
+  return readSnapshot(ctx.db, async (tx) => {
+    const p = await ownPlaylist(tx, principal, id);
+    if (pos && pos[0] !== p.version)
+      throw errors.invalidState(
+        'The playlist changed since this page was read; read it again from the first page.',
+      );
+    const fromRank = pos ? Number(pos[1]) : 0;
+    return itemsPage(ctx, tx, catalogAccess, principal, p, fromRank, q.limit);
+  });
 }
 
 async function ownPlaylist(db: DbOrTx, principal: Principal, id: string, lock = false) {
@@ -69,13 +141,13 @@ async function ownPlaylist(db: DbOrTx, principal: Principal, id: string, lock = 
   return p;
 }
 
-export async function getPlaylist(
+export function getPlaylist(
   ctx: AppContext,
   catalogAccess: CatalogAccess,
   principal: Principal,
   id: string,
 ) {
-  return playlistView(ctx, catalogAccess, principal, await ownPlaylist(ctx.db, principal, id));
+  return playlistView(ctx, catalogAccess, principal, { id });
 }
 
 export async function createPlaylist(
@@ -95,16 +167,18 @@ export async function createPlaylist(
     })
     .returningAll()
     .executeTakeFirstOrThrow();
-  for (const [rank, it] of items.slice(0, MAX_PLAYLIST_ITEMS).entries()) {
+  const rows = items.slice(0, MAX_PLAYLIST_ITEMS).map((it, rank) => ({
+    id: newId('playlistItem'),
+    playlist_id: id,
+    rank,
+    ref_type: it.ref_type,
+    ref_id: it.ref_id,
+  }));
+  // Chunked to stay well below the 65,535 bind-parameter limit of one statement.
+  for (let i = 0; i < rows.length; i += 1000) {
     await db
       .insertInto('playlist_item')
-      .values({
-        id: newId('playlistItem'),
-        playlist_id: id,
-        rank,
-        ref_type: it.ref_type,
-        ref_id: it.ref_id,
-      })
+      .values(rows.slice(i, i + 1000))
       .execute();
   }
   return p;

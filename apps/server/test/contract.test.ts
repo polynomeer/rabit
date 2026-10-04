@@ -132,6 +132,11 @@ describe('OpenAPI contract (ADR-0010)', () => {
     });
     validate('post', '/v1/playlists/{playlist_id}/items', 201, add.json());
     await get('/v1/playlists', '/v1/playlists');
+    await get(`/v1/playlists/${pl.json().playlist_id}`, '/v1/playlists/{playlist_id}');
+    await get(
+      `/v1/playlists/${pl.json().playlist_id}/items?limit=1`,
+      '/v1/playlists/{playlist_id}/items',
+    );
 
     const dig = await h.api.inject({
       method: 'POST',

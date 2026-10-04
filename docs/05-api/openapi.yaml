@@ -307,7 +307,9 @@ paths:
       operationId: getPlaylist
       responses:
         '200':
-          description: Playlist with items and per-item availability
+          description: >-
+            Playlist with its first page of items (up to 100) and per-item availability.
+            Read further pages with `GET /v1/playlists/{playlist_id}/items?cursor=…`.
           headers: { ETag: { $ref: '#/components/headers/ETag' } }
           content: { application/json: { schema: { $ref: '#/components/schemas/Playlist' } } }
         '404': { $ref: '#/components/responses/Error' }
@@ -337,6 +339,23 @@ paths:
         '428': { $ref: '#/components/responses/Error' }
   /v1/playlists/{playlist_id}/items:
     parameters: [ { $ref: '#/components/parameters/PlaylistId' } ]
+    get:
+      tags: [playlists]
+      operationId: listPlaylistItems
+      description: >-
+        Pages of items ordered by position, with availability re-evaluated on every read.
+        Cursors are bound to the playlist version: after any edit an older cursor returns
+        409 `INVALID_STATE` and the client reads again from the first page.
+      parameters:
+        - { $ref: '#/components/parameters/Limit' }
+        - { $ref: '#/components/parameters/Cursor' }
+      responses:
+        '200':
+          description: Items page
+          content: { application/json: { schema: { $ref: '#/components/schemas/PlaylistItemPage' } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
     post:
       tags: [playlists]
       operationId: addPlaylistItem
@@ -1238,16 +1257,27 @@ components:
         added_at: { $ref: '#/components/schemas/Timestamp' }
     Playlist:
       type: object
-      required: [playlist_id, title, description, visibility, version, items, created_at, updated_at]
+      required: [playlist_id, title, description, visibility, version, item_count, items, items_next_cursor, created_at, updated_at]
       properties:
         playlist_id: { $ref: '#/components/schemas/Id' }
         title: { type: string }
         description: { type: [string, 'null'] }
         visibility: { type: string, enum: [private] }
         version: { type: integer }
-        items: { type: array, items: { $ref: '#/components/schemas/PlaylistItem' } }
+        item_count: { type: integer }
+        items:
+          description: First page of items (up to 100), from the same snapshot as `version`.
+          type: array
+          items: { $ref: '#/components/schemas/PlaylistItem' }
+        items_next_cursor: { $ref: '#/components/schemas/NextCursor' }
         created_at: { $ref: '#/components/schemas/Timestamp' }
         updated_at: { $ref: '#/components/schemas/Timestamp' }
+    PlaylistItemPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PlaylistItem' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
     PlaylistSummary:
       type: object
       required: [playlist_id, title, item_count, version, updated_at]

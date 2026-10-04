@@ -38,6 +38,8 @@ Messages never contain internal contract details, other users' data, storage key
 ## 4. Pagination
 `limit` 1–100 (default 20), opaque `cursor`; responses `{ "items": [...], "next_cursor": "…" | null }`. Cursors encode the sort key and ID and are signed (HMAC) so they cannot be forged to skip scope filters.
 
+Positional, editable collections (playlist items) page by position, and their cursors are also bound to the aggregate `version`: after any edit, an older cursor returns `409 INVALID_STATE` and the client re-reads from the first page, instead of silently skipping or repeating items. An aggregate that embeds such a collection returns its first page from the same snapshot as its `version`, plus `item_count` and `items_next_cursor` (e.g. `GET /v1/playlists/{id}`; review #6).
+
 ## 5. Idempotency
 - Required (`Idempotency-Key`, 8–128 chars `[A-Za-z0-9_-]`) on: upload finalize, playback session create, export create, account deletion, DIG step, ops grant/entitlement mutations.
 - Stored per (user, operation) ≥ 24 h with a hash of the request body. Same key + same body → original response replayed. Same key + different body → `409 IDEMPOTENCY_KEY_REUSED`.

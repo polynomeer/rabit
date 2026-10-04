@@ -20,6 +20,7 @@ import {
   createPlaylist,
   deletePlaylist,
   getPlaylist,
+  listPlaylistItems,
   listPlaylists,
   movePlaylistItem,
   playlistView,
@@ -90,11 +91,8 @@ export const libraryRoutes =
         }),
         req.body,
       );
-      const row = await createPlaylist(ctx.db, p, body);
-      return reply
-        .status(201)
-        .header('etag', etag(row.version))
-        .send(await playlistView(ctx, ca, p, row));
+      const view = await playlistView(ctx, ca, p, await createPlaylist(ctx.db, p, body));
+      return reply.status(201).header('etag', etag(view.version)).send(view);
     });
 
     app.get('/v1/playlists/:playlist_id', async (req, reply) => {
@@ -102,6 +100,16 @@ export const libraryRoutes =
       const { playlist_id } = parse(plParams, req.params);
       const view = await getPlaylist(ctx, ca, p, playlist_id);
       return reply.header('etag', etag(view.version)).send(view);
+    });
+
+    app.get('/v1/playlists/:playlist_id/items', async (req) => {
+      const p = requirePrincipal(req.principal);
+      const { playlist_id } = parse(plParams, req.params);
+      const q = parse(
+        z.object({ limit: limitSchema, cursor: z.string().max(512).optional() }),
+        req.query,
+      );
+      return listPlaylistItems(ctx, ca, p, playlist_id, q);
     });
 
     app.patch('/v1/playlists/:playlist_id', async (req, reply) => {
@@ -117,8 +125,13 @@ export const libraryRoutes =
           .refine((b) => Object.keys(b).length > 0, { message: 'at least one field is required' }),
         req.body,
       );
-      const row = await updatePlaylist(ctx.db, p, playlist_id, version, body);
-      return reply.header('etag', etag(row.version)).send(await playlistView(ctx, ca, p, row));
+      const view = await playlistView(
+        ctx,
+        ca,
+        p,
+        await updatePlaylist(ctx.db, p, playlist_id, version, body),
+      );
+      return reply.header('etag', etag(view.version)).send(view);
     });
 
     app.delete('/v1/playlists/:playlist_id', async (req, reply) => {
@@ -140,11 +153,13 @@ export const libraryRoutes =
         }),
         req.body,
       );
-      const row = await addPlaylistItem(ctx.db, p, playlist_id, version, body);
-      return reply
-        .status(201)
-        .header('etag', etag(row.version))
-        .send(await playlistView(ctx, ca, p, row));
+      const view = await playlistView(
+        ctx,
+        ca,
+        p,
+        await addPlaylistItem(ctx.db, p, playlist_id, version, body),
+      );
+      return reply.status(201).header('etag', etag(view.version)).send(view);
     });
 
     app.delete('/v1/playlists/:playlist_id/items/:item_id', async (req, reply) => {
@@ -157,7 +172,8 @@ export const libraryRoutes =
         requireIfMatch(req.headers),
         item_id,
       );
-      return reply.header('etag', etag(row.version)).send(await playlistView(ctx, ca, p, row));
+      const view = await playlistView(ctx, ca, p, row);
+      return reply.header('etag', etag(view.version)).send(view);
     });
 
     app.post('/v1/playlists/:playlist_id/items/:item_id/move', async (req, reply) => {
@@ -166,7 +182,8 @@ export const libraryRoutes =
       const version = requireIfMatch(req.headers);
       const body = parse(z.strictObject({ position: z.number().int().min(0) }), req.body);
       const row = await movePlaylistItem(ctx.db, p, playlist_id, version, item_id, body.position);
-      return reply.header('etag', etag(row.version)).send(await playlistView(ctx, ca, p, row));
+      const view = await playlistView(ctx, ca, p, row);
+      return reply.header('etag', etag(view.version)).send(view);
     });
 
     app.post('/v1/exports', routeLimit(5, '1 day'), async (req, reply) => {
