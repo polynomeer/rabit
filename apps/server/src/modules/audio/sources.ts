@@ -151,11 +151,14 @@ export async function updateSourceTitle(
 ) {
   const src = await getOwnSource(db, principal, id);
   if (src.status === 'deleting') throw errors.notFound();
-  await db
-    .updateTable('audio_source')
-    .set({ title, updated_at: new Date() })
-    .where('id', '=', id)
-    .execute();
+  await db.transaction().execute(async (tx) => {
+    await tx
+      .updateTable('audio_source')
+      .set({ title, updated_at: new Date() })
+      .where('id', '=', id)
+      .execute();
+    await emitMetadataChanged(tx, src.id, src.workspace_id);
+  });
   return sourceView({ ...src, title }, { owner: true });
 }
 
@@ -197,6 +200,22 @@ export async function markDeleting(
     workspaceId,
     privacyScope: 'private',
     correlationId,
+    payload: { audio_source_id: sourceId },
+  });
+}
+
+/** Search and other derived views re-read the source when its text changes. */
+export async function emitMetadataChanged(
+  db: DbOrTx,
+  sourceId: string,
+  workspaceId: string,
+): Promise<void> {
+  await emit(db, {
+    type: 'AudioMetadataChanged',
+    schemaVersion: 1,
+    subjectId: sourceId,
+    workspaceId,
+    privacyScope: 'private',
     payload: { audio_source_id: sourceId },
   });
 }

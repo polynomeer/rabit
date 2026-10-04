@@ -455,7 +455,22 @@ export interface DigTrailNodeTable {
   created_at: CreatedAt;
 }
 
+export interface SearchDocumentTable {
+  id: string;
+  doc_kind: 'recording' | 'release' | 'artist' | 'person' | 'label' | 'private_audio' | 'audio_log';
+  owner_workspace_id: string | null;
+  visibility: 'private' | 'public';
+  title: string;
+  subtitle: string | null;
+  body: string;
+  exact_keys: string[];
+  tsv: ColumnType<string, string, string>;
+  norm: string;
+  updated_at: UpdatedAt;
+}
+
 export interface Database {
+  search_document: SearchDocumentTable;
   listening_event: ListeningEventTable;
   recording_popularity: RecordingPopularityTable;
   dig_session: DigSessionTable;

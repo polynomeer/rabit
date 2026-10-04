@@ -6,7 +6,7 @@ import type { AudioLogTable } from '../../platform/db/schema.js';
 import { errors } from '../../platform/errors.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
-import { getOwnSource } from './sources.js';
+import { emitMetadataChanged, getOwnSource } from './sources.js';
 
 /** Checks that a catalog recording exists (catalog context); false when unknown. */
 export type RecordingExists = (db: DbOrTx, recordingId: string) => Promise<boolean>;
@@ -105,6 +105,7 @@ export async function createAudioLog(
           tags: normalizeTags(input.tags),
         })
         .execute();
+      await emitMetadataChanged(tx, source.id, source.workspace_id);
       // Keep the source title in sync so library listings show the log title.
       await tx
         .updateTable('audio_source')
@@ -159,6 +160,12 @@ export async function updateAudioLog(
       })
       .where('id', '=', id)
       .execute();
+    const src = await tx
+      .selectFrom('audio_source')
+      .select('workspace_id')
+      .where('id', '=', current.audio_source_id)
+      .executeTakeFirstOrThrow();
+    await emitMetadataChanged(tx, current.audio_source_id, src.workspace_id);
     if (patch.title !== undefined) {
       await tx
         .updateTable('audio_source')
