@@ -16,6 +16,12 @@ describe('config', () => {
     ).toThrow(/AUTH_DEV_ISSUER_ENABLED/);
   });
 
+  it('refuses disabled rate limits in production', () => {
+    expect(() =>
+      loadConfig({ ...base, NODE_ENV: 'production', AUTH_DEV_ISSUER_ENABLED: 'false', AUTH_JWKS_URL: 'https://idp.example/jwks', RATE_LIMIT_ENABLED: 'false' }),
+    ).toThrow(/RATE_LIMIT_ENABLED/);
+  });
+
   it('requires a JWKS URL when the dev issuer is disabled', () => {
     expect(() =>
       loadConfig({ ...base, AUTH_DEV_ISSUER_ENABLED: 'false', AUTH_JWKS_URL: '' }),

@@ -39,6 +39,9 @@ const envSchema = z
     MEDIA_TOKEN_SECRET: secret,
     CURSOR_SECRET: secret,
 
+    /** Per-user API rate limits (api-guidelines §8). Disabling is allowed only outside production (benchmarks). */
+    RATE_LIMIT_ENABLED: bool.default(true),
+
     WORKER_CONCURRENCY: positiveInt.default(2),
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
     FFPROBE_PATH: z.string().min(1).default('ffprobe'),
@@ -57,6 +60,9 @@ const envSchema = z
         path: ['AUTH_DEV_ISSUER_ENABLED'],
         message: 'must be false when NODE_ENV=production',
       });
+    }
+    if (c.NODE_ENV === 'production' && !c.RATE_LIMIT_ENABLED) {
+      ctx.addIssue({ code: 'custom', path: ['RATE_LIMIT_ENABLED'], message: 'must be true when NODE_ENV=production' });
     }
     if (!c.AUTH_DEV_ISSUER_ENABLED && !c.AUTH_JWKS_URL) {
       ctx.addIssue({
@@ -96,6 +102,7 @@ export interface Config {
     devIssuerEnabled: boolean;
   };
   secrets: { mediaToken: string; cursor: string };
+  rateLimit: { enabled: boolean };
   worker: { concurrency: number; ffmpegPath: string; ffprobePath: string };
   quota: {
     maxTotalBytes: number;
@@ -153,6 +160,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       devIssuerEnabled: e.AUTH_DEV_ISSUER_ENABLED,
     },
     secrets: { mediaToken: e.MEDIA_TOKEN_SECRET, cursor: e.CURSOR_SECRET },
+    rateLimit: { enabled: e.RATE_LIMIT_ENABLED },
     worker: {
       concurrency: e.WORKER_CONCURRENCY,
       ffmpegPath: e.FFMPEG_PATH,

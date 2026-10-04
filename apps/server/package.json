@@ -15,7 +15,8 @@
     "catalog:ingest": "tsx --env-file-if-exists=.env src/entry/catalog-ingest.ts",
     "start:api": "node dist/entry/api.js",
     "start:worker": "node dist/entry/worker.js",
-    "start:media": "node dist/entry/media.js"
+    "start:media": "node dist/entry/media.js",
+    "bench": "tsx --env-file-if-exists=.env bench/baseline.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",
@@ -32,11 +33,13 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/autocannon": "^7.12.7",
     "@types/node": "^24.19.1",
     "@types/pg": "^8.23.1",
     "@types/yazl": "^3.3.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "autocannon": "^8.0.0",
     "tsx": "^4.23.15",
     "vitest": "^4.1.11",
     "yaml": "^2.9.1"

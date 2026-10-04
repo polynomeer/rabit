@@ -189,6 +189,7 @@ export async function installApiAuth(
     req.principal = principal;
   });
 
+  if (!cfg.rateLimit.enabled) return;
   await app.register(rateLimit, {
     global: true,
     hook: 'preHandler',
