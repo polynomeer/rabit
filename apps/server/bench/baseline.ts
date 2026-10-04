@@ -217,15 +217,13 @@ const cat = await ingestCatalog(
       contributor: 'p',
       role: 'producer' as const,
     })),
-    grants: recordings
-      .slice(0, 3)
-      .map((r) => ({
-        recording: r.key,
-        rights_holder: 'Bench',
-        territories: ['KR'],
-        uses: ['stream' as const],
-        contract_ref: 'BENCH',
-      })),
+    grants: recordings.slice(0, 3).map((r) => ({
+      recording: r.key,
+      rights_holder: 'Bench',
+      territories: ['KR'],
+      uses: ['stream' as const],
+      contract_ref: 'BENCH',
+    })),
   },
   () => Promise.resolve(wav(30)),
 );
