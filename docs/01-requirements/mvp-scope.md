@@ -1,7 +1,86 @@
 # Rabit MVP Scope
 
-- 상태: **Phase 1 초안 — MVP 미확정.** 이 문서는 원문들이 각각 정의한 MVP와 장기 비전을 분리해 나란히 보여줍니다. MVP 경계 결정은 Playbook Phase 2에서 사람의 합의 후 수행합니다(CNF-04).
-- 요구사항 ID: [prd.md](prd.md) · 미결정: [open-questions.md](../00-product/open-questions.md)
+- 상태: **Phase 2 확정 (2026-10-04).** §0이 결정, §1–5는 Phase 1에서 정리한 원문 비교(근거)입니다.
+- 요구사항 ID: [prd.md](prd.md) · 미결정: [open-questions.md](../00-product/open-questions.md) · 로드맵: [roadmap.md](../plans/roadmap.md)
+
+## 0. 결정 (Phase 2)
+
+### 0.1 Product owner 결정 (2026-10-04)
+1. **DIG는 핵심 축이다** (CNF-01/02). 제품 축: Listen / Own / Create / Collect / Remember / Trust / **Dig**.
+2. **MVP로 간다**: MVP는 PB 가설 중심 범위이며 Credits Digging을 포함한다 (CNF-03/04).
+3. **사람 개입이 필요한 결정은 문서로만 남기고, 구현 가능한 것은 구현한다.**
+
+### 0.2 검증 가설
+> 사용자는 스트리밍 카탈로그와 자신의 오디오를 하나의 라이브러리/플레이어에서 관리하고, DIG를 통해 능동적으로 음악을 탐험하는 경험에 가치를 느낀다.
+
+### 0.3 MVP 경계 해석
+- **카탈로그 스트리밍**은 가설의 일부이므로 *구조*(Catalog source, RightsGrant, Entitlement, Subscription 상태, 접근 시점 검사, 권리 철회)를 MVP에 구현한다. 콘텐츠는 **직접 제작한 fixture 오디오만** 사용한다(CAT-008).
+- **Commercial Gate**(사람 결정 필요 — 구현하지 않고 문서·인터페이스만): 실제 카탈로그 계약(Q02), 결제 제공자·가격·세금(Q04, ADR-06), 구매 다운로드 범위(Q05), 실판매 오픈, 공개 UGC 정책(Q07). 이 gate가 열리기 전 MVP는 **내부 알파 / 초대 베타**로만 운영할 수 있다.
+- Subscription·purchase entitlement는 MVP에서 **운영자 grant 또는 sandbox 경로**로만 생성한다. 사용자 입력으로 결제 확정이 일어나는 경로는 만들지 않는다(COM-004).
+
+### 0.4 P0 / P1 / P2 (통합 표기, CNF-05)
+
+| 우선순위 | 의미 | 구현 여부 |
+|---|---|---|
+| **P0** | MVP. 가설 검증에 필요 | 구현 |
+| **P1** | MVP 직후. 사람 결정(gate) 해소 또는 P0 안정화 후 | 문서/인터페이스. gate 무관 항목은 여유 시 구현 |
+| **P2** | 장기·연구 | 설계 문서만 |
+
+### 0.5 기능별 분석
+
+| 기능 | 사용자 가치 | 난이도 | 법률/권리 의존 | 외부 데이터 의존 | 운영비 | 선행 기술 | 결정 | 이유 |
+|---|---|---|---|---|---|---|---|---|
+| Auth (OIDC) | 필수 | 중 | 낮음 | OIDC 공급자 | 낮음 | — | **P0** | 모든 권한의 기반 |
+| Private Upload + Processing | 높음 (Archive 핵심) | 높음 | 중 (개인 클라우드 보관 적법성은 Legal 문서화) | 없음 | 중 (저장·변환) | UAO, storage, queue | **P0** | 가설의 "자신의 오디오" |
+| Audio Log | 높음 | 중 | 낮음 (타인 음성 안내는 문서) | 없음 | 낮음 | Upload | **P0** | AudioObject 통합 검증 |
+| Universal AudioObject | 기반 | 높음 | 기반 구조 | 없음 | — | — | **P0** | invariant 1 |
+| Library / Archive / Playlist (혼합) | 높음 | 중 | entitlement 재평가 | 없음 | 낮음 | UAO | **P0** | "하나의 라이브러리/플레이어" |
+| Playback (HLS, 단기 세션) | 필수 | 높음 | 접근 시점 rights 검사 | 없음 | CDN egress | Transcoding | **P0** | 품질이 제품 기능 |
+| Catalog 구조 + RightsGrant + Entitlement | 가설 핵심 | 중 | **실계약은 Gate** | 카탈로그 메타데이터 | 낮음 | UAO | **P0 (fixture)** | 구조 없이 혼합 라이브러리 검증 불가 |
+| 권리 철회 전파 | 필수 안전장치 | 중 | — | — | — | Playback | **P0** | 필수 negative test |
+| Metadata / Credits | 높음 | 중 | 크레딧 데이터 출처 Legal | 크레딧 소스 | 낮음 | Catalog | **P0** | Credits Digging 기반 |
+| Search (기본 + private scope) | 높음 | 중 | 낮음 | 없음 | 낮음 | Metadata | **P0** | 라이브러리 사용성 |
+| Rabbit Hole / Credits Digging / Deep Cut / Trail | 핵심 차별화 | 중 | 관계 데이터 라이선스 (OQ-DIG-06) | 관계 데이터 | 낮음 | Credits, 관계 테이블 | **P0** | 가설의 "DIG" |
+| 기본 Integrity (Passport 기본, 축 분리, 신고 접수) | 신뢰 | 중 | Human Verified 기준은 사람 결정 | 없음 | 낮음 | Credits | **P0 (구조)** | AI/spam/quality 축 분리를 처음부터 |
+| Audit log | 운영 필수 | 낮음 | — | — | 낮음 | — | **P0** | rights/entitlement 변경 추적 |
+| Export / Delete | 높음 (반 락인) | 중 | 보존 기간은 Legal | 없음 | 낮음 | UAO | **P0** | invariant 12 |
+| Listening events | 중 | 중 | 정산 기준은 계약 | 없음 | 중 | Playback | **P0 (기본)** | Deep Cut 인지도 산출 |
+| 주문·결제·원장·구매 다운로드 | 높음 | 높음 | **Gate (Q02/Q04/Q05)** | 결제 공급자 | 중 | Entitlement | **P1** | 사람 결정 필요 |
+| Studio 공개 릴리스·심사·판매자 | 중 | 높음 | **Gate (Q07)** | — | 운영 인력 | Integrity | **P1** | 공개 UGC 정책 미정 |
+| AI 필터 모드 (Human Only 등) | 중 | 중 | Human Only 기준 Q08 | — | 낮음 | Passport | **P1** | 기준이 사람 결정 |
+| Physical Collection 수동 등록 | 중 | 낮음 | 낮음 (등록만) | 판본 DB 라이선스 | 낮음 | Catalog | **P1** | 가설 외 |
+| Human curation / Slow Discovery | 중 | 낮음 | 낮음 | 편집 인력 | 인력 | Catalog | **P1** | 가설 외, 인력 필요 |
+| Dig Session Summary, 공개 Trail 공유 | 중 | 낮음 | 모더레이션 정책 OQ-DIG-07 | — | 낮음 | Trail | **P1** | 공개 공유는 정책 필요 |
+| Crate / Blind / Label / Scene Digging | 중 | 중 | Scene taxonomy 정책 | Scene/Label 데이터 | 낮음 | DIG P0 | **P2** | DIG V1 |
+| Music Atlas / Local Charts / 위치 | 높음 (장기) | 높음 | 위치정보법 Legal, privacy threshold Q09 | 충분한 청취 표본 | 중 | Listening events | **P2 (설계)** | 표본·법률 선행 |
+| Semantic / Sound / Instrument Digging | 높음 (장기) | 매우 높음 | 분석 허가 (CAT-009) | 모델 | GPU | MIR pipeline | **P2 (설계)** | 평가 데이터 선행 |
+| Stem / DSP / Perceptual ABR / Transition | 중 | 매우 높음 | 변형·stem 특약 Q14 | — | 높음 | Playback | **P2 (연구)** | 실험 트랙 |
+| CD Digital Upgrade, CD 리핑 | 중 | 중 | **Legal (Q11)** | 권리자 Offer | — | Collection | **P2** | 계약 필요 |
+
+### 0.6 P0 요구사항 집합 (구현 대상)
+
+- ACC-001–005, ACC-009 (ACC-004는 한도 *메커니즘*을 구현하고 수치는 설정값으로 둔다 — 값은 Q03)
+- AUD-001–016, AUD-017 (잠정 ladder, ADR로 provisional 명시)
+- PLY-001–011, PLY-014–017 (PLY-009·010은 fixture 카탈로그, PLY-012 오프라인 제외, PLY-013은 서버 측 license_country 정책으로 구현하고 실제 국가 판정 규칙은 Legal 문서화)
+- LIB-001–010, LIB-012
+- LOG-001–005, LOG-008, LOG-009 (LOG-006 ASR은 P2, LOG-007은 안내 문구만 문서화)
+- STU-001, STU-002, STU-004
+- CAT-002–005, CAT-008 (CAT-001/006/007/009는 Legal 문서)
+- COM-009, COM-016 (entitlement 모델·검사), COM-007의 원장 구조는 P1
+- TRU-001(기본), TRU-002(검증 수준 enum은 원문 합집합으로 저장), TRU-004, TRU-007, TRU-009(신고 접수), TRU-010
+- DIG-001–007, DIG-018–023, DIG-025, DIG-026
+- SRC-001–003, SRC-007–009
+- DSC-004, DSC-006
+- OPS-007(문서·감사 구조), OPS-010
+- 모든 Confirmed NFR, 그리고 P0 기능이 의존하는 NFR
+
+### 0.7 P0 출시(내부 알파) 종료 조건
+1. 타 계정 private 자료 접근 0건(목록·검색·재생·export·DIG·playlist 경로의 negative test 통과)
+2. 업로드 재시도·중복 finalize·job retry가 멱등
+3. 삭제가 원본·파생물·검색 인덱스에 전파되고 tombstone이 재생성을 막음
+4. 권리 철회 후 신규 재생 세션 거부, 기존 세션 refresh 거부, media 자격 만료 ≤ 60초
+5. DIG: 모든 relation에 근거·provenance·verification 표시, 사실/추론 구분, Deep Cut이 인지도 구간을 분리
+6. clean clone에서 bootstrap/build/test/lint/typecheck 통과
 
 ## 1. 원문별 MVP 정의
 
@@ -95,10 +174,6 @@ M3 기능이라도 비공개 격리·권리 확인 같은 기반 요구는 M0부
 ### 5.2 DIG (DIG §10)
 Dig Start Rate, Nodes per Dig Session, Discovery Save Rate, New Artist Discovery Rate, Trail Save/Share Rate, Dig-to-Purchase Conversion, 30/90-day Rediscovery, Depth Diversity
 
-## 6. Phase 2에서 결정할 것
+## 6. Phase 1 → Phase 2 결정 이력
 
-1. **CNF-04**: MVP에 허가 카탈로그·유료 구독·앨범 판매·entitlement를 포함하는가? (포함 시 Q02·Q04·Q05가 출시 critical path)
-2. **CNF-01/02**: DIG를 핵심 축으로 공식화하고 REQ 레지스트리에 편입하는가?
-3. **CNF-03**: Credits Digging(관계 테이블 기반)을 MVP에 포함하는가? (AP는 Credits Graph를 M2로 둠)
-4. **CNF-05**: 통합 단계 표기(P0/P1/P2와 M0–M3·DIG 단계의 관계)
-5. 각 후보 기능의 사용자 가치, 구현 난이도, 법률/권리 의존성, 외부 데이터 의존성(예: credits·샘플 관계 데이터 출처), 운영비, 선행 기술 분석 (PB Phase 2)
+Phase 1에서 열려 있던 CNF-01/02/03/04/05는 §0에서 결정했습니다. 결정 근거와 날짜는 [open-questions.md](../00-product/open-questions.md) §4에 기록했습니다.
