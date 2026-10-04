@@ -469,7 +469,61 @@ export interface SearchDocumentTable {
   updated_at: UpdatedAt;
 }
 
+export type IntegrityAxis =
+  | 'ai_generation'
+  | 'technical_quality'
+  | 'spam_risk'
+  | 'rights_status'
+  | 'recommendation_eligibility';
+
+export interface ProvenanceClaimTable {
+  id: string;
+  subject_entity_id: string;
+  claim_type: 'creation_method' | 'rights_statement';
+  stage:
+    'composition' | 'lyrics' | 'vocals' | 'instruments' | 'mixing' | 'mastering' | 'artwork' | null;
+  value: string;
+  issuer: string;
+  basis: Basis;
+  verification_state: VerificationState;
+  evidence_ref: string | null;
+  created_at: CreatedAt;
+}
+
+export interface IntegritySignalTable {
+  id: string;
+  subject_entity_id: string;
+  axis: IntegrityAxis;
+  value: string;
+  basis: 'declared' | 'automated' | 'reviewed';
+  internal_score: number | null;
+  model_version: string | null;
+  created_at: CreatedAt;
+}
+
+export interface ReportTable {
+  id: string;
+  reporter_user_id: string;
+  subject_type: 'recording' | 'release' | 'artist' | 'relation' | 'credit';
+  subject_id: string;
+  reason_code:
+    | 'wrong_credit'
+    | 'wrong_relation'
+    | 'undisclosed_ai'
+    | 'spam'
+    | 'impersonation'
+    | 'rights_infringement'
+    | 'other';
+  details: string | null;
+  status: Generated<'received' | 'triaged' | 'actioned' | 'dismissed'>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
 export interface Database {
+  provenance_claim: ProvenanceClaimTable;
+  integrity_signal: IntegritySignalTable;
+  report: ReportTable;
   search_document: SearchDocumentTable;
   listening_event: ListeningEventTable;
   recording_popularity: RecordingPopularityTable;

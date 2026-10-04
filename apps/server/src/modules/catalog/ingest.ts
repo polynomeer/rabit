@@ -98,6 +98,26 @@ export const manifestSchema = z.strictObject({
       }),
     )
     .default([]),
+  claims: z
+    .array(
+      z.strictObject({
+        subject: key,
+        stage: z.enum([
+          'composition',
+          'lyrics',
+          'vocals',
+          'instruments',
+          'mixing',
+          'mastering',
+          'artwork',
+        ]),
+        method: z.enum(['human', 'ai_assisted', 'ai_generated', 'unknown']),
+        issuer: z.string().min(1).max(200),
+        basis: basis.default('declared'),
+        verification_state: verification.default('self_declared'),
+      }),
+    )
+    .default([]),
   grants: z
     .array(
       z.strictObject({
@@ -301,6 +321,22 @@ export async function ingestCatalog(
           license_status: r.license_status,
           valid_from: null,
           valid_to: null,
+        })
+        .execute();
+    }
+    for (const c of m.claims) {
+      await tx
+        .insertInto('provenance_claim')
+        .values({
+          id: newId('provenanceClaim'),
+          subject_entity_id: need(c.subject),
+          claim_type: 'creation_method',
+          stage: c.stage,
+          value: c.method,
+          issuer: c.issuer,
+          basis: c.basis,
+          verification_state: c.verification_state,
+          evidence_ref: null,
         })
         .execute();
     }

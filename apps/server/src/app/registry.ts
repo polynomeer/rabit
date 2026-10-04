@@ -15,6 +15,8 @@ import { getUser, identityModule } from '../modules/identity/index.js';
 import { deleteAccountDig, digExportSection, digModule } from '../modules/dig/index.js';
 import { deleteAccountLibrary, libraryModule } from '../modules/library/index.js';
 import { deleteAccountSearch, searchModule } from '../modules/search/index.js';
+import { excludedEntities, integrityModule } from '../modules/integrity/index.js';
+import { opsModule } from '../modules/ops/index.js';
 import { playability, playbackModule, type CatalogAccess } from '../modules/playback/index.js';
 import type { Module } from './modules.js';
 
@@ -70,6 +72,8 @@ export function allModules(): Module[] {
     playbackModule({ catalogAccess, resolveRecordingSource: recordingSource }),
     libraryModule({ catalogAccess, exportSections: () => [digExportSection] }),
     searchModule(),
-    digModule({ catalogAccess, excludedEntities: () => Promise.resolve(new Set<string>()) }),
+    integrityModule(),
+    opsModule(),
+    digModule({ catalogAccess, excludedEntities }),
   ];
 }

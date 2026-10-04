@@ -683,6 +683,74 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
 
+  /v1/ops/reports:
+    get:
+      tags: [ops]
+      operationId: opsListReports
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [received, triaged, actioned, dismissed] } }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Reports for triage (reporter identity omitted)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [report_id, subject_type, subject_id, reason_code, details, status, created_at]
+                      properties:
+                        report_id: { $ref: '#/components/schemas/Id' }
+                        subject_type: { type: string }
+                        subject_id: { $ref: '#/components/schemas/Id' }
+                        reason_code: { type: string }
+                        details: { type: [string, 'null'] }
+                        status: { type: string }
+                        created_at: { $ref: '#/components/schemas/Timestamp' }
+        '403': { $ref: '#/components/responses/Error' }
+  /v1/ops/reports/{report_id}/status:
+    parameters: [ { name: report_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [ops]
+      operationId: opsChangeReportStatus
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [status, reason], properties: { status: { type: string, enum: [triaged, actioned, dismissed] }, reason: { $ref: '#/components/schemas/Reason' } } } } }
+      responses:
+        '200': { description: Changed, content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/ops/integrity-signals:
+    post:
+      tags: [ops]
+      operationId: opsRecordIntegritySignal
+      description: Records a reviewed decision on one integrity axis. Only reviewed `recommendation_eligibility = excluded` removes an entity from DIG candidates.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [subject_entity_id, axis, value, reason]
+              properties:
+                subject_entity_id: { $ref: '#/components/schemas/Id' }
+                axis: { type: string, enum: [ai_generation, technical_quality, spam_risk, rights_status, recommendation_eligibility] }
+                value: { type: string, minLength: 1, maxLength: 50 }
+                reason: { $ref: '#/components/schemas/Reason' }
+      responses:
+        '201':
+          description: Recorded
+          content: { application/json: { schema: { type: object, required: [axis, value, basis], properties: { axis: { type: string }, value: { type: string }, basis: { type: string, enum: [reviewed] } } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+
   /media/v1/{media_token}/{path}:
     get:
       tags: [media]

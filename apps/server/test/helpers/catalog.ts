@@ -99,6 +99,17 @@ export async function seedCatalog(h: Harness, opts: { grant?: boolean } = {}) {
         verification_state: 'self_declared',
       },
     ],
+    claims: [
+      {
+        subject: 'r1',
+        stage: 'composition',
+        method: 'human',
+        issuer: 'Fixture Records',
+        basis: 'declared',
+        verification_state: 'distributor_verified',
+      },
+      { subject: 'r1', stage: 'mastering', method: 'ai_assisted', issuer: 'Fixture Records' },
+    ],
     grants:
       opts.grant === false
         ? []
