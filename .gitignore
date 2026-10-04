@@ -18,3 +18,4 @@ coverage/
 *.log
 .tmp/
 infra/demo/out/
+apps/web/e2e-results/

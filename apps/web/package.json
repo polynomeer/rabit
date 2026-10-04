@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo 'web: no unit tests (verified via API contract + manual smoke)'"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p e2e/tsconfig.json",
+    "test": "echo 'web: no unit tests (verified via API contract + manual smoke)'",
+    "e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "dependencies": {
     "hls.js": "^1.7.3",
@@ -14,8 +15,12 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.19.1",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "pg": "^8.23.1",
     "vite": "^8.3.2"
   }
 }

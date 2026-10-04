@@ -5,3 +5,4 @@ docs/
 pnpm-lock.yaml
 dist/
 coverage/
+e2e-results/

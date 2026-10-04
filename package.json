@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "test": "pnpm -r test",
     "db:migrate": "pnpm --filter @rabit/server migrate:up",
-    "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test"
+    "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test",
+    "e2e": "pnpm --filter @rabit/web e2e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
