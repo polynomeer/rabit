@@ -26,5 +26,12 @@
 ## Areas the reviewer verified with no issue
 Private-source isolation on every path (sources, uploads, logs, playlists, library, DIG, search, exports, playback, listening), media gateway (path allow-list, signed namespace, timing-safe HMAC, per-request session/source check), auth on all routes (operator role + MFA, dev issuer refused in production, deletion-pending accounts blocked), no client-supplied ownership/territory/entitlement, upload quota locking and presign binding, media inspection hardening, job/outbox semantics, playlist concurrency, rights/entitlement versioning, signed cursors, log redaction, API contract parity.
 
+## Found while closing #6: clock mixing
+Investigating two intermittent test failures showed that the app clock and the database clock were compared with each other:
+- Job due times were written on the app clock but claimed against `now()`. A host clock even slightly ahead of the database made a fresh job "not yet due", so `drain()` returned without running it. Fixed in `d86e83a`, with a skew test in `jobs`.
+- The listening budget subtracted the database-default `issued_at` from the API host's `Date.now()`. Fixed in `d4da94e` (budget on `now()`), with a skew test in `dig`.
+
+Still mixed, but tolerable: time limits that have a large margin compared with normal (NTP) skew. Entitlement and grant `valid_from` default to `now()` and are compared with the app clock, so a grant can become valid a few milliseconds late. Session expiry is set and checked on the app clock and has a 60 s grace period. Rule for new code: compare a timestamp only with one written on the same clock. Prefer the database `now()` when the value is written by a database default.
+
 ## Remaining follow-ups
 - True interleaving test for #5 (fault-injection hook in the delete job).
