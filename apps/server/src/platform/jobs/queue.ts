@@ -119,15 +119,44 @@ export async function failJob(
   return dead ? 'dead' : 'retry';
 }
 
-/** Requeues jobs whose worker died while holding the lease. */
-export async function reclaimExpiredLeases(db: DbOrTx): Promise<number> {
-  const res = await db
-    .updateTable('job')
-    .set({ status: 'queued', locked_by: null, locked_until: null, updated_at: new Date() })
-    .where('status', '=', 'running')
-    .where('locked_until', '<', new Date())
-    .executeTakeFirst();
-  return Number(res.numUpdatedRows);
+/**
+ * Recovers jobs whose worker died while holding the lease. A crash counts as an
+ * attempt: jobs that already used all attempts go to the DLQ instead of being
+ * requeued forever (a poison pill that kills workers must not loop, review #3).
+ * Returns the jobs that became dead so their `onDead` compensation can run.
+ */
+export async function reclaimExpiredLeases(
+  db: DbOrTx,
+): Promise<{ requeued: number; dead: ClaimedJob[] }> {
+  const rows = await sql<{
+    id: string;
+    kind: string;
+    payload: Record<string, unknown>;
+    attempts: number;
+    max_attempts: number;
+    correlation_id: string | null;
+    status: string;
+  }>`
+    UPDATE job SET
+      status = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'queued' END,
+      run_after = now() + make_interval(secs => LEAST(900, 5 * power(2, GREATEST(attempts - 1, 0)))),
+      last_error = 'lease expired (worker crashed or timed out)',
+      locked_by = NULL,
+      locked_until = NULL,
+      updated_at = now()
+    WHERE status = 'running' AND locked_until < now()
+    RETURNING id, kind, payload, attempts, max_attempts, correlation_id, status`.execute(db);
+  const dead = rows.rows
+    .filter((r) => r.status === 'dead')
+    .map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      payload: r.payload,
+      attempts: r.attempts,
+      maxAttempts: r.max_attempts,
+      correlationId: r.correlation_id,
+    }));
+  return { requeued: rows.rows.length - dead.length, dead };
 }
 
 /** Operator retry of a dead/failed job (ops API). */

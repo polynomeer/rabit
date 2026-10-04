@@ -6,7 +6,7 @@ import { audit } from '../../platform/audit.js';
 import { errors } from '../../platform/errors.js';
 import { requireOperator } from '../../platform/http/principal.js';
 import { idOf, limitSchema, parse } from '../../platform/http/validation.js';
-import { requeueJob, reclaimExpiredLeases } from '../../platform/jobs/queue.js';
+import { requeueJob } from '../../platform/jobs/queue.js';
 
 type JobRow = {
   id: string;
@@ -125,7 +125,7 @@ export function opsModule(): Module {
         kind: 'ops.housekeeping',
         leaseMs: 5 * 60_000,
         async handle() {
-          await reclaimExpiredLeases(ctx.db);
+          // Lease recovery runs in every worker process (JobRunner.reclaim), with onDead.
           // Retention proposals (erd §4): finished jobs 14 d, idempotency records 2 d (≥ 24 h guarantee).
           await ctx.db
             .deleteFrom('job')

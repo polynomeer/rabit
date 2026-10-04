@@ -1,5 +1,4 @@
 import { dispatchOutbox } from '../platform/jobs/outbox.js';
-import { reclaimExpiredLeases } from '../platform/jobs/queue.js';
 import { JobRunner } from '../platform/jobs/runner.js';
 import type { AppContext } from './context.js';
 import { mergeSubscriptions, type Module } from './modules.js';
@@ -27,7 +26,7 @@ export function buildWorker(ctx: AppContext, modules: Module[]): WorkerProcess {
   let loop: Promise<void> | null = null;
 
   const housekeeping = async () => {
-    await reclaimExpiredLeases(ctx.db);
+    await runner.reclaim();
     await enqueueDueSchedules(ctx.db, schedules);
   };
 

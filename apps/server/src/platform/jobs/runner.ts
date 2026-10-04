@@ -3,7 +3,7 @@ import type { Logger } from 'pino';
 import type { Db } from '../db/db.js';
 import { ulid } from '../ids.js';
 import { metrics } from '../metrics.js';
-import { claimJobs, completeJob, failJob, type ClaimedJob } from './queue.js';
+import { claimJobs, completeJob, failJob, reclaimExpiredLeases, type ClaimedJob } from './queue.js';
 
 /** Thrown by handlers for failures that retrying cannot fix (e.g. unsupported media). */
 export class PermanentJobError extends Error {
@@ -79,6 +79,25 @@ export class JobRunner {
       }
     }
     while (this.running > 0) await new Promise((r) => setTimeout(r, 50));
+  }
+
+  /** Recovers expired leases and runs compensation for jobs that became dead. */
+  async reclaim(): Promise<number> {
+    const { requeued, dead } = await reclaimExpiredLeases(this.opts.db);
+    for (const job of dead) {
+      const handler = this.handlers.get(job.kind);
+      const log = this.opts.log.child({ job_id: job.id, job_kind: job.kind });
+      metrics.jobsTotal.inc({ kind: job.kind, outcome: 'dead' });
+      log.error('job dead-lettered after its worker repeatedly lost the lease');
+      if (!handler?.onDead) continue;
+      const ac = new AbortController();
+      try {
+        await handler.onDead({ job, log, signal: ac.signal }, new Error('lease expired'));
+      } catch (err) {
+        log.error({ err }, 'onDead handler failed');
+      }
+    }
+    return requeued + dead.length;
   }
 
   stop(): void {

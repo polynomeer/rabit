@@ -106,8 +106,46 @@ describe('job queue', () => {
     await enqueue(ctx.db, { kind, payload: {}, dedupeKey: `${kind}:1` });
     await claimJobs(ctx.db, { workerId: 'crashed', kinds: [kind], limit: 1, leaseMs: 1 });
     await new Promise((r) => setTimeout(r, 20));
-    expect(await reclaimExpiredLeases(ctx.db)).toBeGreaterThanOrEqual(1);
+    expect((await reclaimExpiredLeases(ctx.db)).requeued).toBeGreaterThanOrEqual(1);
     expect((await jobsOfKind(kind))[0]?.status).toBe('queued');
+  });
+
+  it('dead-letters a job whose worker keeps crashing and runs onDead (review #3)', async () => {
+    const kind = `t.poison.${ulid()}`;
+    await enqueue(ctx.db, { kind, payload: {}, dedupeKey: `${kind}:1`, maxAttempts: 2 });
+    let dead = 0;
+    const runner = new JobRunner({
+      db: ctx.db,
+      log: ctx.log,
+      concurrency: 1,
+      handlers: [
+        {
+          kind,
+          leaseMs: 5_000,
+          handle: () => Promise.resolve(),
+          onDead: () => {
+            dead++;
+            return Promise.resolve();
+          },
+        },
+      ],
+    });
+    for (let i = 0; i < 3; i++) {
+      // Simulate a worker that claims the job and dies (lease expires, no failJob).
+      await ctx.db
+        .updateTable('job')
+        .set({ run_after: new Date() })
+        .where('kind', '=', kind)
+        .execute();
+      await claimJobs(ctx.db, { workerId: `crashed-${i}`, kinds: [kind], limit: 1, leaseMs: 1 });
+      await new Promise((r) => setTimeout(r, 20));
+      await runner.reclaim();
+    }
+    const [job] = await jobsOfKind(kind);
+    expect(job?.status).toBe('dead');
+    expect(job?.attempts).toBe(2);
+    expect(job?.last_error).toMatch(/lease expired/);
+    expect(dead).toBe(1);
   });
 
   it('computes bounded backoff', () => {
