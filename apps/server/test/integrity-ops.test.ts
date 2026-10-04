@@ -137,6 +137,22 @@ describe('integrity in DIG (DIG-020, TRU-008)', () => {
       });
     expect((await post('excluded')).statusCode).toBe(201);
     expect(await sampledBy()).toEqual([]);
+    // A client cannot step to an excluded entity either (review #9).
+    const session = (
+      await h.api.inject({
+        method: 'POST',
+        url: '/v1/dig-sessions',
+        headers: u.headers,
+        payload: { entity_id: id('r1') },
+      })
+    ).json();
+    const step = await h.api.inject({
+      method: 'POST',
+      url: `/v1/dig-sessions/${session.dig_session_id}/steps`,
+      headers: u.headers,
+      payload: { entity_id: id('r3'), axis: 'sampled_by' },
+    });
+    expect(step.statusCode).toBe(422);
     // Direct catalog access and playback are unaffected by DIG eligibility.
     expect(
       (await h.api.inject({ url: `/v1/recordings/${id('r3')}`, headers: u.headers })).statusCode,

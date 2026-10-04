@@ -133,7 +133,7 @@ export const digRoutes =
       const r = await withIdempotency(
         ctx.db,
         { userId: p.userId, operation: `dig.step:${dig_session_id}`, key, request: body },
-        async () => ({ status: 201, body: await addStep(ctx.db, p, dig_session_id, body) }),
+        async () => ({ status: 201, body: await addStep(ctx.db, deps, p, dig_session_id, body) }),
       );
       return reply.status(r.status).send(r.body);
     });

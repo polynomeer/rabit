@@ -19,6 +19,9 @@ import {
   type PopularityFilter,
 } from './connections.js';
 
+/** Bounded so trails and trail playlists stay cheap to render (review #6). */
+export const MAX_TRAIL_NODES = 500;
+
 export interface DigDeps {
   catalogAccess: CatalogAccess;
   /** Entities excluded from DIG candidates by Music Integrity (DIG-020). */
@@ -279,6 +282,7 @@ export async function getSession(db: DbOrTx, principal: Principal, id: string) {
  */
 export async function addStep(
   db: Db,
+  deps: DigDeps,
   principal: Principal,
   id: string,
   step: {
@@ -307,7 +311,8 @@ export async function addStep(
         (step.relation_id === undefined || c.relationId === step.relation_id) &&
         (step.credit_id === undefined || c.creditId === step.credit_id),
     );
-    if (!match) {
+    // Entities excluded by a reviewed integrity decision are not reachable (DIG-020, review #9).
+    if (!match || (await deps.excludedEntities(tx, [step.entity_id])).has(step.entity_id)) {
       throw errors.unprocessable(
         'INVALID_RELATION_STEP',
         'That connection does not exist from this point.',
@@ -320,6 +325,11 @@ export async function addStep(
       .executeTakeFirstOrThrow();
     // A parent node exists (checked above), so the session has at least one node.
     const seq = last.m + 1;
+    if (seq >= MAX_TRAIL_NODES) {
+      throw errors.invalidState(
+        `A dig trail can hold at most ${MAX_TRAIL_NODES} steps. Start a new session.`,
+      );
+    }
     await tx
       .insertInto('dig_trail_node')
       .values({
