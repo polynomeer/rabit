@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MediaTokenCodec } from '../src/platform/media-token.js';
 import { BUCKETS } from '../src/platform/storage/blob-store.js';
@@ -491,7 +492,7 @@ describe('private audio: job retry and idempotency (T15)', () => {
       expect(job.status).toBe('queued');
       await h.ctx.db
         .updateTable('job')
-        .set({ run_after: new Date() })
+        .set({ run_after: sql<Date>`now()` })
         .where('id', '=', job.id)
         .execute();
       await h.worker.drain();

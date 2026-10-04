@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { dispatchOutbox, emit } from '../../src/platform/jobs/outbox.js';
 import {
@@ -64,7 +65,7 @@ describe('job queue', () => {
     expect(job?.run_after.getTime()).toBeGreaterThan(Date.now());
     await ctx.db
       .updateTable('job')
-      .set({ run_after: new Date() })
+      .set({ run_after: sql<Date>`now()` })
       .where('kind', '=', kind)
       .execute();
     await runner.drain();
@@ -134,7 +135,7 @@ describe('job queue', () => {
       // Simulate a worker that claims the job and dies (lease expires, no failJob).
       await ctx.db
         .updateTable('job')
-        .set({ run_after: new Date() })
+        .set({ run_after: sql<Date>`now()` })
         .where('kind', '=', kind)
         .execute();
       await claimJobs(ctx.db, { workerId: `crashed-${i}`, kinds: [kind], limit: 1, leaseMs: 1 });

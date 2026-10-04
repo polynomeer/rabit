@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { newId } from '../src/platform/ids.js';
 import { fixtures } from './helpers/audio-fixtures.js';
@@ -252,7 +253,7 @@ describe('operations console (OPS-010)', () => {
         await h.worker.drain();
         await h.ctx.db
           .updateTable('job')
-          .set({ run_after: new Date() })
+          .set({ run_after: sql<Date>`now()` })
           .where('status', '=', 'queued')
           .where('kind', '=', 'audio.process')
           .execute();
