@@ -64,6 +64,8 @@ export async function recordListeningEvents(
           'v.duration_ms',
           'v.recording_id',
           'src.origin',
+          // issued_at defaults to the database clock; measure elapsed time on the same one.
+          sql<Date>`now()`.as('db_now'),
         ])
         .where('p.id', '=', sessionId)
         .forUpdate(['p'])
@@ -81,7 +83,7 @@ export async function recordListeningEvents(
         .where('session_id', '=', s.id)
         .where('accepted', '=', true)
         .executeTakeFirstOrThrow();
-      let budget = now - s.issued_at.getTime() + PLAYED_TOLERANCE_MS - used.ms;
+      let budget = s.db_now.getTime() - s.issued_at.getTime() + PLAYED_TOLERANCE_MS - used.ms;
 
       for (const e of list) {
         let reason: string | null = null;

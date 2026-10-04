@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { enqueue } from '../src/platform/jobs/queue.js';
 import { fixtures } from './helpers/audio-fixtures.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
@@ -225,6 +225,30 @@ describe('listening events (PLY-015) and Deep Cut (DIG-007)', () => {
       },
     });
     expect(inflated.json().rejected[0].reason).toBe('played_exceeds_wall_clock');
+  });
+
+  it('budgets played time on the database clock even when the app clock differs', async () => {
+    const skewedUser = await h.user();
+    await ops.setCountry(skewedUser, 'KR');
+    await ops.subscribe(skewedUser);
+    // Only the budget is under test: the entitlement is valid on either clock.
+    await h.ctx.db
+      .updateTable('entitlement')
+      .set({ valid_from: new Date(Date.now() - 3_600_000) })
+      .where('user_id', '=', skewedUser.userId)
+      .execute();
+    // This API host's clock runs 3 s behind the database's.
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() - 3_000 });
+    try {
+      const token = await h.issuer.issue({ subject: skewedUser.subject, operator: false });
+      const { result } = await listen(
+        { ...skewedUser, token, headers: { authorization: `Bearer ${token}` } },
+        id('r2'),
+      );
+      expect(result).toEqual({ accepted: 2, duplicates: 0, rejected: [] });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('budgets played time across a whole batch and rejects ended sessions (review #2)', async () => {
