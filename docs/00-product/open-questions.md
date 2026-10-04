@@ -60,12 +60,12 @@
 
 | ID | 충돌 | 위치 | 결정 필요 사항 | 막는 단계 | 상태 |
 |---|---|---|---|---|---|
-| CNF-01 | 제품 축 6개(Dig 없음) vs 7개(Dig 포함) | AP-01 §여섯 가지 철학 vs BRD §1, PB §0 | Dig을 핵심 축으로 공식화할지 | Phase 2 | open |
-| CNF-02 | DIG가 AP-02 REQ 레지스트리에 없음 | AP-02 vs DIG | DIG 요구사항을 REQ 레지스트리에 편입할지 (Phase 1은 `DIG-xxx`로 등록하고 REQ 매핑은 `—`) | Phase 2 | open |
-| CNF-03 | Credits 탐색 단계: Credits Graph M2 vs Credits Digging DIG-MVP / PB P0 | AP-02 REQ-09 vs DIG §9 vs PB Phase 2 | Credits Digging(관계 테이블 기반)을 MVP에 포함할지 | Phase 2 | open |
-| CNF-04 | **MVP 정의**: AP-02 MVP=M1(유료 구독·앨범 판매·허가 카탈로그·entitlement 포함) vs PB 권장 P0(Auth, Private Upload, Audio Log, UAO, Library, Playlist, Playback, Transcoding, Metadata, Search, DIG MVP, 기본 Integrity/rights/audit — 결제·구독·카탈로그 계약 미언급) | AP-02 §단계 vs PB Phase 2 | MVP 경계와 검증 가설 | **Phase 2 진입 조건** | open |
-| CNF-05 | 단계 명칭 3종: M0–M3 / DIG MVP·V1–V3 / P0–P2 | AP-02, DIG §9, PB | 통합 로드맵 표기 | Phase 2 | open |
-| CNF-06 | Requirement ID: REQ-01–24 vs PB의 도메인 ID | AP-02 vs PB Phase 1 | Phase 1에서 도메인 ID를 주 ID로 쓰고 REQ를 보존 매핑함 (제안) | — | open |
+| CNF-01 | 제품 축 6개(Dig 없음) vs 7개(Dig 포함) | AP-01 §여섯 가지 철학 vs BRD §1, PB §0 | Dig을 핵심 축으로 공식화할지 | Phase 2 | **decided** 2026-10-04 (product owner): DIG는 핵심 축. 제품 축은 7개 (Listen/Own/Create/Collect/Remember/Trust/Dig) — [mvp-scope §0](../01-requirements/mvp-scope.md) |
+| CNF-02 | DIG가 AP-02 REQ 레지스트리에 없음 | AP-02 vs DIG | DIG 요구사항을 REQ 레지스트리에 편입할지 (Phase 1은 `DIG-xxx`로 등록하고 REQ 매핑은 `—`) | Phase 2 | **decided** 2026-10-04: DIG 요구사항을 정규화 레지스트리의 `DIG-xxx`로 공식 편입. AP REQ 레지스트리는 보존(원본 무수정) |
+| CNF-03 | Credits 탐색 단계: Credits Graph M2 vs Credits Digging DIG-MVP / PB P0 | AP-02 REQ-09 vs DIG §9 vs PB Phase 2 | Credits Digging(관계 테이블 기반)을 MVP에 포함할지 | Phase 2 | **decided** 2026-10-04: Credits Digging은 MVP(P0). 관계 테이블 기반, graph DB 없음. AP의 Credits Graph(TRU-005, cover/sample 등 확장 관계)는 M2 유지 |
+| CNF-04 | **MVP 정의**: AP-02 MVP=M1(유료 구독·앨범 판매·허가 카탈로그·entitlement 포함) vs PB 권장 P0(Auth, Private Upload, Audio Log, UAO, Library, Playlist, Playback, Transcoding, Metadata, Search, DIG MVP, 기본 Integrity/rights/audit — 결제·구독·카탈로그 계약 미언급) | AP-02 §단계 vs PB Phase 2 | MVP 경계와 검증 가설 | **Phase 2 진입 조건** | **decided** 2026-10-04: MVP = PB 가설 중심 범위. 상업 카탈로그 계약·결제 제공자·가격·실판매는 사람 결정이 필요한 **Commercial Gate** 트랙으로 분리하고, entitlement/rights 구조와 접근 시점 검사는 자체 제작 fixture로 MVP에 구현 — [mvp-scope](../01-requirements/mvp-scope.md) |
+| CNF-05 | 단계 명칭 3종: M0–M3 / DIG MVP·V1–V3 / P0–P2 | AP-02, DIG §9, PB | 통합 로드맵 표기 | Phase 2 | **decided** 2026-10-04: 통합 표기 P0(MVP)/P1(MVP 직후, gate 해소 시)/P2(장기). M0–M3·DIG 단계는 원문 출처 표기로만 보존 — [roadmap](../plans/roadmap.md) |
+| CNF-06 | Requirement ID: REQ-01–24 vs PB의 도메인 ID | AP-02 vs PB Phase 1 | Phase 1에서 도메인 ID를 주 ID로 쓰고 REQ를 보존 매핑함 (제안) | — | **decided** 2026-10-04 (Phase 1): 도메인 ID가 주 ID, REQ는 매핑 보존 |
 | CNF-07 | Provenance 검증 수준 enum 불일치 | AP-03 AC-09 vs AP-10 §Passport | 최종 enum (distributor_verified 포함 여부, process_evidence_reviewed 포함 여부) | Phase 4, 16 | open |
 | CNF-08 | "Verified Human Performance" vs "Human Verified" | AP-10 vs PB | 공식 명칭 | Phase 16 | open |
 | CNF-09 | 재생 판정 순서 불일치 | AP-03 §공통 재생 vs AP-08 §재생 판단 | AP-00 규칙상 권한 정본은 AP-08. AP-03 갱신 여부 확인 | Phase 6–7 | open |
@@ -79,7 +79,7 @@
 | CNF-17 | ADR 번호: `ADR-01..18` vs `ADR-xxxx-*.md` | AP-15 vs PB §2 | 번호 매핑 규칙 | Phase 3 | open |
 | CNF-18 | 문서 구조: `audio-platform/` vs `docs/` | — | 원본 보존 + docs/를 정본으로 할지 | — | open |
 | CNF-19 | Instrument Digging의 stem 활용(V2) vs stems M3·별도 특약 | DIG §3.8 vs AP-02 REQ-14, AP-09 | 권리 확보 전 stem 미사용 여부 | Phase 19 | open — **Legal Review Required** |
-| CNF-20 | REQ-16 우선순위 "P0 개인정보, P1 기능" 이중 표기 | AP-02 | 분리 (Phase 1은 LOC-002/003/004=P0 privacy, 기능=P1로 분리 기록) | Phase 2 | open |
+| CNF-20 | REQ-16 우선순위 "P0 개인정보, P1 기능" 이중 표기 | AP-02 | 분리 (Phase 1은 LOC-002/003/004=P0 privacy, 기능=P1로 분리 기록) | Phase 2 | **decided** 2026-10-04: LOC-002/003/004 = P0 privacy 원칙(위치 기능 자체는 P2) |
 
 ## 5. Playbook §9: 사람이 결정해야 하는 항목 (재확인)
 
