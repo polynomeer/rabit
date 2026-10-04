@@ -18,7 +18,13 @@ describe('config', () => {
 
   it('refuses disabled rate limits in production', () => {
     expect(() =>
-      loadConfig({ ...base, NODE_ENV: 'production', AUTH_DEV_ISSUER_ENABLED: 'false', AUTH_JWKS_URL: 'https://idp.example/jwks', RATE_LIMIT_ENABLED: 'false' }),
+      loadConfig({
+        ...base,
+        NODE_ENV: 'production',
+        AUTH_DEV_ISSUER_ENABLED: 'false',
+        AUTH_JWKS_URL: 'https://idp.example/jwks',
+        RATE_LIMIT_ENABLED: 'false',
+      }),
     ).toThrow(/RATE_LIMIT_ENABLED/);
   });
 

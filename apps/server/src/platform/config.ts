@@ -62,7 +62,11 @@ const envSchema = z
       });
     }
     if (c.NODE_ENV === 'production' && !c.RATE_LIMIT_ENABLED) {
-      ctx.addIssue({ code: 'custom', path: ['RATE_LIMIT_ENABLED'], message: 'must be true when NODE_ENV=production' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RATE_LIMIT_ENABLED'],
+        message: 'must be true when NODE_ENV=production',
+      });
     }
     if (!c.AUTH_DEV_ISSUER_ENABLED && !c.AUTH_JWKS_URL) {
       ctx.addIssue({
