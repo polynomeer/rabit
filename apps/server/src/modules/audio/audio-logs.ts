@@ -6,7 +6,7 @@ import type { AudioLogTable } from '../../platform/db/schema.js';
 import { errors } from '../../platform/errors.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
-import { emitMetadataChanged, getOwnSource } from './sources.js';
+import { emitMetadataChanged, getOwnSource, lockLiveSource } from './sources.js';
 
 /** Checks that a catalog recording exists (catalog context); false when unknown. */
 export type RecordingExists = (db: DbOrTx, recordingId: string) => Promise<boolean>;
@@ -91,6 +91,7 @@ export async function createAudioLog(
   await validateLink(ctx, exists, input.linked_recording_id);
   try {
     await ctx.db.transaction().execute(async (tx) => {
+      await lockLiveSource(tx, source.id);
       await tx
         .insertInto('audio_log')
         .values({
@@ -144,6 +145,7 @@ export async function updateAudioLog(
   if (patch.linked_recording_id !== undefined)
     await validateLink(ctx, exists, patch.linked_recording_id);
   await ctx.db.transaction().execute(async (tx) => {
+    await lockLiveSource(tx, current.audio_source_id);
     await tx
       .updateTable('audio_log')
       .set({

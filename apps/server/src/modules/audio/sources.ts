@@ -143,6 +143,22 @@ export async function listOwnSources(
   };
 }
 
+/**
+ * Locks the source row and confirms it is not tombstoned, inside the caller's
+ * write transaction. A deletion that started after the caller's read check then
+ * wins instead of personal text being written back (review #5).
+ */
+export async function lockLiveSource(tx: DbOrTx, sourceId: string): Promise<void> {
+  const row = await tx
+    .selectFrom('audio_source')
+    .select('id')
+    .where('id', '=', sourceId)
+    .where('deleted_at', 'is', null)
+    .forUpdate()
+    .executeTakeFirst();
+  if (!row) throw errors.notFound();
+}
+
 export async function updateSourceTitle(
   db: Db,
   principal: Principal,
@@ -152,6 +168,7 @@ export async function updateSourceTitle(
   const src = await getOwnSource(db, principal, id);
   if (src.status === 'deleting') throw errors.notFound();
   await db.transaction().execute(async (tx) => {
+    await lockLiveSource(tx, src.id);
     await tx
       .updateTable('audio_source')
       .set({ title, updated_at: new Date() })

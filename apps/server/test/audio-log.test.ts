@@ -199,3 +199,20 @@ describe('Audio Log (LOG-001..009)', () => {
     expect(rows).toEqual([]);
   });
 });
+
+describe('deletion race guard (review #5)', () => {
+  it('refuses to write Audio Log text once the source is tombstoned, even after a passed read check', async () => {
+    const u = await h.user();
+    const id = await uploadReady(h, u, fixtures.wav(), { intent: 'audio_log' });
+    const { lockLiveSource } = await import('../src/modules/audio/sources.js');
+    // Simulate the race: the read check passed, then the delete committed before the write.
+    await h.ctx.db
+      .updateTable('audio_source')
+      .set({ status: 'deleting', deleted_at: new Date() })
+      .where('id', '=', id)
+      .execute();
+    await expect(
+      h.ctx.db.transaction().execute((tx) => lockLiveSource(tx, id)),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+});
