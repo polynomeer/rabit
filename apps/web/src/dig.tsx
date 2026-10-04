@@ -71,19 +71,30 @@ export function Dig({ start }: { start: string | null }) {
 
   const node = session?.trail.find((n) => n.seq === session.current_seq) ?? null;
 
+  // Each effect ignores responses that arrive after its inputs changed, so a slow
+  // or duplicate response can never overwrite the user's newer choice.
   useEffect(() => {
     if (!start) return;
+    let stale = false;
     void api<DigSession>('POST', '/v1/dig-sessions', { entity_id: start }).then((r) => {
-      setSession(r.data);
+      if (!stale) setSession(r.data);
     });
+    return () => {
+      stale = true;
+    };
   }, [start]);
 
   useEffect(() => {
     if (!node) return;
+    let stale = false;
     void get<{ axes: typeof axes }>(`/v1/dig/entities/${node.entity.entity_id}/axes`).then((r) => {
+      if (stale) return;
       setAxes(r.axes);
       setAxis(r.axes[0]?.axis ?? null);
     });
+    return () => {
+      stale = true;
+    };
   }, [node]);
 
   useEffect(() => {
@@ -91,11 +102,15 @@ export function Dig({ start }: { start: string | null }) {
       setConns([]);
       return;
     }
+    let stale = false;
     void get<{ items: Connection[] }>(
       `/v1/dig/entities/${node.entity.entity_id}/connections?axis=${axis}&popularity=${pop}&include_inferred=${inferred}&limit=50`,
     ).then((r) => {
-      setConns(r.items);
+      if (!stale) setConns(r.items);
     });
+    return () => {
+      stale = true;
+    };
   }, [node, axis, pop, inferred]);
 
   const step = async (c: Connection) => {
