@@ -174,6 +174,24 @@ export async function ingestCatalog(
   const audio = new Map<string, Buffer>();
   for (const r of m.recordings) if (r.audio) audio.set(r.key, await readAudio(r.audio));
 
+  // Audio is uploaded before the transaction and its processing job is enqueued
+  // inside it, so a crash can leave at most unreferenced objects, never a source
+  // stuck in `processing` without a job (review #11).
+  const planned = new Map<string, { sourceId: string; prefix: string; sha256: string }>();
+  for (const [key, bytes] of audio) {
+    const sourceId = newId('audioSource');
+    const prefix = `${sourceId}/${randomBytes(12).toString('hex')}`;
+    planned.set(key, {
+      sourceId,
+      prefix,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    });
+    await ctx.blobs.put(BUCKETS.catalogOriginals, `${prefix}/original`, bytes, {
+      contentType: 'application/octet-stream',
+      bytes: bytes.length,
+    });
+  }
+
   const result = await ctx.db.transaction().execute(async (tx) => {
     const ids: Record<string, string> = {};
     const need = (k: string) => {
@@ -187,13 +205,6 @@ export async function ingestCatalog(
 
     const workspaceId = await ensureCatalogWorkspace(tx, () => newId('workspace'));
     const sources: Record<string, string> = {};
-    const pending: {
-      key: string;
-      sourceId: string;
-      prefix: string;
-      sha256: string;
-      bytes: Buffer;
-    }[] = [];
     for (const r of m.recordings) {
       const recId = await insertEntity(tx, 'recording', r.title);
       ids[r.key] = recId;
@@ -213,13 +224,11 @@ export async function ingestCatalog(
           .values({ recording_id: recId, artist_id: need(a), ord })
           .execute();
       }
-      const bytes = audio.get(r.key);
-      if (bytes) {
+      const plan = planned.get(r.key);
+      if (plan) {
         const objectId = newId('audioObject');
         const versionId = newId('audioVersion');
-        const sourceId = newId('audioSource');
-        const sha256 = createHash('sha256').update(bytes).digest('hex');
-        const prefix = `${sourceId}/${randomBytes(12).toString('hex')}`;
+        const { sourceId, sha256, prefix } = plan;
         await tx
           .insertInto('audio_object')
           .values({ id: objectId, kind: 'recording', current_version_id: versionId })
@@ -258,7 +267,11 @@ export async function ingestCatalog(
           .where('id', '=', recId)
           .execute();
         sources[r.key] = sourceId;
-        pending.push({ key: r.key, sourceId, prefix, sha256, bytes });
+        await enqueue(tx, {
+          kind: 'catalog.process',
+          payload: { audio_source_id: sourceId, sha256 },
+          dedupeKey: `catalog.process:${sourceId}`,
+        });
       }
     }
     for (const rel of m.releases) {
@@ -374,20 +387,8 @@ export async function ingestCatalog(
       subjectId: m.source,
       details: { entities: Object.keys(ids).length },
     });
-    return { ids, sources, pending };
+    return { ids, sources };
   });
 
-  // Upload audio after commit, then queue processing (idempotent dedupe per source).
-  for (const p of result.pending) {
-    await ctx.blobs.put(BUCKETS.catalogOriginals, `${p.prefix}/original`, p.bytes, {
-      contentType: 'application/octet-stream',
-      bytes: p.bytes.length,
-    });
-    await enqueue(ctx.db, {
-      kind: 'catalog.process',
-      payload: { audio_source_id: p.sourceId, sha256: p.sha256 },
-      dedupeKey: `catalog.process:${p.sourceId}`,
-    });
-  }
   return { ids: result.ids, sources: result.sources };
 }

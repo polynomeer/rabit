@@ -227,6 +227,14 @@ export async function processSource(
         })
         .where('id', '=', source.audio_version_id)
         .execute();
+      if (source.origin === 'catalog' && source.recording_id) {
+        // Same transaction as `ready`, so a retry can never skip it (review #11).
+        await tx
+          .updateTable('recording')
+          .set({ duration_ms: info.durationMs })
+          .where('id', '=', source.recording_id)
+          .execute();
+      }
       await tx
         .updateTable('audio_source')
         .set({ status: 'ready', failure_code: null, updated_at: new Date() })

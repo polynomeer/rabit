@@ -25,18 +25,6 @@ export function catalogJobs(ctx: AppContext): JobHandler[] {
           maxDurationMs: 6 * 60 * 60 * 1000,
           uploadSessionId: null,
         });
-        const v = await ctx.db
-          .selectFrom('audio_version')
-          .select(['recording_id', 'duration_ms'])
-          .where('id', '=', source.audio_version_id)
-          .executeTakeFirst();
-        if (v?.recording_id && v.duration_ms) {
-          await ctx.db
-            .updateTable('recording')
-            .set({ duration_ms: v.duration_ms })
-            .where('id', '=', v.recording_id)
-            .execute();
-        }
       },
       async onDead(job, error) {
         const p = payload.parse(job.job.payload);
