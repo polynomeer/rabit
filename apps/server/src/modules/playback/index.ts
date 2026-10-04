@@ -25,7 +25,11 @@ export function playbackModule(deps: PlaybackDeps): Module {
     name: 'playback',
     routes: playbackRoutes(deps),
     jobs: playbackJobs,
-    subscriptions: { SourceDeletionRequested: ['playback.revoke_for_source'] },
+    subscriptions: {
+      SourceDeletionRequested: ['playback.revoke_for_source'],
+      RightsGrantChanged: ['playback.revoke_stale_sessions'],
+      EntitlementChanged: ['playback.revoke_stale_sessions'],
+    },
     schedules: [{ kind: 'playback.expire_sessions', everyMs: 60_000 }],
   };
 }

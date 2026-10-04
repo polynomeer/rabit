@@ -1,0 +1,331 @@
+import type { Selectable } from 'kysely';
+import type { AppContext } from '../../app/context.js';
+import type { Db, DbOrTx } from '../../platform/db/db.js';
+import type { PlaylistTable } from '../../platform/db/schema.js';
+import { errors } from '../../platform/errors.js';
+import type { Principal } from '../../platform/http/principal.js';
+import { newId } from '../../platform/ids.js';
+import type { CatalogAccess } from '../playback/index.js';
+import { assertRefAccessible } from './library.js';
+import { resolveRef } from './resolve.js';
+
+export const MAX_PLAYLIST_ITEMS = 10_000;
+
+type PlaylistRow = Selectable<PlaylistTable>;
+type ItemRef = { ref_type: 'audio_source' | 'recording'; ref_id: string };
+
+export async function playlistView(
+  ctx: AppContext,
+  catalogAccess: CatalogAccess,
+  principal: Principal,
+  p: PlaylistRow,
+) {
+  const items = await ctx.db
+    .selectFrom('playlist_item')
+    .selectAll()
+    .where('playlist_id', '=', p.id)
+    .orderBy('rank')
+    .execute();
+  return {
+    playlist_id: p.id,
+    title: p.title,
+    description: p.description,
+    visibility: p.visibility,
+    version: p.version,
+    created_at: p.created_at.toISOString(),
+    updated_at: p.updated_at.toISOString(),
+    items: await Promise.all(
+      items.map(async (i) => {
+        // Re-evaluated on every read: playback rights/visibility may have changed.
+        const r = await resolveRef(ctx.db, catalogAccess, principal, {
+          type: i.ref_type,
+          id: i.ref_id,
+        });
+        return {
+          item_id: i.id,
+          position: i.rank,
+          ref_type: i.ref_type,
+          ref_id: i.ref_id,
+          title: r.title,
+          subtitle: r.subtitle,
+          ownership: r.ownership,
+          playability: r.playability,
+          added_at: i.added_at.toISOString(),
+        };
+      }),
+    ),
+  };
+}
+
+async function ownPlaylist(db: DbOrTx, principal: Principal, id: string, lock = false) {
+  let q = db
+    .selectFrom('playlist')
+    .selectAll()
+    .where('id', '=', id)
+    .where('owner_user_id', '=', principal.userId);
+  if (lock) q = q.forUpdate();
+  const p = await q.executeTakeFirst();
+  if (!p) throw errors.notFound();
+  return p;
+}
+
+export async function getPlaylist(
+  ctx: AppContext,
+  catalogAccess: CatalogAccess,
+  principal: Principal,
+  id: string,
+) {
+  return playlistView(ctx, catalogAccess, principal, await ownPlaylist(ctx.db, principal, id));
+}
+
+export async function createPlaylist(
+  db: DbOrTx,
+  principal: Principal,
+  input: { title: string; description?: string | undefined },
+  items: ItemRef[] = [],
+): Promise<PlaylistRow> {
+  const id = newId('playlist');
+  const p = await db
+    .insertInto('playlist')
+    .values({
+      id,
+      owner_user_id: principal.userId,
+      title: input.title,
+      description: input.description ?? null,
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  for (const [rank, it] of items.slice(0, MAX_PLAYLIST_ITEMS).entries()) {
+    await db
+      .insertInto('playlist_item')
+      .values({
+        id: newId('playlistItem'),
+        playlist_id: id,
+        rank,
+        ref_type: it.ref_type,
+        ref_id: it.ref_id,
+      })
+      .execute();
+  }
+  return p;
+}
+
+/**
+ * Runs a mutation under a row lock with optimistic concurrency: the caller's
+ * If-Match version must equal the stored version (412 otherwise), and every
+ * successful mutation increments it (concurrent edit safety, PB Phase 13).
+ */
+async function mutate(
+  db: Db,
+  principal: Principal,
+  id: string,
+  expectedVersion: number,
+  fn: (tx: DbOrTx, p: PlaylistRow) => Promise<void>,
+): Promise<PlaylistRow> {
+  return db.transaction().execute(async (tx) => {
+    const p = await ownPlaylist(tx, principal, id, true);
+    if (p.version !== expectedVersion) throw errors.preconditionFailed();
+    await fn(tx, p);
+    return tx
+      .updateTable('playlist')
+      .set({ version: p.version + 1, updated_at: new Date() })
+      .where('id', '=', id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+  });
+}
+
+export function updatePlaylist(
+  db: Db,
+  principal: Principal,
+  id: string,
+  version: number,
+  patch: { title?: string | undefined; description?: string | null | undefined },
+) {
+  return mutate(db, principal, id, version, async (tx) => {
+    await tx
+      .updateTable('playlist')
+      .set({
+        ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.description !== undefined ? { description: patch.description } : {}),
+      })
+      .where('id', '=', id)
+      .execute();
+  });
+}
+
+export async function deletePlaylist(
+  db: Db,
+  principal: Principal,
+  id: string,
+  version: number,
+): Promise<void> {
+  await db.transaction().execute(async (tx) => {
+    const p = await ownPlaylist(tx, principal, id, true);
+    if (p.version !== version) throw errors.preconditionFailed();
+    await tx.deleteFrom('playlist').where('id', '=', id).execute();
+  });
+}
+
+async function count(tx: DbOrTx, playlistId: string): Promise<number> {
+  const r = await tx
+    .selectFrom('playlist_item')
+    .select((eb) => eb.fn.countAll<number>().as('n'))
+    .where('playlist_id', '=', playlistId)
+    .executeTakeFirstOrThrow();
+  return r.n;
+}
+
+/**
+ * Adds an item. A private source can be added only by its owner, and adding it
+ * never makes it visible to anyone else (LIB-004). Items store references only.
+ */
+export function addPlaylistItem(
+  db: Db,
+  principal: Principal,
+  id: string,
+  version: number,
+  item: ItemRef & { position?: number | undefined },
+) {
+  return mutate(db, principal, id, version, async (tx) => {
+    await assertRefAccessible(tx, principal, { type: item.ref_type, id: item.ref_id });
+    const n = await count(tx, id);
+    if (n >= MAX_PLAYLIST_ITEMS)
+      throw errors.unprocessable('UNPROCESSABLE', 'The playlist is full.');
+    const pos = Math.min(item.position ?? n, n);
+    await tx
+      .updateTable('playlist_item')
+      .set((eb) => ({ rank: eb('rank', '+', 1) }))
+      .where('playlist_id', '=', id)
+      .where('rank', '>=', pos)
+      .execute();
+    await tx
+      .insertInto('playlist_item')
+      .values({
+        id: newId('playlistItem'),
+        playlist_id: id,
+        rank: pos,
+        ref_type: item.ref_type,
+        ref_id: item.ref_id,
+      })
+      .execute();
+  });
+}
+
+export function removePlaylistItem(
+  db: Db,
+  principal: Principal,
+  id: string,
+  version: number,
+  itemId: string,
+) {
+  return mutate(db, principal, id, version, async (tx) => {
+    const removed = await tx
+      .deleteFrom('playlist_item')
+      .where('id', '=', itemId)
+      .where('playlist_id', '=', id)
+      .returning('rank')
+      .executeTakeFirst();
+    if (!removed) throw errors.notFound();
+    await tx
+      .updateTable('playlist_item')
+      .set((eb) => ({ rank: eb('rank', '-', 1) }))
+      .where('playlist_id', '=', id)
+      .where('rank', '>', removed.rank)
+      .execute();
+  });
+}
+
+export function movePlaylistItem(
+  db: Db,
+  principal: Principal,
+  id: string,
+  version: number,
+  itemId: string,
+  position: number,
+) {
+  return mutate(db, principal, id, version, async (tx) => {
+    const item = await tx
+      .selectFrom('playlist_item')
+      .select('rank')
+      .where('id', '=', itemId)
+      .where('playlist_id', '=', id)
+      .executeTakeFirst();
+    if (!item) throw errors.notFound();
+    const n = await count(tx, id);
+    const to = Math.min(position, n - 1);
+    const from = item.rank;
+    if (to === from) return;
+    // The (playlist_id, rank) unique constraint is deferred, so ranks may collide mid-transaction.
+    if (to > from) {
+      await tx
+        .updateTable('playlist_item')
+        .set((eb) => ({ rank: eb('rank', '-', 1) }))
+        .where('playlist_id', '=', id)
+        .where('rank', '>', from)
+        .where('rank', '<=', to)
+        .execute();
+    } else {
+      await tx
+        .updateTable('playlist_item')
+        .set((eb) => ({ rank: eb('rank', '+', 1) }))
+        .where('playlist_id', '=', id)
+        .where('rank', '>=', to)
+        .where('rank', '<', from)
+        .execute();
+    }
+    await tx.updateTable('playlist_item').set({ rank: to }).where('id', '=', itemId).execute();
+  });
+}
+
+export async function listPlaylists(
+  ctx: AppContext,
+  principal: Principal,
+  q: { limit: number; cursor?: string | undefined },
+) {
+  const scope = { userId: principal.userId, query: 'playlists' };
+  const pos = ctx.cursors.decode(scope, q.cursor);
+  let query = ctx.db
+    .selectFrom('playlist as p')
+    .select((eb) => [
+      'p.id',
+      'p.title',
+      'p.version',
+      'p.updated_at',
+      eb
+        .selectFrom('playlist_item as i')
+        .select(eb.fn.countAll<number>().as('n'))
+        .whereRef('i.playlist_id', '=', 'p.id')
+        .as('item_count'),
+    ])
+    .where('p.owner_user_id', '=', principal.userId);
+  if (pos) {
+    const [at, id] = pos as [string, string];
+    query = query.where((eb) =>
+      eb.or([
+        eb('p.updated_at', '<', new Date(at)),
+        eb.and([eb('p.updated_at', '=', new Date(at)), eb('p.id', '<', id)]),
+      ]),
+    );
+  }
+  const rows = await query
+    .orderBy('p.updated_at', 'desc')
+    .orderBy('p.id', 'desc')
+    .limit(q.limit + 1)
+    .execute();
+  const page = rows.slice(0, q.limit);
+  const last = page.at(-1);
+  return {
+    items: page.map((r) => ({
+      playlist_id: r.id,
+      title: r.title,
+      item_count: r.item_count ?? 0,
+      version: r.version,
+      updated_at: r.updated_at.toISOString(),
+    })),
+    next_cursor:
+      rows.length > q.limit && last
+        ? ctx.cursors.encode(scope, [last.updated_at.toISOString(), last.id])
+        : null,
+  };
+}

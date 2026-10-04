@@ -5,6 +5,8 @@ import * as m0002 from './migrations/0002_identity.js';
 import * as m0003 from './migrations/0003_audio.js';
 import * as m0004 from './migrations/0004_playback.js';
 import * as m0005 from './migrations/0005_audio_log.js';
+import * as m0006 from './migrations/0006_catalog_entitlement.js';
+import * as m0007 from './migrations/0007_library.js';
 
 // Migrations operate on the raw schema, independent of the current table types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,6 +22,8 @@ export const migrations: Record<string, Migration> = {
   '0003_audio': m0003,
   '0004_playback': m0004,
   '0005_audio_log': m0005,
+  '0006_catalog_entitlement': m0006,
+  '0007_library': m0007,
 };
 
 export function createMigrator(db: AnyDb): Migrator {

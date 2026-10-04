@@ -6,6 +6,8 @@ import type { Database } from './schema.js';
 pg.types.setTypeParser(pg.types.builtins.INT8, (v) => Number(v));
 // numeric columns (confidence, percentile) are returned as numbers.
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v) => Number(v));
+// date columns (release dates) stay as ISO `YYYY-MM-DD` strings, independent of time zones.
+pg.types.setTypeParser(pg.types.builtins.DATE, (v) => v);
 
 export type Db = Kysely<Database>;
 export type Tx = Transaction<Database>;

@@ -22,6 +22,7 @@ export type CatalogDecision =
       rightsVersion: number;
       entitlementId: string;
       entitlementVersion: number;
+      entitlementOrigin: 'subscription' | 'purchase' | 'grant';
     }
   | {
       allowed: false;
@@ -48,7 +49,11 @@ export type PolicyDecision =
       allow: true;
       source: SourceRow;
       rights: { grantId: string; version: number } | null;
-      entitlement: { id: string; version: number } | null;
+      entitlement: {
+        id: string;
+        version: number;
+        origin: 'subscription' | 'purchase' | 'grant';
+      } | null;
     }
   | { allow: false; reason: DenyReason; source: SourceRow | null };
 
@@ -100,7 +105,11 @@ export async function evaluatePolicy(
       allow: true,
       source,
       rights: { grantId: access.rightsGrantId, version: access.rightsVersion },
-      entitlement: { id: access.entitlementId, version: access.entitlementVersion },
+      entitlement: {
+        id: access.entitlementId,
+        version: access.entitlementVersion,
+        origin: access.entitlementOrigin,
+      },
     },
     'catalog',
   );

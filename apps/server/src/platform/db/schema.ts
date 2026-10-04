@@ -204,7 +204,206 @@ export interface AudioLogTable {
   updated_at: UpdatedAt;
 }
 
+export type Basis = 'verified_fact' | 'declared' | 'ml_inferred';
+export type VerificationState =
+  | 'self_declared'
+  | 'distributor_verified'
+  | 'signature_valid'
+  | 'process_evidence_reviewed'
+  | 'rights_reviewed';
+export type EntityType = 'artist' | 'person' | 'label' | 'release' | 'recording';
+export type CreditRole =
+  | 'composer'
+  | 'lyricist'
+  | 'producer'
+  | 'engineer'
+  | 'mixing_engineer'
+  | 'mastering_engineer'
+  | 'performer'
+  | 'featured_artist'
+  | 'arranger';
+export type RelationType =
+  'samples' | 'covers' | 'remix_of' | 'influenced_by' | 'member_of' | 'signed_to';
+export type GrantStatus = 'active' | 'suspended' | 'revoked' | 'expired';
+
+export interface MusicEntityTable {
+  id: string;
+  entity_type: EntityType;
+  display_name: string;
+  sort_name: string;
+  search_tsv: ColumnType<string, never, never>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface RecordingTable {
+  id: string;
+  title: string;
+  isrc: string | null;
+  duration_ms: number | null;
+  catalog_audio_source_id: string | null;
+}
+
+export interface RecordingArtistTable {
+  recording_id: string;
+  artist_id: string;
+  ord: number;
+}
+
+export interface ReleaseTable {
+  id: string;
+  title: string;
+  release_type: 'album' | 'single' | 'ep' | 'compilation';
+  label_id: string | null;
+  release_date: ColumnType<string | null, string | null, string | null>;
+  upc: string | null;
+}
+
+export interface ReleaseArtistTable {
+  release_id: string;
+  artist_id: string;
+  ord: number;
+}
+
+export interface ReleaseTrackTable {
+  release_id: string;
+  disc_no: number;
+  position: number;
+  recording_id: string;
+}
+
+export interface CreditTable {
+  id: string;
+  subject_entity_id: string;
+  contributor_entity_id: string;
+  role: CreditRole;
+  instrument: string | null;
+  creation_method: 'human' | 'ai_assisted' | 'ai_generated' | 'unknown';
+  basis: Basis;
+  verification_state: VerificationState;
+  source: string;
+  evidence_ref: string | null;
+  created_at: CreatedAt;
+}
+
+export interface MusicRelationTable {
+  id: string;
+  from_entity_id: string;
+  to_entity_id: string;
+  relation_type: RelationType;
+  basis: Basis;
+  confidence: number | null;
+  verification_state: VerificationState;
+  source: string;
+  evidence_ref: string | null;
+  license_status: 'unknown' | 'licensed' | 'not_applicable';
+  valid_from: ColumnType<string | null, string | null, string | null>;
+  valid_to: ColumnType<string | null, string | null, string | null>;
+  created_at: CreatedAt;
+}
+
+export interface RightsGrantTable {
+  id: string;
+  recording_id: string;
+  rights_holder: string;
+  territories: string[];
+  uses: string[];
+  valid_from: Timestamp;
+  valid_to: Timestamp | null;
+  status: GrantStatus;
+  contract_ref: string;
+  version: Generated<number>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface SubscriptionTable {
+  id: string;
+  user_id: string;
+  plan: string;
+  state: 'active' | 'past_due' | 'cancelled' | 'expired';
+  paid_through: Timestamp;
+  source: 'operator' | 'sandbox';
+  version: Generated<number>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface EntitlementTable {
+  id: string;
+  user_id: string;
+  scope: 'catalog_all' | 'release' | 'recording';
+  resource_id: string | null;
+  capabilities: string[];
+  origin: 'subscription' | 'purchase' | 'grant';
+  origin_ref: string;
+  valid_from: Generated<Date>;
+  valid_to: Timestamp | null;
+  status: GrantStatus;
+  version: Generated<number>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface LibraryItemTable {
+  id: string;
+  user_id: string;
+  ref_type: 'audio_source' | 'recording' | 'release';
+  ref_id: string;
+  origin: 'uploaded' | 'logged' | 'saved';
+  note: string | null;
+  saved_at: CreatedAt;
+}
+
+export interface PlaylistTable {
+  id: string;
+  owner_user_id: string;
+  title: string;
+  description: string | null;
+  visibility: Generated<'private'>;
+  version: Generated<number>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface PlaylistItemTable {
+  id: string;
+  playlist_id: string;
+  rank: number;
+  ref_type: 'audio_source' | 'recording';
+  ref_id: string;
+  added_at: CreatedAt;
+}
+
+export interface ExportRequestTable {
+  id: string;
+  user_id: string;
+  state: 'requested' | 'building' | 'ready' | 'expired' | 'failed';
+  include_originals: boolean;
+  object_key: string | null;
+  bytes: number | null;
+  expires_at: Timestamp | null;
+  failure_code: string | null;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
 export interface Database {
+  music_entity: MusicEntityTable;
+  recording: RecordingTable;
+  recording_artist: RecordingArtistTable;
+  release: ReleaseTable;
+  release_artist: ReleaseArtistTable;
+  release_track: ReleaseTrackTable;
+  credit: CreditTable;
+  music_relation: MusicRelationTable;
+  rights_grant: RightsGrantTable;
+  subscription: SubscriptionTable;
+  entitlement: EntitlementTable;
+  library_item: LibraryItemTable;
+  playlist: PlaylistTable;
+  playlist_item: PlaylistItemTable;
+  export_request: ExportRequestTable;
   audio_log: AudioLogTable;
   audio_object: AudioObjectTable;
   audio_version: AudioVersionTable;
