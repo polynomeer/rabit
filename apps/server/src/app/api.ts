@@ -53,6 +53,7 @@ export async function buildApiApp(
   await installApiAuth(app, ctx.config, {
     verifier: createVerifier(ctx.config.auth, keys),
     resolvePrincipal,
+    db: ctx.db,
   });
 
   for (const m of modules) await m.routes?.(app, ctx);

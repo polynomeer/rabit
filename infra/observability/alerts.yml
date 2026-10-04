@@ -75,3 +75,11 @@ groups:
         annotations:
           impact: Possible stream manipulation or a client bug; Deep Cut popularity may be distorted.
           runbook: docs/09-operations/runbooks.md#listening-anomalies
+
+      - alert: RateLimitStoreFailing
+        expr: sum(rate(rabit_rate_limit_store_errors_total[5m])) > 0
+        for: 5m
+        labels: { severity: ticket }
+        annotations:
+          impact: API rate limits are not enforced (fail-open, ADR-0020); abuse limits such as uploads and reports are open.
+          runbook: docs/09-operations/runbooks.md#rate-limit-store

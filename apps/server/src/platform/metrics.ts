@@ -43,6 +43,11 @@ export const metrics = {
     labelNames: ['outcome'] as const,
     registers: [registry],
   }),
+  rateLimitStoreErrors: new Counter({
+    name: 'rabit_rate_limit_store_errors_total',
+    help: 'Requests let through because the shared rate-limit store failed (fail-open)',
+    registers: [registry],
+  }),
   sessionsRevoked: new Counter({
     name: 'rabit_playback_sessions_revoked_total',
     help: 'Playback sessions revoked',

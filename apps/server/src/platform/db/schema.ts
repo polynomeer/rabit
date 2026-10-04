@@ -520,7 +520,15 @@ export interface ReportTable {
   updated_at: UpdatedAt;
 }
 
+/** Shared rate-limit counters (ADR-0020); UNLOGGED, disposable. */
+export interface RateLimitCounterTable {
+  key: string;
+  count: number;
+  window_ends_at: Date;
+}
+
 export interface Database {
+  rate_limit_counter: RateLimitCounterTable;
   provenance_claim: ProvenanceClaimTable;
   integrity_signal: IntegritySignalTable;
   report: ReportTable;

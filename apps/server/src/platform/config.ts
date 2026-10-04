@@ -41,6 +41,11 @@ const envSchema = z
 
     /** Per-user API rate limits (api-guidelines §8). Disabling is allowed only outside production (benchmarks). */
     RATE_LIMIT_ENABLED: bool.default(true),
+    /**
+     * Where counters live (ADR-0020): `postgres` is shared by every api instance;
+     * `memory` is per process and refused in production.
+     */
+    RATE_LIMIT_STORE: z.enum(['postgres', 'memory']).default('postgres'),
 
     WORKER_CONCURRENCY: positiveInt.default(2),
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
@@ -66,6 +71,13 @@ const envSchema = z
         code: 'custom',
         path: ['RATE_LIMIT_ENABLED'],
         message: 'must be true when NODE_ENV=production',
+      });
+    }
+    if (c.NODE_ENV === 'production' && c.RATE_LIMIT_STORE !== 'postgres') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['RATE_LIMIT_STORE'],
+        message: 'must be postgres when NODE_ENV=production (limits shared by every instance)',
       });
     }
     if (!c.AUTH_DEV_ISSUER_ENABLED && !c.AUTH_JWKS_URL) {
@@ -106,7 +118,7 @@ export interface Config {
     devIssuerEnabled: boolean;
   };
   secrets: { mediaToken: string; cursor: string };
-  rateLimit: { enabled: boolean };
+  rateLimit: { enabled: boolean; store: 'postgres' | 'memory' };
   worker: { concurrency: number; ffmpegPath: string; ffprobePath: string };
   quota: {
     maxTotalBytes: number;
@@ -164,7 +176,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       devIssuerEnabled: e.AUTH_DEV_ISSUER_ENABLED,
     },
     secrets: { mediaToken: e.MEDIA_TOKEN_SECRET, cursor: e.CURSOR_SECRET },
-    rateLimit: { enabled: e.RATE_LIMIT_ENABLED },
+    rateLimit: { enabled: e.RATE_LIMIT_ENABLED, store: e.RATE_LIMIT_STORE },
     worker: {
       concurrency: e.WORKER_CONCURRENCY,
       ffmpegPath: e.FFMPEG_PATH,

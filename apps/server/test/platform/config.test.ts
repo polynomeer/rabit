@@ -28,6 +28,18 @@ describe('config', () => {
     ).toThrow(/RATE_LIMIT_ENABLED/);
   });
 
+  it('refuses per-process rate-limit counters in production (R13)', () => {
+    expect(() =>
+      loadConfig({
+        ...base,
+        NODE_ENV: 'production',
+        AUTH_DEV_ISSUER_ENABLED: 'false',
+        AUTH_JWKS_URL: 'https://idp.example/jwks',
+        RATE_LIMIT_STORE: 'memory',
+      }),
+    ).toThrow(/RATE_LIMIT_STORE/);
+  });
+
   it('requires a JWKS URL when the dev issuer is disabled', () => {
     expect(() =>
       loadConfig({ ...base, AUTH_DEV_ISSUER_ENABLED: 'false', AUTH_JWKS_URL: '' }),

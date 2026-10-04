@@ -1,3 +1,4 @@
+import { purgeRateLimitCounters } from '../platform/http/rate-limit-store.js';
 import { dispatchOutbox } from '../platform/jobs/outbox.js';
 import { JobRunner } from '../platform/jobs/runner.js';
 import type { AppContext } from './context.js';
@@ -28,6 +29,7 @@ export function buildWorker(ctx: AppContext, modules: Module[]): WorkerProcess {
   const housekeeping = async () => {
     await runner.reclaim();
     await enqueueDueSchedules(ctx.db, schedules);
+    await purgeRateLimitCounters(ctx.db);
   };
 
   return {

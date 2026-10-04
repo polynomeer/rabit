@@ -29,7 +29,7 @@
 | R10 | Object lifecycle | Quarantine/exports lifecycle (2 d) + expiry jobs; deletion sweeps prefixes; catalog object removal has no API | audio-pipeline §5 | OK | Must fix (catalog takedown removal path) |
 | R11 | Moderation / takedown | Reports + triage + grant suspension implemented; uploader notification, appeals, counter-notice absent; staffing Q18 | moderation.md | Follow-up | Blocker |
 | R12 | Feature flags | No feature-flag system; all P0 features always on; P2 features absent rather than flagged | — | OK | Follow-up |
-| R13 | Rate limits | Per-user and per-route limits on; in-memory store (single instance only); multi-instance deployment needs a shared store | `installApiAuth` | Must fix if >1 api instance | Must fix |
+| R13 | Rate limits | Per-user and per-route limits on. **Update 2026-10-05:** counters shared in Postgres for every api instance (ADR-0020); fail-open on store failure, with a metric and an alert | `rate-limit.test.ts` (two instances share one limit) | OK | OK (re-measure overhead on staging) |
 | R14 | Secrets | Validated at startup, never logged; `.env.example` has dev-only values; production secret store undecided (ADR-0012) | config.ts | Must fix (secret store for hosted alpha) | Must fix |
 | R15 | Dependency vulnerabilities | `pnpm audit --prod`: no known vulnerabilities (2026-10-04); Dependabot configured | CI `security` job | OK | OK |
 | R16 | Load test | Baseline measured on one laptop; media gateway not load-tested; no staging environment | performance-baseline.md | Follow-up | Blocker |

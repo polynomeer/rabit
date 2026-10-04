@@ -46,7 +46,7 @@
 | T22 | — | **AI spam** floods | Uploaders | Discovery pollution | No public UGC in MVP; integrity axes model ready; upload rate limits | upload rate metrics | P1 | — |
 | T23 | S/T | **Webhook replay** (payment) | Attacker replays provider webhook | Free entitlements | No payment webhooks in MVP (ADR-0018). P1 design: signature + timestamp window + unique event_id | — | P1 | — |
 | T24 | I | **Location privacy** | Server correlates region and identity | Tracking | No location collected in MVP (LOC-003); no location fields in schema | schema review | P0 (absence) | `schema.test` no location columns |
-| T25 | D | Request flooding / expensive queries | Any user | Outage | Rate limits per user and route; query limits; search `q` ≤ 200; DIG depth/limit caps; body size limits | 429 metric | P0 | `ratelimit.test` |
+| T25 | D | Request flooding / expensive queries | Any user | Outage | Rate limits per user and route, shared by every api instance (ADR-0020; fail-open on store failure, alerted); query limits; search `q` ≤ 200; DIG depth/limit caps; body size limits | 429 metric | P0 | `ratelimit.test` |
 | T26 | T | Cursor tampering to bypass scope | Modify cursor | Leak other pages/scopes | Cursors HMAC-signed and bound to user + query | — | P0 | `pagination.test` |
 | T27 | I | Export link leak | Shared download URL | Private data leak | Export URL presigned ≤ 15 min, export object deleted after 24 h; only owner's own data included | — | P0 | `export.test` only own data |
 | T28 | E | SSRF via URL import | Attacker supplies URL | Internal network access | No URL import (AUD-015); worker has no URL inputs | — | P0 | n/a (absence) |

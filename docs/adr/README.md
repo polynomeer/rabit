@@ -32,6 +32,7 @@
 | [0017](ADR-0017-provenance-representation.md) | Internal provenance claim schema; C2PA later | Accepted (internal schema) / Proposed (C2PA) | ADR-07 |
 | [0018](ADR-0018-payments-and-ledger.md) | Payments, ledger and settlement | Proposed (Commercial Gate) | ADR-06 |
 | [0019](ADR-0019-fingerprinting.md) | Audio fingerprinting and edition identification | Proposed | ADR-10 |
+| [0020](ADR-0020-shared-rate-limits.md) | Rate-limit counters shared in Postgres | Accepted | R13 |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 

@@ -60,7 +60,7 @@ Mutable aggregates with concurrent edits (playlist, rights grant, entitlement) e
 | Search | 120/min |
 | Reports | 20/hour |
 | Exports | 5/day |
-Values are proposals tuned after baseline measurement (PB Phase 22).
+Values are proposals tuned after baseline measurement (PB Phase 22). Counters are shared by every api instance through Postgres; if the counter store fails, requests are allowed and the failure is alerted ([ADR-0020](../adr/ADR-0020-shared-rate-limits.md)).
 
 ## 9. Uploads
 1. `POST /v1/uploads` with `size_bytes`, `sha256`, intent. Server checks quota atomically, reserves bytes, chooses the key, returns a presigned PUT (≤ 15 min) bound to exact `Content-Length` and the SHA-256 checksum header.

@@ -7,11 +7,13 @@ import Fastify, {
 } from 'fastify';
 import type { Logger } from 'pino';
 import type { Config } from '../config.js';
+import type { Db } from '../db/db.js';
 import { AppError, errors } from '../errors.js';
 import { ulid } from '../ids.js';
 import { metrics, statusClass } from '../metrics.js';
 import type { TokenVerifier, VerifiedToken } from './auth.js';
 import type { Principal } from './principal.js';
+import { postgresRateLimitStore } from './rate-limit-store.js';
 
 const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
 
@@ -27,6 +29,8 @@ export interface ApiAuthOptions {
   verifier: TokenVerifier;
   /** Maps verified claims to a principal (creates the account on first login). */
   resolvePrincipal(token: VerifiedToken, requestId: string): Promise<Principal>;
+  /** Holds the shared rate-limit counters (ADR-0020). */
+  db: Db;
 }
 
 const ROUTES = new WeakMap<FastifyInstance, { method: string; url: string }[]>();
@@ -189,8 +193,25 @@ export async function installApiAuth(
     req.principal = principal;
   });
 
+  await installRateLimit(app, cfg, auth.db);
+}
+
+/** Per-principal rate limiting for `/v1` (api-guidelines §8); runs after authentication. */
+export async function installRateLimit(app: FastifyInstance, cfg: Config, db: Db): Promise<void> {
   if (!cfg.rateLimit.enabled) return;
   await app.register(rateLimit, {
+    // Shared counters (ADR-0020). If the store fails, requests pass (fail-open):
+    // the database also serves the request itself, and the failure is counted.
+    ...(cfg.rateLimit.store === 'postgres'
+      ? {
+          store: postgresRateLimitStore(db, (err) => {
+            // The plugin swallows store errors under skipOnError; record them here.
+            metrics.rateLimitStoreErrors.inc();
+            app.log.error({ err }, 'rate-limit store failed; request allowed');
+          }),
+        }
+      : {}),
+    skipOnError: true,
     global: true,
     hook: 'preHandler',
     max: 600,

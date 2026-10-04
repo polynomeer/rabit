@@ -43,3 +43,6 @@ Check `pg_stat_statements`; search uses GIN (tsv, trigram); DIG uses `(from_enti
 
 ## listening-anomalies
 High `rejected` share: inspect `reject_reason` distribution in `listening_event`. `played_exceeds_wall_clock` from many accounts → client bug; from a few → manipulation (exclude accounts from popularity, P1 fraud tooling).
+
+## rate-limit-store
+`RateLimitStoreFailing`: counter updates to `rate_limit_counter` fail and requests pass unlimited (ADR-0020). Check database health first: the api is usually failing too. If only the counters fail, check the table exists (migration `0011_rate_limit`) and its size (`SELECT count(*) FROM rate_limit_counter`). Expired rows are purged by the worker, so a large table means the worker is down. `UNLOGGED` tables are emptied after a crash, which only resets counters.
