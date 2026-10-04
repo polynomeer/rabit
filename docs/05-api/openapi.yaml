@@ -1364,7 +1364,7 @@ components:
         title: { type: [string, 'null'] }
         saved: { type: boolean }
         state: { type: string, enum: [active, ended] }
-        start_entity: { $ref: '#/components/schemas/EntitySummary' }
+        start_entity: { oneOf: [ { $ref: '#/components/schemas/EntitySummary' }, { type: 'null' } ] }
         nodes: { type: integer }
         started_at: { $ref: '#/components/schemas/Timestamp' }
     DigSessionSummaryPage:

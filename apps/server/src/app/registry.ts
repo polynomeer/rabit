@@ -12,6 +12,7 @@ import {
   subscriptionState,
 } from '../modules/entitlement/index.js';
 import { getUser, identityModule } from '../modules/identity/index.js';
+import { deleteAccountDig, digExportSection, digModule } from '../modules/dig/index.js';
 import { deleteAccountLibrary, libraryModule } from '../modules/library/index.js';
 import { playability, playbackModule, type CatalogAccess } from '../modules/playback/index.js';
 import type { Module } from './modules.js';
@@ -43,7 +44,12 @@ export function allModules(): Module[] {
         storageUsage: (ctx, workspaceId) => storageUsage(ctx.db, workspaceId),
         subscriptionState: (ctx, userId) => subscriptionState(ctx.db, userId),
       },
-      accountDeleters: () => [deleteAccountAudio, deleteAccountLibrary, deleteAccountEntitlements],
+      accountDeleters: () => [
+        deleteAccountDig,
+        deleteAccountAudio,
+        deleteAccountLibrary,
+        deleteAccountEntitlements,
+      ],
     }),
     audioModule({ recordingExists }),
     {
@@ -60,6 +66,7 @@ export function allModules(): Module[] {
     }),
     entitlementModule(),
     playbackModule({ catalogAccess, resolveRecordingSource: recordingSource }),
-    libraryModule({ catalogAccess, exportSections: () => [] }),
+    libraryModule({ catalogAccess, exportSections: () => [digExportSection] }),
+    digModule({ catalogAccess, excludedEntities: () => Promise.resolve(new Set<string>()) }),
   ];
 }
