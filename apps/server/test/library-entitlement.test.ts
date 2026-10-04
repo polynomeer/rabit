@@ -329,6 +329,22 @@ describe('license territory changes (review #12)', () => {
     expect(row.status).toBe('revoked');
     expect((await playRecording(u, id('r1'))).json().error.code).toBe('RIGHTS_UNAVAILABLE');
   });
+
+  it('keeps sessions started after the change, even if the revocation job runs later', async () => {
+    const u = await listener({ country: 'US', subscribe: true });
+    await h.worker.drain();
+    await ops.setCountry(u, 'KR');
+    // Authorized under the new territory before the asynchronous revocation runs.
+    const fresh = await playRecording(u, id('r1'));
+    expect(fresh.statusCode).toBe(201);
+    await h.worker.drain();
+    const row = await h.ctx.db
+      .selectFrom('playback_session')
+      .select('status')
+      .where('id', '=', fresh.json().session_id)
+      .executeTakeFirstOrThrow();
+    expect(row.status).toBe('active');
+  });
 });
 
 describe('account deletion and playback data (review #7)', () => {

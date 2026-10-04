@@ -63,6 +63,8 @@ export async function dispatchOutbox(
             event_id: ev.id,
             event_type: ev.type,
             subject_id: ev.subject_id,
+            // Database clock, comparable with other database-default timestamps.
+            occurred_at: ev.occurred_at.toISOString(),
             ...ev.payload,
           },
           dedupeKey: `${kind}:${ev.id}`,

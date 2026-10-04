@@ -173,7 +173,7 @@ export async function revokeSessions(
     | { audioSourceId: string }
     | { rightsGrantId: string; belowVersion: number }
     | { entitlementId: string; belowVersion: number }
-    | { userId: string },
+    | { userId: string; issuedBefore?: Date },
   reason: string,
 ): Promise<number> {
   let q = db
@@ -190,7 +190,10 @@ export async function revokeSessions(
     q = q
       .where('entitlement_id', '=', filter.entitlementId)
       .where('entitlement_version', '<', filter.belowVersion);
-  else q = q.where('user_id', '=', filter.userId);
+  else {
+    q = q.where('user_id', '=', filter.userId);
+    if (filter.issuedBefore) q = q.where('issued_at', '<', filter.issuedBefore);
+  }
   const res = await q.executeTakeFirst();
   const n = Number(res.numUpdatedRows);
   if (n > 0) metrics.sessionsRevoked.inc({ reason }, n);

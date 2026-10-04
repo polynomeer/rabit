@@ -47,8 +47,19 @@ export function playbackJobs(ctx: AppContext): JobHandler[] {
       kind: 'playback.revoke_for_user',
       leaseMs: 60_000,
       async handle({ job }) {
-        const p = z.object({ user_id: z.string() }).parse(job.payload);
-        await revokeSessions(ctx.db, { userId: p.user_id }, 'territory_changed');
+        const p = z
+          .object({ user_id: z.string(), occurred_at: z.iso.datetime().optional() })
+          .parse(job.payload);
+        // Only sessions authorized under the old territory: a session started after
+        // the change, before this job ran, is valid and must keep playing.
+        await revokeSessions(
+          ctx.db,
+          {
+            userId: p.user_id,
+            ...(p.occurred_at ? { issuedBefore: new Date(p.occurred_at) } : {}),
+          },
+          'territory_changed',
+        );
       },
     },
     {
