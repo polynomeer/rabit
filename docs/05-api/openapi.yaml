@@ -751,20 +751,29 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
 
-  /media/v1/{media_token}/{path}:
+  /media/v1/{token}/{file}:
     get:
       tags: [media]
       operationId: getMedia
       security: []
       description: Data-plane gateway. Token is HMAC-signed, ≤ 60 s, bound to a playback session; the session must still be active.
       parameters:
-        - { name: media_token, in: path, required: true, schema: { type: string } }
-        - { name: path, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_.-]+$' } }
+        - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: file, in: path, required: true, schema: { type: string, pattern: '^(index\\.m3u8|init\\.mp4|seg_\\d{5}\\.m4s)$' } }
       responses:
         '200': { description: Manifest or segment bytes }
         '403': { description: Token invalid/expired or session revoked }
         '404': { description: Unknown path }
 
+  /dev/.well-known/jwks.json:
+    get:
+      tags: [system]
+      operationId: devJwks
+      security: []
+      x-rabit-status: dev-only
+      description: Public keys of the development issuer (ADR-0009); disabled with it.
+      responses:
+        '200': { description: JWKS, content: { application/json: { schema: { type: object, required: [keys], properties: { keys: { type: array, items: { type: object } } } } } } }
   /dev/token:
     post:
       tags: [system]

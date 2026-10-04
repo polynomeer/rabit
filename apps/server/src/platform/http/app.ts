@@ -29,6 +29,13 @@ export interface ApiAuthOptions {
   resolvePrincipal(token: VerifiedToken, requestId: string): Promise<Principal>;
 }
 
+const ROUTES = new WeakMap<FastifyInstance, { method: string; url: string }[]>();
+
+/** Routes registered on an app (for contract tests against the OpenAPI spec). */
+export function registeredRoutes(app: FastifyInstance): { method: string; url: string }[] {
+  return ROUTES.get(app) ?? [];
+}
+
 function errorBody(err: AppError, requestId: string) {
   return {
     error: {
@@ -59,6 +66,14 @@ export function createHttpApp(opts: HttpAppOptions): FastifyInstance {
   });
 
   app.decorateRequest('principal', null);
+
+  const routes: { method: string; url: string }[] = [];
+  ROUTES.set(app, routes);
+  app.addHook('onRoute', (r) => {
+    for (const m of Array.isArray(r.method) ? r.method : [r.method]) {
+      if (m !== 'HEAD' && m !== 'OPTIONS') routes.push({ method: m, url: r.url });
+    }
+  });
 
   app.addHook('onSend', async (req, reply, payload) => {
     reply.header('x-request-id', req.id);
