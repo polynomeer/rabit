@@ -48,6 +48,8 @@ export function createHttpApp(opts: HttpAppOptions): FastifyInstance {
   const app = Fastify({
     loggerInstance: logger,
     bodyLimit: 1024 * 1024,
+    // Media tokens are path parameters (ADR-0008) and exceed the 100-char default.
+    routerOptions: { maxParamLength: 1024 },
     trustProxy: false,
     genReqId: (req) => {
       const h = req.headers['x-request-id'];
