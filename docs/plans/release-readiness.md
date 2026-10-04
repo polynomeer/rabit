@@ -39,7 +39,7 @@
 | R20 | Codec ladder | Single provisional AAC 160 kbps rendition; no listening test | ADR-0008 | Follow-up | Must fix |
 | R21 | Payments / ledger | Not implemented (ADR-0018 Proposed) | — | OK | Blocker |
 | R22 | CI | Workflow written but never executed on GitHub (remote has no pushed history) | `.github/workflows/ci.yml` | Must fix (first green run) | Must fix |
-| R23 | Phase 24 code review | See [phase-24-code-review](phase-24-code-review.md); Blocker/High findings there gate both targets | — | Pending | Pending |
+| R23 | Phase 24 code review | 1 High + 6 Medium + 8 Low findings; all reproduced and fixed except #6 (partly fixed, tracked with a measured trigger). See [phase-24-code-review](phase-24-code-review.md) | 150 tests green ×3 | OK | Follow-up (#6) |
 
 ## A-blockers summary (internal alpha)
 R3 production worker isolation, R9 backup/restore drill, R19 hosting decision, plus any Blocker/High from Phase 24. R19 and the sandbox design depend on a human decision (cost/provider, Playbook §9).
