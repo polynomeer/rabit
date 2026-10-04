@@ -357,6 +357,50 @@ describe('subscriptions and entitlements are independent (COM-009)', () => {
     expect((await playRecording(u, id('r3'))).json().error.code).toBe('SUBSCRIPTION_REQUIRED');
   });
 
+  it('tracks the entitlement actually used after a refresh switches to another one (review #4)', async () => {
+    const own = await seedCatalog(h);
+    const rec = own.ids['r1']!;
+    const u2 = await listener({ country: 'KR', subscribe: true });
+    const session = (await playRecording(u2, rec)).json();
+    const grant = await h.api.inject({
+      method: 'POST',
+      url: '/v1/ops/entitlements',
+      headers: { ...ops.op.headers, 'idempotency-key': `switch-${u2.userId}` },
+      payload: {
+        user_id: u2.userId,
+        scope: 'recording',
+        resource_id: rec,
+        capabilities: ['play'],
+        reason: 'promo',
+      },
+    });
+    // Purchase/grant entitlements take precedence: the refresh now runs under the grant.
+    expect(
+      (
+        await h.api.inject({
+          method: 'POST',
+          url: `/v1/playback-sessions/${session.session_id}/refresh`,
+          headers: u2.headers,
+        })
+      ).statusCode,
+    ).toBe(200);
+    // Only the grant the session now depends on changes; nothing else may mask the bug.
+    const revoke = await h.api.inject({
+      method: 'POST',
+      url: `/v1/ops/entitlements/${grant.json().entitlement_id}/status`,
+      headers: { ...ops.op.headers, 'if-match': grant.headers.etag as string },
+      payload: { status: 'revoked', reason: 'promo ended' },
+    });
+    expect(revoke.statusCode).toBe(200);
+    await h.worker.drain();
+    const row = await h.ctx.db
+      .selectFrom('playback_session')
+      .select('status')
+      .where('id', '=', session.session_id)
+      .executeTakeFirstOrThrow();
+    expect(row.status).toBe('revoked');
+  });
+
   it('does not grant access while past due (fail closed)', async () => {
     const u = await listener({ country: 'KR' });
     await ops.subscribe(u, 'past_due');

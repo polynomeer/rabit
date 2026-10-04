@@ -151,7 +151,11 @@ export async function refreshPlaybackSession(
     .set((eb) => ({
       expires_at: new Date(Date.now() + SESSION_SECONDS * 1000),
       refreshed_count: eb('refreshed_count', '+', 1),
+      // Record which grant/entitlement the session now depends on, not only their
+      // versions, so revoking them reaches this session (review #4).
+      rights_grant_id: decision.rights?.grantId ?? null,
       rights_version: decision.rights?.version ?? null,
+      entitlement_id: decision.entitlement?.id ?? null,
       entitlement_version: decision.entitlement?.version ?? null,
     }))
     .where('id', '=', s.id)
