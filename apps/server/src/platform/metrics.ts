@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { Counter, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
+import { Counter, Gauge, Histogram, Registry, collectDefaultMetrics } from 'prom-client';
 
 /** Low-cardinality labels only (ADR-0013): route templates, status classes, kinds, outcomes. */
 export const registry = new Registry();
@@ -50,6 +50,49 @@ export const metrics = {
     registers: [registry],
   }),
 };
+
+/**
+ * Queue health gauges, sampled on scrape (worker metrics endpoint). `sample`
+ * returns jobs per status and the age of the oldest ready job.
+ */
+export function registerQueueMetrics(
+  sample: () => Promise<{
+    byStatus: Record<string, number>;
+    oldestQueuedSeconds: number;
+    outboxPending: number;
+  }>,
+): void {
+  let last: Awaited<ReturnType<typeof sample>> | null = null;
+  const refresh = async () => {
+    last = await sample();
+  };
+  new Gauge({
+    name: 'rabit_jobs',
+    help: 'Jobs by status',
+    labelNames: ['status'] as const,
+    registers: [registry],
+    async collect() {
+      await refresh();
+      for (const [status, n] of Object.entries(last?.byStatus ?? {})) this.set({ status }, n);
+    },
+  });
+  new Gauge({
+    name: 'rabit_job_oldest_queued_seconds',
+    help: 'Age of the oldest job ready to run',
+    registers: [registry],
+    collect() {
+      this.set(last?.oldestQueuedSeconds ?? 0);
+    },
+  });
+  new Gauge({
+    name: 'rabit_outbox_pending',
+    help: 'Outbox events not yet dispatched',
+    registers: [registry],
+    collect() {
+      this.set(last?.outboxPending ?? 0);
+    },
+  });
+}
 
 export function statusClass(status: number): string {
   return `${Math.floor(status / 100)}xx`;

@@ -3,13 +3,15 @@ import { allModules } from '../app/registry.js';
 import { buildWorker } from '../app/worker.js';
 import { loadConfig } from '../platform/config.js';
 import { createLogger } from '../platform/logger.js';
-import { startMetricsServer } from '../platform/metrics.js';
+import { registerQueueMetrics, startMetricsServer } from '../platform/metrics.js';
+import { queueHealth } from '../platform/jobs/health.js';
 import { onShutdown } from './shutdown.js';
 
 const config = loadConfig();
 const log = createLogger({ level: config.logLevel, name: 'worker' });
 const ctx = createContext(config, log);
 const worker = buildWorker(ctx, allModules());
+registerQueueMetrics(() => queueHealth(ctx.db));
 const metricsServer = startMetricsServer(config.http.metricsPort + 1);
 
 worker.start();
