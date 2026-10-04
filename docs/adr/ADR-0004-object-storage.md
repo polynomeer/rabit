@@ -14,7 +14,7 @@ Originals, playback derivatives, private evidence and public artwork must be sep
 3. Local filesystem
 
 ## Decision
-- Code depends only on a `BlobStore` port (put/get/head/delete/presignPut/stream). Adapter: AWS SDK v3 S3 client. Local development and tests use **MinIO** in Docker.
+- Code depends only on a `BlobStore` port (put/get/head/delete/presignPut/stream). Adapter: AWS SDK v3 S3 client. Local development and tests use **SeaweedFS** (S3 gateway) in Docker. MinIO was used before 2026-10-05; see the amendment below.
 - Buckets (namespaces), never mixed:
   - `rabit-quarantine` — raw uploads before validation; lifecycle expiry for abandoned objects.
   - `rabit-private-originals` — validated private originals (immutable).
@@ -31,3 +31,14 @@ Per-workspace encryption keys (NFR-SEC-004) require a KMS decision; the `encrypt
 
 ## Revisit trigger
 Provider selection; egress cost measurements; legal residency requirements.
+
+## Amendment 2026-10-05: local and CI object store is SeaweedFS
+- **Why:** MinIO's official community images (`minio/minio`, `minio/mc`) were deleted from Docker Hub around 2026-09-12. Quay.io stopped serving anonymous pulls around 2026-09-24. The project had been archived on 2026-04-25. The first CI run failed with "pull access denied". The last free MinIO release also has an authentication bypass (CVE-2026-40344) that will not be patched in the community edition.
+- **Options considered:** a third-party mirror (`pgsty/minio`; same behaviour, but third-party trust and the unpatched CVE), building MinIO from the archived source (slow CI, same CVE), SeaweedFS.
+- **Decision (owner's choice):** SeaweedFS `chrislusf/seaweedfs:4.47`, the official, maintained image. Local ports are unchanged (`127.0.0.1:59000`), so configuration does not change.
+- **Verified on SeaweedFS:**
+  - all 157 server tests, including exact-size and SHA-256-checksum presigned PUTs (T10) and altered signed headers;
+  - the browser E2E suite, including direct browser uploads;
+  - SSE-S3 (`AES256`) on every put, using a dev-only key (`WEED_S3_SSE_KEY`; SeaweedFS disables SSE-S3 without one);
+  - buckets and the 2-day expiry are created with `weed shell` (`infra/seaweedfs/create-buckets.sh`), with no extra client image.
+- **Scope:** development and CI only. The production provider remains Proposed (above). Code depends only on the `BlobStore` port, so this choice does not leak into the application.

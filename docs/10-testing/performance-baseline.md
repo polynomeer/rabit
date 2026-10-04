@@ -1,6 +1,6 @@
 # Performance Baseline
 
-- Status: Phase 22, measured 2026-10-04 on a developer laptop (10 CPU cores, Node 23, Postgres 16 and MinIO in Docker on the same machine). Reproduce: build, start the three roles with `RATE_LIMIT_ENABLED=false` on the api, then `pnpm --filter @rabit/server bench` (script: `apps/server/bench/baseline.ts`).
+- Status: Phase 22, measured 2026-10-04 on a developer laptop (10 CPU cores, Node 23, Postgres 16 and MinIO in Docker on the same machine; object storage has since moved to SeaweedFS, so re-measure before comparing). Reproduce: build, start the three roles with `RATE_LIMIT_ENABLED=false` on the api, then `pnpm --filter @rabit/server bench` (script: `apps/server/bench/baseline.ts`).
 - These are **measurements on one machine with a small dataset**, not capacity claims. No 10k/100k/1M-user numbers below are measured; the sizing section is arithmetic from assumptions.
 
 ## 1. Method

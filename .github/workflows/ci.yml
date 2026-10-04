@@ -28,15 +28,16 @@ jobs:
       S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
     steps:
       - uses: actions/checkout@v4
-      - name: Start MinIO with SSE-S3 enabled
+      - name: Start SeaweedFS (S3) with SSE-S3 enabled
         run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=rabit -e MINIO_ROOT_PASSWORD=rabit-dev-secret \
-            -e MINIO_KMS_SECRET_KEY=rabit-dev-key:3hUCJbDY8VZPzNTKXJTpjS8LUxW1zaZ6ub5K/0Y2Y8g= \
-            -v "$PWD/infra/minio:/init:ro" \
-            minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
-          docker exec minio sh -c "sed 's#http://minio:9000#http://127.0.0.1:9000#' /init/create-buckets.sh | sh"
+          docker run -d --name s3 -p 9000:8333 \
+            -e WEED_S3_SSE_KEY=rabit-dev-only-sse-key \
+            -v "$PWD/infra/seaweedfs:/init:ro" \
+            chrislusf/seaweedfs:4.47 server -dir=/data -s3 -s3.port=8333 \
+            -s3.config=/init/s3.json -master.volumeSizeLimitMB=64 -volume.max=0
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:9000/healthz && break; sleep 1; done
+          curl -sf http://127.0.0.1:9000/healthz
+          docker exec s3 sh /init/create-buckets.sh localhost:9333
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - uses: pnpm/action-setup@v4
@@ -71,15 +72,16 @@ jobs:
       S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
     steps:
       - uses: actions/checkout@v4
-      - name: Start MinIO with SSE-S3 enabled
+      - name: Start SeaweedFS (S3) with SSE-S3 enabled
         run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=rabit -e MINIO_ROOT_PASSWORD=rabit-dev-secret \
-            -e MINIO_KMS_SECRET_KEY=rabit-dev-key:3hUCJbDY8VZPzNTKXJTpjS8LUxW1zaZ6ub5K/0Y2Y8g= \
-            -v "$PWD/infra/minio:/init:ro" \
-            minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:9000/minio/health/live && break; sleep 1; done
-          docker exec minio sh -c "sed 's#http://minio:9000#http://127.0.0.1:9000#' /init/create-buckets.sh | sh"
+          docker run -d --name s3 -p 9000:8333 \
+            -e WEED_S3_SSE_KEY=rabit-dev-only-sse-key \
+            -v "$PWD/infra/seaweedfs:/init:ro" \
+            chrislusf/seaweedfs:4.47 server -dir=/data -s3 -s3.port=8333 \
+            -s3.config=/init/s3.json -master.volumeSizeLimitMB=64 -volume.max=0
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:9000/healthz && break; sleep 1; done
+          curl -sf http://127.0.0.1:9000/healthz
+          docker exec s3 sh /init/create-buckets.sh localhost:9333
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - uses: pnpm/action-setup@v4

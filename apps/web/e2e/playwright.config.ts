@@ -6,7 +6,7 @@ const web = fileURLToPath(new URL('..', import.meta.url));
 
 /**
  * Browser E2E tests against a real, isolated stack (api, worker, media, web,
- * Postgres `rabit_e2e`, MinIO). Requires `pnpm infra:up` and ffmpeg.
+ * Postgres `rabit_e2e`, S3). Requires `pnpm infra:up` and ffmpeg.
  */
 export default defineConfig({
   testDir: '.',

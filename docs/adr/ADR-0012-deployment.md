@@ -17,7 +17,7 @@ Option 1 in the launch country's region, with the worker as a separate service w
 
 ## What is decided now
 - Every process role (`api`, `worker`, `media`) builds into one OCI image with a role argument; configuration only via environment variables validated at startup; health (`/healthz`) and readiness (`/readyz`) endpoints; graceful shutdown on SIGTERM.
-- Local environment: Docker Compose (Postgres, MinIO).
+- Local environment: Docker Compose (Postgres, SeaweedFS S3; MinIO until 2026-10-05, ADR-0004 amendment).
 
 ## Revisit trigger
 Q01, Q12, Q13 decisions.

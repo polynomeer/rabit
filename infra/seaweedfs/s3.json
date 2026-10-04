@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "rabit",
+      "credentials": [{ "accessKey": "rabit", "secretKey": "rabit-dev-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

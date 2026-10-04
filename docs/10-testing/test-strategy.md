@@ -1,7 +1,7 @@
 # Test Strategy
 
 - Status: Phase 21 (2026-10-04). Gates: [quality-gates](quality-gates.md). Test code: `apps/server/test/`.
-- Principles: tests run against **real Postgres and MinIO** and real ffmpeg (no mocks of the database, storage or decoder); audio fixtures are generated with ffmpeg (CAT-008); a flaky test is a defect, never an accepted state (NFR-QA-003).
+- Principles: tests run against **real Postgres and S3 (SeaweedFS; MinIO until 2026-10-05)** and real ffmpeg (no mocks of the database, storage or decoder); audio fixtures are generated with ffmpeg (CAT-008); a flaky test is a defect, never an accepted state (NFR-QA-003).
 
 ## 1. Layers
 

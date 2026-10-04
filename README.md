@@ -15,7 +15,7 @@ apps/server/          TypeScript modular monolith (api | worker | media roles)
   src/modules/        bounded contexts (identity, audio, playback, catalog, library, dig, ...)
   src/app/            composition root
   src/entry/          process entry points
-  test/               integration and unit tests (real Postgres + MinIO)
+  test/               integration and unit tests (real Postgres + S3 via SeaweedFS)
 apps/web/             web reference client
 infra/                local infrastructure init scripts
 docs/                 product, architecture, API, security, rights, ADRs
@@ -35,11 +35,13 @@ docs/                 product, architecture, API, security, rights, ADRs
 ```bash
 corepack enable
 pnpm install
-pnpm infra:up                           # Postgres :55440, MinIO :59000 (console :59001), buckets
+pnpm infra:up                           # Postgres :55440, S3 (SeaweedFS) :59000, buckets
 cp .env.example apps/server/.env
 pnpm db:migrate
 pnpm check                              # lint + typecheck + build + test
 ```
+
+> **Upgrading from the MinIO setup (before 2026-10-05):** object storage moved to SeaweedFS (ADR-0004 amendment). Objects stored in the old MinIO volume are not migrated. Re-create local data with `pnpm infra:up`, then reset the dev database (`pnpm --filter @rabit/server migrate:down` repeatedly, or drop the `rabit` database) and re-run the demo catalog ingest. The old `rabit_miniodata` volume can be removed with `docker volume rm rabit_miniodata` when no longer needed.
 
 Start the three process roles (separate terminals):
 
@@ -74,7 +76,7 @@ curl -s -X POST localhost:8080/dev/token -H 'content-type: application/json' -d 
 | `pnpm lint` | ESLint (typescript-eslint strict, type-checked) + Prettier |
 | `pnpm typecheck` | `tsc --noEmit` with `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
 | `pnpm build` | compiled output for production |
-| `pnpm test` | Vitest against real Postgres + MinIO; migrations are rolled back and re-applied at start |
+| `pnpm test` | Vitest against real Postgres + S3 (SeaweedFS); migrations are rolled back and re-applied at start |
 | `pnpm e2e` | Playwright browser tests against an isolated stack (database `rabit_e2e`, ports 18080/18081/15173); needs `pnpm infra:up` and ffmpeg |
 | `npx @redocly/cli@1 lint docs/05-api/openapi.yaml` | OpenAPI contract |
 | `pnpm audit --prod` | dependency vulnerabilities (CI) |
