@@ -2,6 +2,7 @@
 
 - Status: Phase 5 (2026-10-04). Domain: [domain-model](domain-model.md). Database: PostgreSQL 16 (ADR-0003).
 - Migrations live in `apps/server/src/platform/db/migrations/` and are authoritative; this document must be updated in the same commit as any migration.
+- Implemented so far: `0001_platform` (job, outbox_event, audit_log, idempotency_record), `0002_identity`, `0003_audio`, `0004_playback`.
 
 ## 1. Conventions
 
@@ -42,9 +43,10 @@
 app_user(id PK, oidc_issuer, oidc_subject, email_verified bool, status CHECK(active|deletion_requested|deleted),
          license_country char(2) NULL, created_at, updated_at, deletion_requested_at NULL)
   UNIQUE(oidc_issuer, oidc_subject)
-quota_policy(id text PK, max_total_bytes bigint, max_file_bytes bigint, max_duration_ms bigint,
-             max_concurrent_uploads int, created_at)             -- seeded 'free_default' (values = Q03 placeholders)
-workspace(id PK, type CHECK(personal|studio|catalog), owner_user_id FK app_user NULL, quota_policy_id FK, created_at)
+-- Quota policies are configuration (QUOTA_FREE_* env, Q03 placeholders), not a table:
+-- workspace.quota_policy_id names the policy ('free_default').
+workspace(id PK, type CHECK(personal|studio|catalog), owner_user_id FK app_user NULL, quota_policy_id text, created_at)
+  CHECK((type='catalog') = (owner_user_id IS NULL))
   UNIQUE(owner_user_id) WHERE type='personal'
   UNIQUE(type) WHERE type='catalog'
 membership(workspace_id FK, user_id FK, role CHECK(owner|publisher|editor|viewer), created_at, PK(workspace_id,user_id))
@@ -55,9 +57,10 @@ membership(workspace_id FK, user_id FK, role CHECK(owner|publisher|editor|viewer
 ```text
 upload_session(id PK, workspace_id FK, created_by FK app_user, intent CHECK(private_upload|audio_log),
                declared_bytes bigint CHECK>0, declared_sha256 char(64), declared_content_type text NULL,
+               default_title text NULL,   -- sanitized from the untrusted filename; cleared on deletion
                quarantine_key text UNIQUE, state CHECK(created|uploading|quarantined|processing|ready|failed|cancelled|expired),
                reserved_bytes bigint, expires_at, failure_code NULL, audio_source_id FK NULL,
-               finalize_idempotency_key text NULL, created_at, updated_at)
+               created_at, updated_at)   -- finalize idempotency lives in idempotency_record
   INDEX(workspace_id, state)   INDEX(state, expires_at) WHERE state='created'
 audio_object(id PK, kind CHECK(recording|private_audio|audio_log), current_version_id NULL, created_at)
 audio_version(id PK, audio_object_id FK, version_no int, recording_id FK music_entity NULL, content_sha256 char(64),
@@ -68,6 +71,7 @@ audio_source(id PK, audio_version_id FK, workspace_id FK, origin CHECK(catalog|p
              title text NULL, created_by FK app_user NULL, failure_code NULL, storage_prefix text UNIQUE,
              deleted_at NULL, created_at, updated_at)
   CHECK((origin='catalog') = (visibility='public'))
+  CHECK((status IN ('deleting','deleted')) = (deleted_at IS NOT NULL))
   INDEX(workspace_id, status, created_at DESC, id)
   INDEX(audio_version_id)
 audio_asset(id PK, audio_source_id FK, kind CHECK(original|hls|waveform), bucket text, object_key text,
@@ -202,7 +206,8 @@ search_document(id text PK  -- = subject id, doc_kind CHECK(recording|release|ar
   CHECK((visibility='private') = (owner_workspace_id IS NOT NULL))
   INDEX GIN(tsv)  INDEX GIN(norm gin_trgm_ops)  INDEX(owner_workspace_id)
 ```
-- `audit_log` is append-only: the application role has `INSERT, SELECT` only on it (enforced by a migration `REVOKE UPDATE, DELETE`).
+- `audit_log` is append-only: a `BEFORE UPDATE OR DELETE` trigger raises an exception (works regardless of which role the application uses).
+- `idempotency_record(user_id, operation, idempotency_key) PK, request_hash, response_status, response_body jsonb, created_at` stores Idempotency-Key results (api-guidelines §5).
 
 ## 3. Storage and authorization boundary
 
