@@ -8,6 +8,7 @@
  */
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
@@ -99,7 +100,35 @@ async function waitFor(what: string, check: () => Promise<boolean>, timeoutMs = 
 
 const ok = (url: string) => () => fetch(url).then((r) => r.ok);
 
+/** Fails fast with a clear message instead of a readiness timeout. */
+async function assertPortFree(port: number): Promise<void> {
+  await new Promise<void>((resolveFree, reject) => {
+    const probe = createServer();
+    probe.once('error', () => {
+      reject(
+        new Error(
+          `port ${String(port)} is already in use; set E2E_API_PORT / E2E_MEDIA_PORT / E2E_WEB_PORT / E2E_METRICS_PORT`,
+        ),
+      );
+    });
+    probe.listen(port, '127.0.0.1', () => {
+      probe.close(() => {
+        resolveFree();
+      });
+    });
+  });
+}
+
 try {
+  for (const p of [
+    E2E.apiPort,
+    E2E.mediaPort,
+    E2E.webPort,
+    E2E.metricsPort,
+    E2E.metricsPort + 1,
+    E2E.metricsPort + 2,
+  ])
+    await assertPortFree(p);
   say('recreating database rabit_e2e');
   const admin = new pg.Client({ connectionString: E2E.adminDatabaseUrl });
   await admin.connect();
