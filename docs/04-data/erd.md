@@ -229,7 +229,7 @@ Object keys: `<asr id>/<random>/<asset kind>…` (`audio_source.storage_prefix`,
 | Quarantine objects | until processed, or 24 h after expiry | expire job + bucket lifecycle |
 | Private originals/derivatives | while source not deleted | deletion job, tombstone |
 | `listening_event` | 90 days raw | partition drop / purge job |
-| `playback_session` | 30 days after expiry | purge job |
+| `playback_session` | 90 days after expiry, once no listening events reference it | `playback.purge_sessions` |
 | `audit_log` | Legal (not fixed) | none in MVP |
 | Exports | 24 h after ready | expire job |
 | `job` succeeded rows | 14 days | purge job |

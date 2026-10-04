@@ -44,6 +44,37 @@ export function playbackJobs(ctx: AppContext): JobHandler[] {
       },
     },
     {
+      kind: 'playback.revoke_for_user',
+      leaseMs: 60_000,
+      async handle({ job }) {
+        const p = z.object({ user_id: z.string() }).parse(job.payload);
+        await revokeSessions(ctx.db, { userId: p.user_id }, 'territory_changed');
+      },
+    },
+    {
+      // Retention (privacy.md): sessions are kept until their listening events
+      // are purged (90 days), then removed.
+      kind: 'playback.purge_sessions',
+      leaseMs: 10 * 60_000,
+      async handle() {
+        const cutoff = new Date(Date.now() - 90 * 86_400_000);
+        await ctx.db
+          .deleteFrom('playback_session')
+          .where('expires_at', '<', cutoff)
+          .where((eb) =>
+            eb.not(
+              eb.exists(
+                eb
+                  .selectFrom('listening_event as e')
+                  .select('e.id')
+                  .whereRef('e.session_id', '=', 'playback_session.id'),
+              ),
+            ),
+          )
+          .execute();
+      },
+    },
+    {
       kind: 'playback.compute_popularity',
       leaseMs: 10 * 60_000,
       async handle() {

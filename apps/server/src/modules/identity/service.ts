@@ -187,6 +187,15 @@ export async function setLicenseCountry(
       .where('status', '=', 'active')
       .executeTakeFirst();
     if (Number(res.numUpdatedRows) === 0) throw errors.notFound();
+    // Territory decides catalog rights: sessions issued under the old one end (review #12).
+    await emit(tx, {
+      type: 'LicenseCountryChanged',
+      schemaVersion: 1,
+      subjectId: userId,
+      privacyScope: 'private',
+      correlationId,
+      payload: { user_id: userId },
+    });
     await audit(tx, {
       actorType: 'operator',
       actorId: operator.userId,

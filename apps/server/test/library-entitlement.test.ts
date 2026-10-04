@@ -310,6 +310,61 @@ describe('rights withdrawal (T14)', () => {
   });
 });
 
+describe('license territory changes (review #12)', () => {
+  it('revokes active sessions when the operator changes the license country', async () => {
+    const u = await listener({ country: 'KR', subscribe: true });
+    const session = (await playRecording(u, id('r1'))).json();
+    await ops.setCountry(u, 'US');
+    await h.worker.drain();
+    const row = await h.ctx.db
+      .selectFrom('playback_session')
+      .select('status')
+      .where('id', '=', session.session_id)
+      .executeTakeFirstOrThrow();
+    expect(row.status).toBe('revoked');
+    expect((await playRecording(u, id('r1'))).json().error.code).toBe('RIGHTS_UNAVAILABLE');
+  });
+});
+
+describe('account deletion and playback data (review #7)', () => {
+  it('revokes sessions and deletes listening events of a deleted account', async () => {
+    const u = await listener({ country: 'KR', subscribe: true });
+    const session = (await playRecording(u, id('r1'))).json();
+    await h.api.inject({
+      method: 'POST',
+      url: '/v1/listening-events/batch',
+      headers: u.headers,
+      payload: {
+        events: [
+          {
+            event_id: crypto.randomUUID(),
+            session_id: session.session_id,
+            sequence: 0,
+            type: 'started',
+            position_ms: 0,
+            played_ms: 0,
+            client_time: new Date().toISOString(),
+          },
+        ],
+      },
+    });
+    await h.api.inject({ method: 'DELETE', url: '/v1/me', headers: u.headers });
+    await h.worker.drain();
+    const events = await h.ctx.db
+      .selectFrom('listening_event')
+      .select('id')
+      .where('user_id', '=', u.userId)
+      .execute();
+    expect(events).toEqual([]);
+    const sessions = await h.ctx.db
+      .selectFrom('playback_session')
+      .select('status')
+      .where('user_id', '=', u.userId)
+      .execute();
+    expect(sessions.every((s) => s.status === 'revoked')).toBe(true);
+  });
+});
+
 describe('subscriptions and entitlements are independent (COM-009)', () => {
   it('keeps operator-granted access after the subscription is cancelled', async () => {
     const u = await listener({ country: 'KR', subscribe: true });

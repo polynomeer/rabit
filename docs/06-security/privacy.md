@@ -12,8 +12,8 @@
 | Private audio + derivatives | User's archive | private buckets | until deleted | delete, export |
 | Audio Log title/note/tags/recorded_at/tz | User's archive | `audio_log` | until deleted | edit, delete, export |
 | Upload declared filename | Default title | `audio_source.title` only | until deleted | edit |
-| Playback sessions | Access control | `playback_session` | 30 days after expiry | — |
-| Listening events | Popularity (Deep Cut), future settlement | `listening_event` | 90 days raw | included in export (P1) |
+| Playback sessions | Access control | `playback_session` | until their listening events are purged (90 days), then deleted | revoked on account deletion |
+| Listening events | Popularity (Deep Cut), future settlement | `listening_event` | 90 days raw | deleted with the account; included in export (P1) |
 | Library, playlists, DIG sessions | User features | DB | until deleted | delete, export |
 | Reports | Trust | `report` | Legal | — |
 | Audit log | Accountability | `audit_log` | Legal | — |

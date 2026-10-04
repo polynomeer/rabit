@@ -17,7 +17,12 @@ import { deleteAccountLibrary, libraryModule } from '../modules/library/index.js
 import { deleteAccountSearch, searchModule } from '../modules/search/index.js';
 import { excludedEntities, integrityModule } from '../modules/integrity/index.js';
 import { opsModule } from '../modules/ops/index.js';
-import { playability, playbackModule, type CatalogAccess } from '../modules/playback/index.js';
+import {
+  deleteAccountPlayback,
+  playability,
+  playbackModule,
+  type CatalogAccess,
+} from '../modules/playback/index.js';
 import type { Module } from './modules.js';
 
 /** Rights ∧ entitlement at access time (ADR-0016 steps 4–5). Territory is server-side only. */
@@ -49,6 +54,7 @@ export function allModules(): Module[] {
       },
       accountDeleters: () => [
         deleteAccountSearch,
+        deleteAccountPlayback,
         deleteAccountDig,
         deleteAccountAudio,
         deleteAccountLibrary,
