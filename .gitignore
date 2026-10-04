@@ -17,3 +17,4 @@ coverage/
 .env
 *.log
 .tmp/
+infra/demo/out/

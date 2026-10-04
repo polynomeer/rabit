@@ -49,6 +49,16 @@ pnpm --filter @rabit/server dev:worker   # jobs, transcoding
 pnpm --filter @rabit/server dev:media    # http://localhost:8081  (media gateway)
 ```
 
+Web reference client (ADR-0011) and a fictional demo catalog (self-made tones):
+
+```bash
+sh infra/demo/generate-catalog.sh
+pnpm --filter @rabit/server catalog:ingest ../../infra/demo/out/manifest.json
+pnpm --filter @rabit/web dev             # http://localhost:5173
+```
+
+Catalog playback needs a license country and a subscription on the account; set them with the operator API (`PUT /v1/ops/users/{id}/license-country`, `PUT /v1/ops/users/{id}/subscription`) using a dev token issued with `"operator": true`.
+
 Health: `GET /healthz` (liveness), `GET /readyz` (database + storage). Metrics: `:9464/metrics` (api), `:9465/metrics` (worker), `:9466/metrics` (media) — internal only.
 
 Local authentication uses the **development issuer** (ADR-0009), enabled only when `NODE_ENV != production` and `AUTH_DEV_ISSUER_ENABLED=true`:
