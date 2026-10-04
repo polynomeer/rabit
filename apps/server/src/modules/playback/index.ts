@@ -12,6 +12,7 @@ export {
   type DenyReason,
   type PolicyDecision,
 } from './policy.js';
+export { computePopularity, tierFor, POPULARITY_POLICY } from './listening.js';
 export {
   revokeSessions,
   mediaAccessAllowed,
@@ -30,6 +31,9 @@ export function playbackModule(deps: PlaybackDeps): Module {
       RightsGrantChanged: ['playback.revoke_stale_sessions'],
       EntitlementChanged: ['playback.revoke_stale_sessions'],
     },
-    schedules: [{ kind: 'playback.expire_sessions', everyMs: 60_000 }],
+    schedules: [
+      { kind: 'playback.expire_sessions', everyMs: 60_000 },
+      { kind: 'playback.compute_popularity', everyMs: 24 * 60 * 60_000 },
+    ],
   };
 }

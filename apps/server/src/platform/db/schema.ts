@@ -388,7 +388,78 @@ export interface ExportRequestTable {
   updated_at: UpdatedAt;
 }
 
+export type PopularityTier = 'top' | 'upper' | 'deep_cut' | 'obscure' | 'unknown';
+
+export interface ListeningEventTable {
+  id: string;
+  session_id: string;
+  user_id: string;
+  recording_id: string | null;
+  client_event_id: string;
+  sequence: number;
+  type: 'started' | 'heartbeat' | 'seek' | 'paused' | 'ended';
+  position_ms: number;
+  played_ms: number;
+  client_time: Timestamp;
+  received_at: CreatedAt;
+  accepted: boolean;
+  reject_reason: string | null;
+}
+
+export interface RecordingPopularityTable {
+  recording_id: string;
+  window_days: number;
+  distinct_listeners: number;
+  plays: number;
+  percentile: number | null;
+  tier: PopularityTier;
+  policy_version: string;
+  computed_at: UpdatedAt;
+}
+
+export interface DigEvidence {
+  basis: Basis;
+  verification_state: VerificationState;
+  source: string;
+  confidence: number | null;
+  license_status: 'unknown' | 'licensed' | 'not_applicable' | null;
+  explanation: string;
+}
+
+export interface DigSessionTable {
+  id: string;
+  user_id: string;
+  start_entity_id: string | null;
+  start_audio_source_id: string | null;
+  state: 'active' | 'ended';
+  title: string | null;
+  saved: Generated<boolean>;
+  visibility: Generated<'private'>;
+  current_seq: Generated<number>;
+  started_at: CreatedAt;
+  ended_at: Date | null;
+}
+
+export interface DigTrailNodeTable {
+  id: string;
+  session_id: string;
+  seq: number;
+  parent_seq: number | null;
+  entity_id: string;
+  via_axis: string | null;
+  via_relation_id: string | null;
+  via_credit_id: string | null;
+  via_evidence: JSONColumnType<DigEvidence> | null;
+  played: Generated<boolean>;
+  saved: Generated<boolean>;
+  created_at: CreatedAt;
+}
+
 export interface Database {
+  listening_event: ListeningEventTable;
+  recording_popularity: RecordingPopularityTable;
+  dig_session: DigSessionTable;
+  dig_trail_node: DigTrailNodeTable;
   music_entity: MusicEntityTable;
   recording: RecordingTable;
   recording_artist: RecordingArtistTable;

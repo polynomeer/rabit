@@ -5,7 +5,8 @@ import { errors } from '../../platform/errors.js';
 import { routeLimit } from '../../platform/http/app.js';
 import { withIdempotency } from '../../platform/http/idempotency.js';
 import { requirePrincipal } from '../../platform/http/principal.js';
-import { idempotencyKeyFrom, idOf, parse } from '../../platform/http/validation.js';
+import { idempotencyKeyFrom, idOf, isoTimestamp, parse } from '../../platform/http/validation.js';
+import { recordListeningEvents } from './listening.js';
 import { createPlaybackSession, refreshPlaybackSession, type PlaybackDeps } from './sessions.js';
 
 const createBody = z
@@ -44,5 +45,33 @@ export function playbackRoutes(deps: PlaybackDeps) {
         return refreshPlaybackSession(ctx, deps, p, params.data.session_id);
       },
     );
+
+    app.post('/v1/listening-events/batch', routeLimit(120, '1 minute'), async (req, reply) => {
+      const p = requirePrincipal(req.principal);
+      const body = parse(
+        z.strictObject({
+          events: z
+            .array(
+              z.strictObject({
+                event_id: z.uuid(),
+                session_id: idOf('playbackSession'),
+                sequence: z.number().int().min(0),
+                type: z.enum(['started', 'heartbeat', 'seek', 'paused', 'ended']),
+                position_ms: z.number().int().min(0),
+                played_ms: z
+                  .number()
+                  .int()
+                  .min(0)
+                  .max(24 * 3600 * 1000),
+                client_time: isoTimestamp,
+              }),
+            )
+            .min(1)
+            .max(100),
+        }),
+        req.body,
+      );
+      return reply.status(202).send(await recordListeningEvents(ctx.db, p, body.events));
+    });
   };
 }

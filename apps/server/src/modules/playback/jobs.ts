@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { AppContext } from '../../app/context.js';
 import type { JobHandler } from '../../platform/jobs/runner.js';
+import { computePopularity, purgeListeningEvents } from './listening.js';
 import { revokeSessions } from './sessions.js';
 
 export function playbackJobs(ctx: AppContext): JobHandler[] {
@@ -40,6 +41,14 @@ export function playbackJobs(ctx: AppContext): JobHandler[] {
             'entitlement_changed',
           );
         }
+      },
+    },
+    {
+      kind: 'playback.compute_popularity',
+      leaseMs: 10 * 60_000,
+      async handle() {
+        await computePopularity(ctx.db);
+        await purgeListeningEvents(ctx.db);
       },
     },
     {
