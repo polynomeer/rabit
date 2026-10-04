@@ -1,0 +1,58 @@
+# Local development and test infrastructure (ADR-0003, ADR-0004, ADR-0012).
+# Ports are offset to avoid clashing with other local stacks.
+name: rabit
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    pull_policy: missing
+    environment:
+      POSTGRES_USER: rabit
+      POSTGRES_PASSWORD: rabit
+      POSTGRES_DB: rabit
+    ports:
+      - '127.0.0.1:55440:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rabit -d rabit']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    pull_policy: missing
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: rabit
+      MINIO_ROOT_PASSWORD: rabit-dev-secret
+      # Static dev-only KMS key so SSE-S3 (requested on every PUT, ADR-0004) works locally.
+      MINIO_KMS_SECRET_KEY: rabit-dev-key:3hUCJbDY8VZPzNTKXJTpjS8LUxW1zaZ6ub5K/0Y2Y8g=
+    ports:
+      - '127.0.0.1:59000:9000'
+      - '127.0.0.1:59001:9001'
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  minio-init:
+    # The server image ships the `mc` client, so no extra image is needed.
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    pull_policy: missing
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ['/bin/sh', '/init/create-buckets.sh']
+    volumes:
+      - ./infra/minio:/init:ro
+    restart: 'no'
+
+volumes:
+  pgdata:
+  miniodata:
