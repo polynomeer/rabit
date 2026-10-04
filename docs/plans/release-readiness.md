@@ -17,7 +17,7 @@
 
 | # | Area | Finding | Evidence | A | B |
 |---|---|---|---|---|---|
-| R1 | Requirements coverage | All P0 server requirements in mvp-scope §0.6 are implemented and tested, except client-side items (PLY-002 display, PLY-014 persistent player, PLY-017 calm playback, LIB-001 Archive views, DIG-026 graph UI) — no client exists yet (ADR-0011 web reference client not built) | test-strategy §1; `apps/` has no `web` | Must fix | Blocker |
+| R1 | Requirements coverage | All P0 server requirements in mvp-scope §0.6 are implemented and tested. **Update (same day):** the web reference client now covers PLY-002 ownership display, a persistent player, LIB-001 Archive, DIG-026 (list-first graph); verified manually in a browser (search → play → DIG trail; listening events accepted; no horizontal scroll at 375 px). No automated browser E2E yet | test-strategy §1; `apps/web` | Follow-up (automated E2E) | Must fix |
 | R2 | Migrations / rollback | 10 reversible migrations; full down/up tested on every run; expand/contract policy documented; no destructive migration exists | `migrations.test.ts`, erd §5 | OK | OK |
 | R3 | Security P0 | Threat-model P0 tests exist and pass (T01–T17, T24–T30); production worker sandbox is process-level only (ADR-0007 Proposed) | threat-model §2–4 | **Blocker** (sandbox before any non-team user) | Blocker |
 | R4 | Security P1 | Artist impersonation, public UGC abuse, payment webhook replay not applicable yet (features absent) | threat-model T18–T23 | Follow-up | Blocker when features ship |
