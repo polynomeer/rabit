@@ -88,6 +88,8 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 6px 10px;
+  /* File inputs have a wide intrinsic size; never wider than their container. */
+  max-width: 100%;
 }
 :focus-visible {
   outline: 3px solid var(--accent);
