@@ -17,13 +17,20 @@ export interface ListeningEventInput {
 
 /** Slack added to wall-clock checks for network jitter and client buffering. */
 const PLAYED_TOLERANCE_MS = 5_000;
+/** Events may arrive shortly after a session ends (final `ended`/`paused` flush). */
+const SESSION_GRACE_MS = 60_000;
 
 /**
- * Stores listening events (PLY-015). The server decides acceptance: the session
- * must belong to the caller, positions must fit the audio, and `played_ms` cannot
- * exceed the wall-clock time since the previous accepted event (anti-inflation,
- * T19). Duplicates (same session + event id) are ignored; out-of-order events
- * are accepted by sequence. Client-side counts are never trusted alone.
+ * Stores listening events (PLY-015, T19). Acceptance is decided by the server
+ * per session under a row lock on `playback_session`:
+ * - the session must belong to the caller and be active (or have expired less
+ *   than a minute ago); revoked sessions accept nothing;
+ * - positions must fit the audio;
+ * - the **total** accepted `played_ms` of the session can never exceed the wall
+ *   clock time since the session was issued (+ tolerance), across events, batches
+ *   and concurrent requests (review #2).
+ * Duplicates (same session + event id) are ignored; out-of-order events are
+ * accepted by sequence. Client-side counts are never trusted alone.
  */
 export async function recordListeningEvents(
   db: Db,
@@ -33,71 +40,85 @@ export async function recordListeningEvents(
   let accepted = 0;
   let duplicates = 0;
   const rejected: { event_id: string; reason: string }[] = [];
-  const sessionIds = [...new Set(events.map((e) => e.session_id))];
-  const sessions = await db
-    .selectFrom('playback_session as p')
-    .innerJoin('audio_source as s', 's.id', 'p.audio_source_id')
-    .innerJoin('audio_version as v', 'v.id', 's.audio_version_id')
-    .select(['p.id', 'p.user_id', 'p.issued_at', 'v.duration_ms', 'v.recording_id', 's.origin'])
-    .where('p.id', 'in', sessionIds)
-    .execute();
-  const byId = new Map(sessions.map((s) => [s.id, s]));
-  const lastSeen = new Map<string, number>();
-
+  const reject = (event_id: string, reason: string) => {
+    rejected.push({ event_id, reason });
+    metrics.listeningEvents.inc({ outcome: 'rejected' });
+  };
+  const bySession = new Map<string, ListeningEventInput[]>();
   for (const e of [...events].sort((a, b) => a.sequence - b.sequence)) {
-    const s = byId.get(e.session_id);
-    let reason: string | null = null;
-    if (!s || s.user_id !== principal.userId) reason = 'not_owner';
-    else if (s.duration_ms !== null && e.position_ms > s.duration_ms + PLAYED_TOLERANCE_MS)
-      reason = 'position_out_of_range';
-    else {
-      if (!lastSeen.has(s.id)) {
-        const prev = await db
-          .selectFrom('listening_event')
-          .select((eb) => eb.fn.max('received_at').as('at'))
-          .where('session_id', '=', s.id)
-          .where('accepted', '=', true)
-          .executeTakeFirst();
-        lastSeen.set(s.id, (prev?.at ? new Date(prev.at) : s.issued_at).getTime());
+    bySession.set(e.session_id, [...(bySession.get(e.session_id) ?? []), e]);
+  }
+
+  for (const [sessionId, list] of bySession) {
+    await db.transaction().execute(async (tx) => {
+      const s = await tx
+        .selectFrom('playback_session as p')
+        .innerJoin('audio_source as src', 'src.id', 'p.audio_source_id')
+        .innerJoin('audio_version as v', 'v.id', 'src.audio_version_id')
+        .select([
+          'p.id',
+          'p.user_id',
+          'p.status',
+          'p.issued_at',
+          'p.expires_at',
+          'v.duration_ms',
+          'v.recording_id',
+          'src.origin',
+        ])
+        .where('p.id', '=', sessionId)
+        .forUpdate(['p'])
+        .executeTakeFirst();
+      if (!s || s.user_id !== principal.userId) {
+        // Never store events against another user's session.
+        for (const e of list) reject(e.event_id, 'not_owner');
+        return;
       }
-      const since = Date.now() - (lastSeen.get(s.id) ?? Date.now());
-      if (e.played_ms > since + PLAYED_TOLERANCE_MS) reason = 'played_exceeds_wall_clock';
-    }
-    if (reason && reason === 'not_owner') {
-      // Never store events against another user's session.
-      rejected.push({ event_id: e.event_id, reason });
-      metrics.listeningEvents.inc({ outcome: 'rejected' });
-      continue;
-    }
-    const res = await db
-      .insertInto('listening_event')
-      .values({
-        id: newId('listeningEvent'),
-        session_id: e.session_id,
-        user_id: principal.userId,
-        recording_id: s?.origin === 'catalog' ? s.recording_id : null,
-        client_event_id: e.event_id,
-        sequence: e.sequence,
-        type: e.type,
-        position_ms: e.position_ms,
-        played_ms: e.played_ms,
-        client_time: e.client_time,
-        accepted: reason === null,
-        reject_reason: reason,
-      })
-      .onConflict((oc) => oc.columns(['session_id', 'client_event_id']).doNothing())
-      .executeTakeFirst();
-    if (Number(res.numInsertedOrUpdatedRows ?? 0) === 0) {
-      duplicates++;
-      metrics.listeningEvents.inc({ outcome: 'duplicate' });
-    } else if (reason) {
-      rejected.push({ event_id: e.event_id, reason });
-      metrics.listeningEvents.inc({ outcome: 'rejected' });
-    } else {
-      accepted++;
-      lastSeen.set(e.session_id, Date.now());
-      metrics.listeningEvents.inc({ outcome: 'accepted' });
-    }
+      const now = Date.now();
+      const active = s.status !== 'revoked' && s.expires_at.getTime() + SESSION_GRACE_MS > now;
+      const used = await tx
+        .selectFrom('listening_event')
+        .select((eb) => eb.fn.coalesce(eb.fn.sum<number>('played_ms'), eb.val(0)).as('ms'))
+        .where('session_id', '=', s.id)
+        .where('accepted', '=', true)
+        .executeTakeFirstOrThrow();
+      let budget = now - s.issued_at.getTime() + PLAYED_TOLERANCE_MS - used.ms;
+
+      for (const e of list) {
+        let reason: string | null = null;
+        if (!active) reason = 'session_inactive';
+        else if (s.duration_ms !== null && e.position_ms > s.duration_ms + PLAYED_TOLERANCE_MS)
+          reason = 'position_out_of_range';
+        else if (e.played_ms > budget) reason = 'played_exceeds_wall_clock';
+        const res = await tx
+          .insertInto('listening_event')
+          .values({
+            id: newId('listeningEvent'),
+            session_id: s.id,
+            user_id: principal.userId,
+            recording_id: s.origin === 'catalog' ? s.recording_id : null,
+            client_event_id: e.event_id,
+            sequence: e.sequence,
+            type: e.type,
+            position_ms: e.position_ms,
+            played_ms: e.played_ms,
+            client_time: e.client_time,
+            accepted: reason === null,
+            reject_reason: reason,
+          })
+          .onConflict((oc) => oc.columns(['session_id', 'client_event_id']).doNothing())
+          .executeTakeFirst();
+        if (Number(res.numInsertedOrUpdatedRows ?? 0) === 0) {
+          duplicates++;
+          metrics.listeningEvents.inc({ outcome: 'duplicate' });
+        } else if (reason) {
+          reject(e.event_id, reason);
+        } else {
+          accepted++;
+          budget -= e.played_ms;
+          metrics.listeningEvents.inc({ outcome: 'accepted' });
+        }
+      }
+    });
   }
   return { accepted, duplicates, rejected };
 }

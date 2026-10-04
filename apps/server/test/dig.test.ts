@@ -214,6 +214,58 @@ describe('listening events (PLY-015) and Deep Cut (DIG-007)', () => {
     expect(inflated.json().rejected[0].reason).toBe('played_exceeds_wall_clock');
   });
 
+  it('budgets played time across a whole batch and rejects ended sessions (review #2)', async () => {
+    const listener = await h.user();
+    await ops.setCountry(listener, 'KR');
+    await ops.subscribe(listener);
+    // A separate catalog, so this test does not change popularity asserted elsewhere.
+    const own = await seedCatalog(h);
+    const s = (
+      await h.api.inject({
+        method: 'POST',
+        url: '/v1/playback-sessions',
+        headers: listener.headers,
+        payload: { recording_id: own.ids['r2'], device_id: 'device-test-1' },
+      })
+    ).json();
+    const now = new Date().toISOString();
+    const beats = Array.from({ length: 8 }, (_, i) => ({
+      event_id: randomUUID(),
+      session_id: s.session_id,
+      sequence: i,
+      type: 'heartbeat',
+      position_ms: 1000,
+      played_ms: 4900,
+      client_time: now,
+    }));
+    const r = (
+      await h.api.inject({
+        method: 'POST',
+        url: '/v1/listening-events/batch',
+        headers: listener.headers,
+        payload: { events: beats },
+      })
+    ).json();
+    // 39 s claimed right after the session started: only what fits wall clock + tolerance is accepted.
+    expect(r.accepted).toBeLessThanOrEqual(2);
+    expect(r.rejected.length).toBeGreaterThanOrEqual(6);
+
+    await h.ctx.db
+      .updateTable('playback_session')
+      .set({ status: 'revoked' })
+      .where('id', '=', s.session_id)
+      .execute();
+    const late = (
+      await h.api.inject({
+        method: 'POST',
+        url: '/v1/listening-events/batch',
+        headers: listener.headers,
+        payload: { events: [{ ...beats[0]!, event_id: randomUUID(), sequence: 99, played_ms: 0 }] },
+      })
+    ).json();
+    expect(late.rejected[0].reason).toBe('session_inactive');
+  });
+
   it('filters by relative popularity while unknown popularity is never treated as popular', async () => {
     const second = await h.user();
     await ops.setCountry(second, 'KR');
