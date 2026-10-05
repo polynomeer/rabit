@@ -18,7 +18,9 @@ export function createContext(config: Config, log: Logger): AppContext {
   return {
     config,
     log,
-    db: createDb(config.db.url, config.db.poolMax),
+    db: createDb(config.db.url, config.db.poolMax, (err) => {
+      log.warn({ err }, 'idle database connection failed; the pool reconnects');
+    }),
     blobs: new S3BlobStore(config.s3),
     cursors: new CursorCodec(config.secrets.cursor),
   };

@@ -14,19 +14,26 @@ export type Tx = Transaction<Database>;
 /** Either a plain connection or an open transaction. */
 export type DbOrTx = Kysely<Database>;
 
-export function createDb(url: string, poolMax = 10): Db {
-  return new Kysely<Database>({
-    dialect: new PostgresDialect({
-      pool: new pg.Pool({
-        connectionString: url,
-        max: poolMax,
-        // Fail fast instead of hanging requests when the database is unreachable.
-        connectionTimeoutMillis: 5_000,
-        idleTimeoutMillis: 30_000,
-        application_name: 'rabit',
-      }),
-    }),
+/**
+ * `onIdleError` receives errors of idle pooled connections, for example when the
+ * database restarts. The pool discards that connection and opens a new one on
+ * the next query; without a listener the error would crash the process.
+ */
+export function createDb(
+  url: string,
+  poolMax = 10,
+  onIdleError: (err: Error) => void = () => {},
+): Db {
+  const pool = new pg.Pool({
+    connectionString: url,
+    max: poolMax,
+    // Fail fast instead of hanging requests when the database is unreachable.
+    connectionTimeoutMillis: 5_000,
+    idleTimeoutMillis: 30_000,
+    application_name: 'rabit',
   });
+  pool.on('error', onIdleError);
+  return new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
 }
 
 export async function pingDb(db: Db): Promise<void> {
