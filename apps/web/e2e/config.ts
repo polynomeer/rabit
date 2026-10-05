@@ -9,6 +9,10 @@ const port = (name: string, fallback: number) => Number(process.env[name] ?? fal
 const apiPort = port('E2E_API_PORT', 18080);
 const mediaPort = port('E2E_MEDIA_PORT', 18081);
 const webPort = port('E2E_WEB_PORT', 15173);
+/** OIDC sign-in runs against a mock provider with its own api and web instance. */
+const oidcPort = port('E2E_OIDC_PORT', 18090);
+const oidcApiPort = port('E2E_OIDC_API_PORT', 18082);
+const oidcWebPort = port('E2E_OIDC_WEB_PORT', 15174);
 
 export const E2E = {
   apiPort,
@@ -19,6 +23,13 @@ export const E2E = {
   apiUrl: `http://localhost:${String(apiPort)}`,
   mediaUrl: `http://localhost:${String(mediaPort)}`,
   webUrl: `http://localhost:${String(webPort)}`,
+  oidcPort,
+  oidcApiPort,
+  oidcWebPort,
+  oidcIssuer: `http://localhost:${String(oidcPort)}/rabit`,
+  oidcApiUrl: `http://localhost:${String(oidcApiPort)}`,
+  oidcWebUrl: `http://localhost:${String(oidcWebPort)}`,
+  oidcClientId: 'rabit-web',
   /** Maintenance connection used only to recreate the E2E database. */
   adminDatabaseUrl: `${pgBase}/postgres`,
   databaseUrl: `${pgBase}/rabit_e2e`,
