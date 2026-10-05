@@ -1,6 +1,6 @@
 # ADR-0004: S3-compatible object storage with namespace separation
 
-- Status: Accepted (abstraction and namespace layout) / **Proposed (production provider)**
+- Status: Accepted (abstraction and namespace layout; production provider Amazon S3 Seoul since 2026-10-05, ADR-0012)
 - Date: 2026-10-04
 - Source topic: AP ADR-15 (part)
 - Related: NFR-ARCH-006, NFR-SEC-004, NFR-SEC-006, AP-06 §저장소
@@ -31,6 +31,12 @@ Per-workspace encryption keys (NFR-SEC-004) require a KMS decision; the `encrypt
 
 ## Revisit trigger
 Provider selection; egress cost measurements; legal residency requirements.
+
+## Amendment 2026-10-05: production on Amazon S3 (Seoul)
+- Provider and region follow ADR-0012: Amazon S3 in `ap-northeast-2`.
+- Bucket names are `<S3_BUCKET_PREFIX>-<namespace>`; the database keeps the logical namespace (`rabit-quarantine`, …) and the adapter maps it, so data does not depend on the environment.
+- Every write uses SSE-KMS with a customer-managed key and bucket keys (`S3_SSE=aws:kms`, required in production); presigned uploads sign the encryption headers. Block Public Access on every bucket; bucket policies deny non-TLS access and writes without the expected key.
+- Credentials come from the ECS task role; static keys are for local S3 servers only.
 
 ## Amendment 2026-10-05: local and CI object store is SeaweedFS
 - **Why:** MinIO's official community images (`minio/minio`, `minio/mc`) were deleted from Docker Hub around 2026-09-12. Quay.io stopped serving anonymous pulls around 2026-09-24. The project had been archived on 2026-04-25. The first CI run failed with "pull access denied". The last free MinIO release also has an authentication bypass (CVE-2026-40344) that will not be patched in the community edition.

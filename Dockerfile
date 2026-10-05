@@ -17,6 +17,9 @@ WORKDIR /app
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /app/apps/server/dist ./dist
+# Amazon RDS certificate authorities, so DATABASE_URL can use sslmode=verify-full
+# with sslrootcert=/etc/ssl/rds/global-bundle.pem (ADR-0012).
+ADD --chmod=644 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /etc/ssl/rds/global-bundle.pem
 USER rabit
 ENV NODE_ENV=production
 ENTRYPOINT ["/usr/bin/tini", "--", "/bin/sh", "-c", "exec node dist/entry/${0}.js \"$@\""]

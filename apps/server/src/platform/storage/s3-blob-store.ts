@@ -53,11 +53,34 @@ export class S3BlobStore implements BlobStore {
   private readonly client: S3Client;
   /** Separate client for presigning with the endpoint that clients can reach. */
   private readonly publicClient: S3Client;
+  private readonly prefix: string;
+  /** Encryption parameters sent on every write. */
+  private readonly sse:
+    | { ServerSideEncryption: 'AES256' }
+    | { ServerSideEncryption: 'aws:kms'; SSEKMSKeyId: string; BucketKeyEnabled: true };
+  /** The same, as headers a presigned PUT must carry (they are signed). */
+  private readonly sseHeaders: Record<string, string>;
 
   constructor(cfg: Config['s3'], network: StorageNetworkOptions = DEFAULT_NETWORK) {
+    this.prefix = cfg.bucketPrefix;
+    if (cfg.sse.mode === 'aws:kms') {
+      this.sse = {
+        ServerSideEncryption: 'aws:kms',
+        SSEKMSKeyId: cfg.sse.kmsKeyId,
+        BucketKeyEnabled: true,
+      };
+      this.sseHeaders = {
+        'x-amz-server-side-encryption': 'aws:kms',
+        'x-amz-server-side-encryption-aws-kms-key-id': cfg.sse.kmsKeyId,
+        'x-amz-server-side-encryption-bucket-key-enabled': 'true',
+      };
+    } else {
+      this.sse = { ServerSideEncryption: 'AES256' };
+      this.sseHeaders = { 'x-amz-server-side-encryption': 'AES256' };
+    }
     const base = {
       region: cfg.region,
-      credentials: { accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey },
+      ...(cfg.credentials ? { credentials: cfg.credentials } : {}),
       forcePathStyle: cfg.forcePathStyle,
       // Only send/validate checksums when an operation requires it; presigned PUTs
       // carry an explicit SHA-256 that the client must match.
@@ -76,27 +99,29 @@ export class S3BlobStore implements BlobStore {
     });
   }
 
+  /** Logical namespace (ADR-0004, stored in the database) → this environment's bucket. */
+  private physical(bucket: Bucket): string {
+    return `${this.prefix}${bucket.slice('rabit'.length)}`;
+  }
+
   async presignPut(
     bucket: Bucket,
     key: string,
     opts: { bytes: number; sha256Base64: string; expiresInSeconds: number },
   ): Promise<PresignedPut> {
     const cmd = new PutObjectCommand({
-      Bucket: bucket,
+      Bucket: this.physical(bucket),
       Key: key,
       ContentLength: opts.bytes,
       ChecksumSHA256: opts.sha256Base64,
-      ServerSideEncryption: 'AES256',
+      ...this.sse,
     });
+    const sseNames = Object.keys(this.sseHeaders);
     const url = await getSignedUrl(this.publicClient, cmd, {
       expiresIn: opts.expiresInSeconds,
       // These headers become part of the signature: the client cannot change them.
-      signableHeaders: new Set([
-        'content-length',
-        'x-amz-checksum-sha256',
-        'x-amz-server-side-encryption',
-      ]),
-      unhoistableHeaders: new Set(['x-amz-checksum-sha256', 'x-amz-server-side-encryption']),
+      signableHeaders: new Set(['content-length', 'x-amz-checksum-sha256', ...sseNames]),
+      unhoistableHeaders: new Set(['x-amz-checksum-sha256', ...sseNames]),
     });
     return {
       url,
@@ -104,7 +129,7 @@ export class S3BlobStore implements BlobStore {
       headers: {
         'content-length': String(opts.bytes),
         'x-amz-checksum-sha256': opts.sha256Base64,
-        'x-amz-server-side-encryption': 'AES256',
+        ...this.sseHeaders,
       },
       expiresAt: new Date(Date.now() + opts.expiresInSeconds * 1000),
     };
@@ -116,7 +141,7 @@ export class S3BlobStore implements BlobStore {
     opts: { expiresInSeconds: number; downloadName?: string },
   ): Promise<{ url: string; expiresAt: Date }> {
     const cmd = new GetObjectCommand({
-      Bucket: bucket,
+      Bucket: this.physical(bucket),
       Key: key,
       ...(opts.downloadName
         ? { ResponseContentDisposition: `attachment; filename="${opts.downloadName}"` }
@@ -129,7 +154,7 @@ export class S3BlobStore implements BlobStore {
   async head(bucket: Bucket, key: string): Promise<ObjectHead | null> {
     try {
       const out = await this.client.send(
-        new HeadObjectCommand({ Bucket: bucket, Key: key, ChecksumMode: 'ENABLED' }),
+        new HeadObjectCommand({ Bucket: this.physical(bucket), Key: key, ChecksumMode: 'ENABLED' }),
       );
       return {
         bytes: out.ContentLength ?? 0,
@@ -150,11 +175,11 @@ export class S3BlobStore implements BlobStore {
   ): Promise<void> {
     await this.client.send(
       new PutObjectCommand({
-        Bucket: bucket,
+        Bucket: this.physical(bucket),
         Key: key,
         Body: body,
         ContentType: opts.contentType,
-        ServerSideEncryption: 'AES256',
+        ...this.sse,
         ...(opts.bytes !== undefined ? { ContentLength: opts.bytes } : {}),
       }),
     );
@@ -166,10 +191,10 @@ export class S3BlobStore implements BlobStore {
   ): Promise<void> {
     await this.client.send(
       new CopyObjectCommand({
-        CopySource: `${from.bucket}/${encodeURIComponent(from.key).replace(/%2F/g, '/')}`,
-        Bucket: to.bucket,
+        CopySource: `${this.physical(from.bucket)}/${encodeURIComponent(from.key).replace(/%2F/g, '/')}`,
+        Bucket: this.physical(to.bucket),
         Key: to.key,
-        ServerSideEncryption: 'AES256',
+        ...this.sse,
       }),
     );
   }
@@ -179,7 +204,9 @@ export class S3BlobStore implements BlobStore {
     key: string,
   ): Promise<{ body: Readable; bytes: number; contentType: string | undefined } | null> {
     try {
-      const out = await this.client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      const out = await this.client.send(
+        new GetObjectCommand({ Bucket: this.physical(bucket), Key: key }),
+      );
       if (!out.Body) return null;
       return {
         body: out.Body as Readable,
@@ -200,7 +227,7 @@ export class S3BlobStore implements BlobStore {
   }
 
   async delete(bucket: Bucket, key: string): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.physical(bucket), Key: key }));
   }
 
   async listPrefix(bucket: Bucket, prefix: string): Promise<string[]> {
@@ -208,7 +235,11 @@ export class S3BlobStore implements BlobStore {
     let token: string | undefined;
     do {
       const out = await this.client.send(
-        new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }),
+        new ListObjectsV2Command({
+          Bucket: this.physical(bucket),
+          Prefix: prefix,
+          ContinuationToken: token,
+        }),
       );
       for (const o of out.Contents ?? []) if (o.Key) keys.push(o.Key);
       token = out.IsTruncated ? out.NextContinuationToken : undefined;
@@ -226,7 +257,7 @@ export class S3BlobStore implements BlobStore {
       const chunk = keys.slice(i, i + 1000);
       await this.client.send(
         new DeleteObjectsCommand({
-          Bucket: bucket,
+          Bucket: this.physical(bucket),
           Delete: { Objects: chunk.map((Key) => ({ Key })), Quiet: true },
         }),
       );
@@ -235,7 +266,7 @@ export class S3BlobStore implements BlobStore {
   }
 
   async ping(): Promise<void> {
-    await this.client.send(new HeadBucketCommand({ Bucket: BUCKETS.quarantine }));
+    await this.client.send(new HeadBucketCommand({ Bucket: this.physical(BUCKETS.quarantine) }));
   }
 }
 
