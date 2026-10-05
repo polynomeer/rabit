@@ -143,8 +143,11 @@ jobs:
           MEDIA_TOKEN_SECRET=ci-only-media-token-secret-0123456789abcdef
           CURSOR_SECRET=ci-only-cursor-secret-0123456789abcdefghij
           ENV
-          docker run --rm --network host --env-file image.env rabit-server:ci migrate up
-          docker run -d --name api --network host --env-file image.env rabit-server:ci api
+          # The same restrictions as the ECS task definitions (ADR-0007): read-only
+          # root file system with a /tmp scratch volume, no capabilities, non-root.
+          HARD="--read-only --tmpfs /tmp:rw,size=256m --cap-drop ALL --security-opt no-new-privileges --user 10001"
+          docker run --rm $HARD --network host --env-file image.env rabit-server:ci migrate up
+          docker run -d --name api $HARD --network host --env-file image.env rabit-server:ci api
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8080/healthz && break; sleep 1; done
           curl -sf http://127.0.0.1:8080/healthz
       - name: Api logs
