@@ -615,6 +615,24 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/recordings/{recording_id}/rights-grants:
+    parameters: [ { name: recording_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [ops]
+      operationId: opsListRightsGrants
+      description: All rights grants of a recording, oldest first, with versions for If-Match (ops console).
+      responses:
+        '200':
+          description: Grants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RightsGrant' } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/ops/recordings/{recording_id}/audio-removal:
     parameters: [ { name: recording_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
     post:

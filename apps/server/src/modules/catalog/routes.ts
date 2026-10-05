@@ -20,7 +20,7 @@ import { ANY_ID_PATTERN } from '../../platform/ids.js';
 import { errors } from '../../platform/errors.js';
 import { entitySummary, getRecording, getRelease } from './entities.js';
 import { removeCatalogAudio } from './removal.js';
-import { changeGrantStatus, createGrant } from './rights.js';
+import { changeGrantStatus, createGrant, listGrants } from './rights.js';
 
 export interface Playability {
   playable: boolean;
@@ -94,6 +94,12 @@ export const catalogRoutes =
         }),
       );
       return reply.status(r.status).send(r.body);
+    });
+
+    app.get('/v1/ops/recordings/:recording_id/rights-grants', async (req) => {
+      requireOperator(req.principal);
+      const { recording_id } = parse(z.object({ recording_id: idOf('recording') }), req.params);
+      return listGrants(ctx.db, recording_id);
     });
 
     app.post('/v1/ops/rights-grants', async (req, reply) => {

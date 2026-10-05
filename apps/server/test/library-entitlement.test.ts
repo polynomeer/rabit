@@ -358,6 +358,26 @@ describe('entitlement forgery (T12) and operator controls (T13)', () => {
   });
 });
 
+describe('rights grants listing for operators (ops console)', () => {
+  it("lists a recording's grants for operators only, with their versions", async () => {
+    const url = `/v1/ops/recordings/${id('r1')}/rights-grants`;
+    const user = await listener();
+    expect((await h.api.inject({ url, headers: user.headers })).statusCode).toBe(403);
+    const r = await h.api.inject({ url, headers: ops.op.headers });
+    expect(r.statusCode).toBe(200);
+    const items = r.json().items as { recording_id: string; status: string; version: number }[];
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.every((g) => g.recording_id === id('r1'))).toBe(true);
+    expect(items[0]).toMatchObject({ territories: ['KR'], uses: ['stream'] });
+    expect(typeof items[0]?.version).toBe('number');
+    const missing = await h.api.inject({
+      url: `/v1/ops/recordings/${newId('recording')}/rights-grants`,
+      headers: ops.op.headers,
+    });
+    expect(missing.statusCode).toBe(404);
+  });
+});
+
 describe('rights withdrawal (T14)', () => {
   it('blocks new sessions immediately and revokes active sessions', async () => {
     const own = await seedCatalog(h);
