@@ -7,7 +7,6 @@ import type { AccountDataDeleter } from '../identity/index.js';
 export {
   evaluatePolicy,
   evaluatePolicies,
-  playability,
   playabilities,
   denyAllCatalog,
   type CatalogAccess,

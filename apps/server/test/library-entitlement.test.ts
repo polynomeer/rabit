@@ -135,6 +135,34 @@ describe('catalog and playability (ADR-0016)', () => {
   });
 });
 
+describe('release detail cost (review #6 follow-up)', () => {
+  it('resolves track playability in one batch, whatever the track count', async () => {
+    const u = await listener({ country: 'KR', subscribe: true });
+    const own = await seedCatalog(h); // its album is extended below; keep the shared one intact
+    const album = own.ids['album']!;
+    const read = () =>
+      countQueries(h, async () => {
+        const r = await h.api.inject({ url: `/v1/releases/${album}`, headers: u.headers });
+        expect(r.statusCode).toBe(200);
+      });
+    const twoTracks = await read();
+    await h.ctx.db
+      .insertInto('release_track')
+      .values([
+        { release_id: album, disc_no: 1, position: 3, recording_id: own.ids['r3']! },
+        { release_id: album, disc_no: 1, position: 4, recording_id: own.ids['r4']! },
+      ])
+      .execute();
+    const fourTracks = await read();
+    expect(fourTracks).toBe(twoTracks);
+
+    const rel = (await h.api.inject({ url: `/v1/releases/${album}`, headers: u.headers })).json();
+    expect(
+      rel.tracks.map((t: { playability: { reason: string | null } }) => t.playability.reason),
+    ).toEqual([null, null, null, 'no_audio']);
+  });
+});
+
 describe('entitlement forgery (T12) and operator controls (T13)', () => {
   it('rejects client-supplied entitlement, region or subscription claims', async () => {
     const u = await listener({ country: 'KR' });

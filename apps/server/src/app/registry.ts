@@ -19,7 +19,7 @@ import { excludedEntities, integrityModule } from '../modules/integrity/index.js
 import { opsModule } from '../modules/ops/index.js';
 import {
   deleteAccountPlayback,
-  playability,
+  playabilities,
   playbackModule,
   type CatalogAccess,
   type CatalogDecision,
@@ -60,7 +60,6 @@ export const catalogAccess: CatalogAccess = async (db, principal, recordingIds, 
 
 /** All bounded-context modules, wired together (composition root). */
 export function allModules(): Module[] {
-  let ctxDb: Parameters<typeof playability>[0] | null = null;
   return [
     identityModule({
       me: {
@@ -77,16 +76,15 @@ export function allModules(): Module[] {
       ],
     }),
     audioModule({ recordingExists }),
-    {
-      name: 'catalog-db-capture',
-      routes: (_app, ctx) => {
-        ctxDb = ctx.db;
-      },
-    },
     catalogModule({
-      playability: (principal, sourceId) => {
-        if (!ctxDb) throw new Error('catalog playability used before startup');
-        return playability(ctxDb, catalogAccess, principal, sourceId);
+      playability: async (db, principal, sourceIds) => {
+        const ids = sourceIds.filter((x): x is string => x !== null);
+        const byId = await playabilities(db, catalogAccess, principal, ids);
+        return sourceIds.map((id) =>
+          id === null
+            ? { playable: false, reason: 'no_audio' }
+            : (byId.get(id) ?? { playable: false, reason: 'not_found' }),
+        );
       },
     }),
     entitlementModule(),

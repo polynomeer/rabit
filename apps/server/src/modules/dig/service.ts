@@ -91,7 +91,7 @@ export async function explore(
   ]);
   const playabilityOf = (recordingId: string) => {
     const sourceId = sources.get(recordingId);
-    // Same as playability(): a recording without ingested audio is `no_audio`.
+    // A recording without ingested audio is `no_audio` (openapi `Playability`).
     return sourceId
       ? (playable.get(sourceId) as Playability)
       : { playable: false, reason: 'no_audio' as const };

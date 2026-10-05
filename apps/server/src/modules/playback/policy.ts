@@ -175,19 +175,11 @@ export async function evaluatePolicies(
 
 export type Playability = { playable: boolean; reason: DenyReason | 'no_audio' | 'deleted' | null };
 
-/** Playability summary for listings (openapi `Playability`). */
-export async function playability(
-  db: DbOrTx,
-  catalogAccess: CatalogAccess,
-  principal: Principal,
-  sourceId: string | null,
-): Promise<Playability> {
-  if (!sourceId) return { playable: false, reason: 'no_audio' };
-  const d = await evaluatePolicy(db, catalogAccess, principal, sourceId, 'play');
-  return d.allow ? { playable: true, reason: null } : { playable: false, reason: d.reason };
-}
-
-/** {@link playability} for many sources with a constant number of queries (review #6). */
+/**
+ * Playability summaries for listings (openapi `Playability`), for many sources
+ * with a constant number of queries (review #6). Callers map a missing source
+ * to `no_audio`.
+ */
 export async function playabilities(
   db: DbOrTx,
   catalogAccess: CatalogAccess,

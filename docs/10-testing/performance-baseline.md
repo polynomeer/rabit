@@ -48,6 +48,7 @@ Storage growth is dominated by originals (≈ 90 %); derivatives add ≈ 11.5 % 
 |---|---|---|---|
 | Playlist/library reads | Access policy was evaluated per item (6 queries per item) — availability must still be re-evaluated on every read | **Done (review #6, 2026-10-04):** policy evaluated per page in one batch (`evaluatePolicies`, `resolveRefs`), playlist items paged (100 per page, version-bound cursors). Measured locally, `GET /v1/playlists/:id`: 1,000 items 6,003 → 12 queries, p50 666 → 13 ms; 10,000 items 60,003 → 12 queries, p50 6.4 s → 13 ms. A test asserts the query count does not grow with playlist size | p95 > 300 ms |
 | DIG connections | Playability was computed per recording result | **Done (2026-10-04):** one batch per page (`playabilities`); a test asserts page size does not change the query count | p95 > 300 ms |
+| Release detail | Track playability was evaluated per track | **Done (2026-10-05):** one batch per release (`playabilities`); a test asserts 2 and 4 tracks cost the same queries | p95 > 300 ms |
 | DIG axes | Every axis computes its full connection list to count it | Replace with COUNT queries per axis | p95 > 300 ms or entities with > 500 connections |
 | Media gateway | One DB check per segment request | Keep (it enables immediate revocation); add a ≤ 2 s in-process session cache if DB load requires | media p95 > 50 ms or DB CPU from media > 30 % |
 

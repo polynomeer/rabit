@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../app/context.js';
+import type { DbOrTx } from '../../platform/db/db.js';
 import { withIdempotency } from '../../platform/http/idempotency.js';
 import {
   requireOperator,
@@ -25,11 +26,15 @@ export interface Playability {
   reason: string | null;
 }
 
-/** Playability of a catalog source for the caller, from the playback policy. */
+/**
+ * Playability of catalog sources for the caller, from the playback policy, in
+ * input order and in one batch (review #6). A missing source is `no_audio`.
+ */
 export type CatalogPlayability = (
+  db: DbOrTx,
   principal: Principal,
-  sourceId: string | null,
-) => Promise<Playability>;
+  sourceIds: readonly (string | null)[],
+) => Promise<Playability[]>;
 
 const reason = z.string().min(3).max(500);
 
@@ -40,19 +45,23 @@ export const catalogRoutes =
       const p = requirePrincipal(req.principal);
       const { recording_id } = parse(z.object({ recording_id: idOf('recording') }), req.params);
       const { catalog_audio_source_id, ...rec } = await getRecording(ctx.db, recording_id);
-      return { ...rec, playability: await deps.playability(p, catalog_audio_source_id) };
+      const [playability] = await deps.playability(ctx.db, p, [catalog_audio_source_id]);
+      return { ...rec, playability };
     });
 
     app.get('/v1/releases/:release_id', async (req) => {
       const p = requirePrincipal(req.principal);
       const { release_id } = parse(z.object({ release_id: idOf('release') }), req.params);
       const rel = await getRelease(ctx.db, release_id);
-      const tracks = await Promise.all(
-        rel.tracks.map(async ({ catalog_audio_source_id, ...t }) => ({
-          ...t,
-          playability: await deps.playability(p, catalog_audio_source_id),
-        })),
+      const playable = await deps.playability(
+        ctx.db,
+        p,
+        rel.tracks.map((t) => t.catalog_audio_source_id),
       );
+      const tracks = rel.tracks.map(({ catalog_audio_source_id: _source, ...t }, i) => ({
+        ...t,
+        playability: playable[i],
+      }));
       return { ...rel, tracks };
     });
 
