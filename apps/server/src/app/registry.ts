@@ -1,4 +1,9 @@
-import { audioModule, deleteAccountAudio, storageUsage } from '../modules/audio/index.js';
+import {
+  audioModule,
+  audioSupportSection,
+  deleteAccountAudio,
+  storageUsage,
+} from '../modules/audio/index.js';
 import {
   activeGrants,
   catalogModule,
@@ -9,18 +14,28 @@ import {
   activePlayEntitlements,
   deleteAccountEntitlements,
   entitlementModule,
+  entitlementSupportSection,
   subscriptionState,
 } from '../modules/entitlement/index.js';
-import { getUser, identityModule } from '../modules/identity/index.js';
+import { getUser, identityModule, identitySupportSection } from '../modules/identity/index.js';
 import { deleteAccountDig, digExportSection, digModule } from '../modules/dig/index.js';
-import { deleteAccountLibrary, libraryModule } from '../modules/library/index.js';
+import {
+  deleteAccountLibrary,
+  libraryModule,
+  librarySupportSection,
+} from '../modules/library/index.js';
 import { deleteAccountSearch, searchModule } from '../modules/search/index.js';
-import { excludedEntities, integrityModule } from '../modules/integrity/index.js';
+import {
+  excludedEntities,
+  integrityModule,
+  integritySupportSection,
+} from '../modules/integrity/index.js';
 import { opsModule } from '../modules/ops/index.js';
 import {
   deleteAccountPlayback,
   playabilities,
   playbackModule,
+  playbackSupportSection,
   type CatalogAccess,
   type CatalogDecision,
 } from '../modules/playback/index.js';
@@ -92,7 +107,16 @@ export function allModules(): Module[] {
     libraryModule({ catalogAccess, exportSections: () => [digExportSection] }),
     searchModule(),
     integrityModule(),
-    opsModule(),
+    opsModule({
+      supportSections: () => [
+        identitySupportSection,
+        entitlementSupportSection,
+        audioSupportSection,
+        playbackSupportSection,
+        librarySupportSection,
+        integritySupportSection,
+      ],
+    }),
     digModule({ catalogAccess, excludedEntities }),
   ];
 }

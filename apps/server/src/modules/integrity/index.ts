@@ -6,6 +6,7 @@ import { routeLimit } from '../../platform/http/app.js';
 import { requireOperator, requirePrincipal } from '../../platform/http/principal.js';
 import { idOf, limitSchema, parse } from '../../platform/http/validation.js';
 import { ANY_ID_PATTERN } from '../../platform/ids.js';
+import { countsBy, type SupportSection } from '../../platform/support.js';
 import {
   changeReportStatus,
   listReports,
@@ -93,3 +94,17 @@ function routes(app: FastifyInstance, ctx: AppContext): void {
 export function integrityModule(): Module {
   return { name: 'integrity', routes };
 }
+
+/** Support summary: reports the user filed, by status (no report text). */
+export const integritySupportSection: SupportSection = {
+  name: 'reports',
+  async read(db, { userId }) {
+    const rows = await db
+      .selectFrom('report')
+      .select((eb) => ['status as k', eb.fn.countAll<number>().as('n')])
+      .where('reporter_user_id', '=', userId)
+      .groupBy('status')
+      .execute();
+    return { filed_by_status: countsBy(rows) };
+  },
+};

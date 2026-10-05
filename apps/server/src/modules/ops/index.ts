@@ -6,7 +6,10 @@ import { audit } from '../../platform/audit.js';
 import { errors } from '../../platform/errors.js';
 import { requireOperator } from '../../platform/http/principal.js';
 import { idOf, limitSchema, parse } from '../../platform/http/validation.js';
+import type { Id } from '../../platform/ids.js';
 import { requeueJob } from '../../platform/jobs/queue.js';
+import type { SupportSection } from '../../platform/support.js';
+import { getUser, workspaceIdsOf } from '../identity/index.js';
 
 type JobRow = {
   id: string;
@@ -45,81 +48,121 @@ const cols = [
 ] as const;
 
 /** Operations console API (OPS-010): inspect the DLQ and retry jobs, audited. */
-function routes(app: FastifyInstance, ctx: AppContext): void {
-  app.get('/v1/ops/jobs', async (req) => {
-    requireOperator(req.principal);
-    const q = parse(
-      z.object({
-        status: z.enum(['queued', 'running', 'succeeded', 'failed', 'dead']).optional(),
-        limit: limitSchema,
-      }),
-      req.query,
-    );
-    let query = ctx.db.selectFrom('job').select(cols).orderBy('updated_at', 'desc').limit(q.limit);
-    if (q.status) query = query.where('status', '=', q.status);
-    return { items: (await query.execute()).map(jobView) };
-  });
-
-  app.post('/v1/ops/jobs/:job_id/retry', async (req) => {
-    const op = requireOperator(req.principal);
-    const { job_id } = parse(z.object({ job_id: idOf('job') }), req.params);
-    const body = parse(z.strictObject({ reason: z.string().min(3).max(500) }), req.body);
-    const job = await ctx.db
-      .selectFrom('job')
-      .select(cols)
-      .where('id', '=', job_id)
-      .executeTakeFirst();
-    if (!job) throw errors.notFound();
-    await ctx.db.transaction().execute(async (tx) => {
-      if (!(await requeueJob(tx, job_id)))
-        throw errors.invalidState('Only dead or failed jobs can be retried.');
-      // A retried processing job must find its source in `processing` again.
-      if (job.kind === 'audio.process' || job.kind === 'catalog.process') {
-        const p = await tx
-          .selectFrom('job')
-          .select('payload')
-          .where('id', '=', job_id)
-          .executeTakeFirstOrThrow();
-        const sourceId = (p.payload as { audio_source_id?: string }).audio_source_id;
-        if (sourceId) {
-          await tx
-            .updateTable('audio_source')
-            .set({ status: 'processing', failure_code: null, updated_at: new Date() })
-            .where('id', '=', sourceId)
-            .where('status', '=', 'failed')
-            .execute();
-          await tx
-            .updateTable('upload_session')
-            .set({ state: 'quarantined', failure_code: null, updated_at: new Date() })
-            .where('audio_source_id', '=', sourceId)
-            .where('state', '=', 'failed')
-            .execute();
-        }
+const routes =
+  (deps: OpsDeps) =>
+  (app: FastifyInstance, ctx: AppContext): void => {
+    /**
+     * Support summary (R18): a user's account state for support without database
+     * access. Counts, states and ids only — private content stays out (OPS-007,
+     * T30). Viewing is personal-data access, so a reason is required and audited.
+     */
+    app.get('/v1/ops/users/:user_id/support-summary', async (req) => {
+      const op = requireOperator(req.principal);
+      const { user_id } = parse(z.object({ user_id: idOf('user') }), req.params);
+      const { reason } = parse(z.object({ reason: z.string().min(3).max(500) }), req.query);
+      const user = await getUser(ctx.db, user_id);
+      if (!user) throw errors.notFound();
+      const workspaceIds = await workspaceIdsOf(ctx.db, user.id as Id<'user'>);
+      const sections: Record<string, Record<string, unknown>> = {};
+      for (const s of deps.supportSections()) {
+        sections[s.name] = await s.read(ctx.db, { userId: user.id, workspaceIds });
       }
-      await audit(tx, {
+      await audit(ctx.db, {
         actorType: 'operator',
         actorId: op.userId,
-        action: 'job.retried',
-        subjectType: 'job',
-        subjectId: job_id,
-        reason: body.reason,
+        action: 'user.support_summary_viewed',
+        subjectType: 'user',
+        subjectId: user.id,
+        reason,
         correlationId: req.id,
-        details: { kind: job.kind },
+        details: { sections: Object.keys(sections) },
       });
+      return { user_id: user.id, generated_at: new Date().toISOString(), sections };
     });
-    const after = await ctx.db
-      .selectFrom('job')
-      .select(cols)
-      .where('id', '=', job_id)
-      .executeTakeFirstOrThrow();
-    return jobView(after);
-  });
+
+    app.get('/v1/ops/jobs', async (req) => {
+      requireOperator(req.principal);
+      const q = parse(
+        z.object({
+          status: z.enum(['queued', 'running', 'succeeded', 'failed', 'dead']).optional(),
+          limit: limitSchema,
+        }),
+        req.query,
+      );
+      let query = ctx.db
+        .selectFrom('job')
+        .select(cols)
+        .orderBy('updated_at', 'desc')
+        .limit(q.limit);
+      if (q.status) query = query.where('status', '=', q.status);
+      return { items: (await query.execute()).map(jobView) };
+    });
+
+    app.post('/v1/ops/jobs/:job_id/retry', async (req) => {
+      const op = requireOperator(req.principal);
+      const { job_id } = parse(z.object({ job_id: idOf('job') }), req.params);
+      const body = parse(z.strictObject({ reason: z.string().min(3).max(500) }), req.body);
+      const job = await ctx.db
+        .selectFrom('job')
+        .select(cols)
+        .where('id', '=', job_id)
+        .executeTakeFirst();
+      if (!job) throw errors.notFound();
+      await ctx.db.transaction().execute(async (tx) => {
+        if (!(await requeueJob(tx, job_id)))
+          throw errors.invalidState('Only dead or failed jobs can be retried.');
+        // A retried processing job must find its source in `processing` again.
+        if (job.kind === 'audio.process' || job.kind === 'catalog.process') {
+          const p = await tx
+            .selectFrom('job')
+            .select('payload')
+            .where('id', '=', job_id)
+            .executeTakeFirstOrThrow();
+          const sourceId = (p.payload as { audio_source_id?: string }).audio_source_id;
+          if (sourceId) {
+            await tx
+              .updateTable('audio_source')
+              .set({ status: 'processing', failure_code: null, updated_at: new Date() })
+              .where('id', '=', sourceId)
+              .where('status', '=', 'failed')
+              .execute();
+            await tx
+              .updateTable('upload_session')
+              .set({ state: 'quarantined', failure_code: null, updated_at: new Date() })
+              .where('audio_source_id', '=', sourceId)
+              .where('state', '=', 'failed')
+              .execute();
+          }
+        }
+        await audit(tx, {
+          actorType: 'operator',
+          actorId: op.userId,
+          action: 'job.retried',
+          subjectType: 'job',
+          subjectId: job_id,
+          reason: body.reason,
+          correlationId: req.id,
+          details: { kind: job.kind },
+        });
+      });
+      const after = await ctx.db
+        .selectFrom('job')
+        .select(cols)
+        .where('id', '=', job_id)
+        .executeTakeFirstOrThrow();
+      return jobView(after);
+    });
+  };
+
+export interface OpsDeps {
+  /** Sections of the support summary, one per module that owns user data. */
+  supportSections: () => SupportSection[];
 }
 
-export function opsModule(): Module {
+export function opsModule(deps: OpsDeps): Module {
   return {
     name: 'ops',
-    routes,
+    routes: routes(deps),
     jobs: (ctx) => [
       {
         kind: 'ops.housekeeping',

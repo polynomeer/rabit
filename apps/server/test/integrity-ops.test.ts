@@ -3,7 +3,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { newId } from '../src/platform/ids.js';
 import { fixtures } from './helpers/audio-fixtures.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
-import { createHarness, uploadBytes, type Harness, type TestUser } from './helpers/harness.js';
+import {
+  createHarness,
+  uploadBytes,
+  uploadReady,
+  type Harness,
+  type TestUser,
+} from './helpers/harness.js';
 
 let h: Harness;
 let ops: Awaited<ReturnType<typeof asOperator>>;
@@ -331,5 +337,84 @@ describe('operations console (OPS-010)', () => {
       .where('id', '=', uploadId)
       .executeTakeFirstOrThrow();
     expect(await h.ctx.blobs.head('rabit-quarantine', s.quarantine_key)).toBeNull();
+  });
+});
+
+describe('support summary (R18, OPS-007, T30)', () => {
+  const CANARY = `CANARY-${newId('job').slice(-8)}`;
+  let customer: TestUser;
+
+  beforeAll(async () => {
+    customer = await h.user();
+    await ops.setCountry(customer, 'KR');
+    await ops.subscribe(customer);
+    // Private text the support view must never reveal.
+    await uploadReady(h, customer, fixtures.wav(), { filename: `${CANARY}-demo.wav` });
+    const logSource = await uploadReady(h, customer, fixtures.wav(), { intent: 'audio_log' });
+    const log = await h.api.inject({
+      method: 'POST',
+      url: '/v1/audio-logs',
+      headers: customer.headers,
+      payload: {
+        audio_source_id: logSource,
+        title: `${CANARY} voice memo`,
+        note: `${CANARY} private note`,
+        recorded_at: '2026-10-03T22:15:00Z',
+        recorded_tz: 'Asia/Seoul',
+      },
+    });
+    expect(log.statusCode).toBe(201);
+    await h.api.inject({
+      method: 'POST',
+      url: '/v1/playlists',
+      headers: customer.headers,
+      payload: { title: `${CANARY} playlist` },
+    });
+    const play = await h.api.inject({
+      method: 'POST',
+      url: '/v1/playback-sessions',
+      headers: customer.headers,
+      payload: { recording_id: cat.ids['r1'], device_id: 'device-test-1' },
+    });
+    expect(play.statusCode).toBe(201);
+    await h.worker.drain();
+  });
+
+  const summary = (userId: string, headers = ops.op.headers, reason = 'ticket 4711') =>
+    h.api.inject({
+      url: `/v1/ops/users/${userId}/support-summary?reason=${encodeURIComponent(reason)}`,
+      headers,
+    });
+
+  it('is operator-only, needs a reason and 404s for unknown users', async () => {
+    expect((await summary(customer.userId, customer.headers)).statusCode).toBe(403);
+    expect((await summary(customer.userId, ops.op.headers, '')).statusCode).toBe(400);
+    expect((await summary(newId('user'))).statusCode).toBe(404);
+  });
+
+  it('shows account state as counts and states, never private content', async () => {
+    const r = await summary(customer.userId);
+    expect(r.statusCode).toBe(200);
+    const body = r.json();
+    expect(body.user_id).toBe(customer.userId);
+    expect(body.sections.account).toMatchObject({ status: 'active', license_country: 'KR' });
+    expect(body.sections.subscription.subscription.state).toBe('active');
+    expect(body.sections.audio.storage.used_bytes).toBeGreaterThan(0);
+    expect(body.sections.audio.sources_by_status.ready).toBe(2);
+    expect(body.sections.playback.active_sessions).toBe(1);
+    expect(body.sections.library.playlists).toBe(1);
+
+    const text = JSON.stringify(body);
+    expect(text).not.toContain(CANARY);
+    expect(text).not.toMatch(/https?:|rabit-|\/hls\/|quarantine/);
+    expect(text).not.toMatch(/oidc|subject|device-test/);
+
+    const log = await h.ctx.db
+      .selectFrom('audit_log')
+      .select(['actor_id', 'reason'])
+      .where('subject_id', '=', customer.userId)
+      .where('action', '=', 'user.support_summary_viewed')
+      .executeTakeFirstOrThrow();
+    expect(log).toEqual({ actor_id: ops.op.userId, reason: 'ticket 4711' });
   });
 });

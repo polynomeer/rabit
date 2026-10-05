@@ -4,6 +4,9 @@ import { audioJobs, deleteSourceNow } from './jobs.js';
 import { audioRoutes } from './routes.js';
 import type { RecordingExists } from './audio-logs.js';
 import { markDeleting } from './sources.js';
+import type { SupportSection } from '../../platform/support.js';
+import { countsBy } from '../../platform/support.js';
+import { storageUsage } from './uploads.js';
 
 export {
   getSourceUnchecked,
@@ -55,3 +58,43 @@ export function audioModule(deps: { recordingExists: RecordingExists }): Module 
     schedules: [{ kind: 'audio.expire_upload_sessions', everyMs: 5 * 60_000 }],
   };
 }
+
+/** Support summary: storage and processing states of the user's own audio, as counts. */
+export const audioSupportSection: SupportSection = {
+  name: 'audio',
+  async read(db, { workspaceIds }) {
+    if (workspaceIds.length === 0) return {};
+    const ws = [...workspaceIds];
+    const usage = await Promise.all(ws.map((w) => storageUsage(db, w)));
+    const [byStatus, failures, uploads] = await Promise.all([
+      db
+        .selectFrom('audio_source')
+        .select((eb) => ['status as k', eb.fn.countAll<number>().as('n')])
+        .where('workspace_id', 'in', ws)
+        .groupBy('status')
+        .execute(),
+      db
+        .selectFrom('audio_source')
+        .select((eb) => ['failure_code as k', eb.fn.countAll<number>().as('n')])
+        .where('workspace_id', 'in', ws)
+        .where('status', '=', 'failed')
+        .groupBy('failure_code')
+        .execute(),
+      db
+        .selectFrom('upload_session')
+        .select((eb) => ['state as k', eb.fn.countAll<number>().as('n')])
+        .where('workspace_id', 'in', ws)
+        .groupBy('state')
+        .execute(),
+    ]);
+    return {
+      storage: {
+        used_bytes: usage.reduce((a, u) => a + u.usedBytes, 0),
+        reserved_bytes: usage.reduce((a, u) => a + u.reservedBytes, 0),
+      },
+      sources_by_status: countsBy(byStatus),
+      failures_by_code: countsBy(failures),
+      uploads_by_state: countsBy(uploads),
+    };
+  },
+};

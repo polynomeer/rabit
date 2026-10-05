@@ -586,6 +586,35 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/Error' }
 
+  /v1/ops/users/{user_id}/support-summary:
+    parameters: [ { name: user_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [ops]
+      operationId: opsUserSupportSummary
+      description: >-
+        A user's account state for support without database access (R18): one section per module
+        (account, subscription, audio, playback, library, reports) with counts, states, timestamps and
+        ids only. Never contains private content: titles, notes, filenames, audio, storage keys, URLs,
+        devices or identity-provider subjects (OPS-007, T30). Each view is audited with the reason.
+      parameters:
+        - { name: reason, in: query, required: true, schema: { type: string, minLength: 3, maxLength: 500 } }
+      responses:
+        '200':
+          description: Support summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user_id, generated_at, sections]
+                properties:
+                  user_id: { $ref: '#/components/schemas/Id' }
+                  generated_at: { $ref: '#/components/schemas/Timestamp' }
+                  sections:
+                    type: object
+                    additionalProperties: { type: object }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/ops/recordings/{recording_id}/audio-removal:
     parameters: [ { name: recording_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
     post:

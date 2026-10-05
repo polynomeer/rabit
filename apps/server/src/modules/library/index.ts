@@ -11,6 +11,7 @@ import {
 } from './export.js';
 import { attachUploadToLibrary } from './library.js';
 import { libraryRoutes } from './routes.js';
+import type { SupportSection } from '../../platform/support.js';
 
 export { createPlaylist, playlistView } from './playlists.js';
 export { resolveRef, type Ownership, type ResolvedRef } from './resolve.js';
@@ -89,3 +90,40 @@ export function libraryModule(deps: {
     schedules: [{ kind: 'library.expire_exports', everyMs: 60 * 60_000 }],
   };
 }
+
+/** Support summary: library size and export states (no titles, keys or download URLs). */
+export const librarySupportSection: SupportSection = {
+  name: 'library',
+  async read(db, { userId }) {
+    const [items, playlists, exports] = await Promise.all([
+      db
+        .selectFrom('library_item')
+        .select((eb) => eb.fn.countAll<number>().as('n'))
+        .where('user_id', '=', userId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom('playlist')
+        .select((eb) => eb.fn.countAll<number>().as('n'))
+        .where('owner_user_id', '=', userId)
+        .executeTakeFirstOrThrow(),
+      db
+        .selectFrom('export_request')
+        .select(['id', 'state', 'failure_code', 'created_at', 'expires_at'])
+        .where('user_id', '=', userId)
+        .orderBy('created_at', 'desc')
+        .limit(5)
+        .execute(),
+    ]);
+    return {
+      library_items: items.n,
+      playlists: playlists.n,
+      recent_exports: exports.map((e) => ({
+        export_id: e.id,
+        state: e.state,
+        failure_code: e.failure_code,
+        created_at: e.created_at.toISOString(),
+        expires_at: e.expires_at?.toISOString() ?? null,
+      })),
+    };
+  },
+};

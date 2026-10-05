@@ -13,6 +13,7 @@ import {
   requireIfMatch,
 } from '../../platform/http/validation.js';
 import type { AccountDataDeleter } from '../identity/index.js';
+import type { SupportSection } from '../../platform/support.js';
 import {
   changeEntitlementStatus,
   expireEntitlements,
@@ -127,3 +128,15 @@ export function entitlementModule(): Module {
     schedules: [{ kind: 'entitlement.expire', everyMs: 5 * 60_000 }],
   };
 }
+
+/** Support summary: subscription and entitlements (catalog ids only). */
+export const entitlementSupportSection: SupportSection = {
+  name: 'subscription',
+  async read(db, { userId }) {
+    const [sub, ents] = await Promise.all([
+      getSubscription(db, userId),
+      listEntitlements(db, userId),
+    ]);
+    return { ...subscriptionView(sub), entitlements: ents.items };
+  },
+};
