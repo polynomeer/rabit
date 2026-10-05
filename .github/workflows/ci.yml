@@ -101,6 +101,54 @@ jobs:
           path: apps/web/e2e-results/
           retention-days: 7
 
+  image:
+    # The deployable image is built and started here; dependency bumps of the
+    # base image (Dependabot) are otherwise never exercised by CI.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: rabit
+          POSTGRES_PASSWORD: rabit
+          POSTGRES_DB: rabit
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U rabit -d rabit" --health-interval 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the server image
+        run: docker build -t rabit-server:ci .
+      - name: Check the image runs as non-root with ffmpeg
+        run: |
+          test "$(docker run --rm --entrypoint id rabit-server:ci -u)" = "10001"
+          docker run --rm --entrypoint ffmpeg rabit-server:ci -version | head -1
+      - name: Run migrations and start the api from the image
+        run: |
+          cat > image.env <<'ENV'
+          NODE_ENV=development
+          API_PUBLIC_BASE_URL=http://localhost:8080
+          MEDIA_PUBLIC_BASE_URL=http://localhost:8081
+          DATABASE_URL=postgres://rabit:rabit@127.0.0.1:5432/rabit
+          S3_ENDPOINT=http://127.0.0.1:9000
+          S3_ACCESS_KEY_ID=ci
+          S3_SECRET_ACCESS_KEY=ci-secret
+          S3_FORCE_PATH_STYLE=true
+          AUTH_ISSUER=http://localhost:8080/dev
+          AUTH_AUDIENCE=rabit-api
+          AUTH_DEV_ISSUER_ENABLED=true
+          MEDIA_TOKEN_SECRET=ci-only-media-token-secret-0123456789abcdef
+          CURSOR_SECRET=ci-only-cursor-secret-0123456789abcdefghij
+          ENV
+          docker run --rm --network host --env-file image.env rabit-server:ci migrate up
+          docker run -d --name api --network host --env-file image.env rabit-server:ci api
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8080/healthz && break; sleep 1; done
+          curl -sf http://127.0.0.1:8080/healthz
+      - name: Api logs
+        if: failure()
+        run: docker logs api || true
+
   security:
     runs-on: ubuntu-24.04
     steps:

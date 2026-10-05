@@ -1,8 +1,9 @@
 # One image for all process roles (ADR-0012): api | worker | media | migrate.
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
-RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+# pnpm at the version pinned in package.json. Not via corepack: Node 25+ no longer bundles it.
+RUN npm install -g "$(node -p "require('./package.json').packageManager.split('+')[0]")"
 COPY apps/server/package.json apps/server/
 RUN pnpm install --frozen-lockfile --filter @rabit/server...
 COPY apps/server apps/server

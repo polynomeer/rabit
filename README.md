@@ -81,7 +81,7 @@ curl -s -X POST localhost:8080/dev/token -H 'content-type: application/json' -d 
 | `npx @redocly/cli@1 lint docs/05-api/openapi.yaml` | OpenAPI contract |
 | `pnpm audit --prod` | dependency vulnerabilities (CI) |
 
-CI: `.github/workflows/ci.yml`. Dependency updates: Dependabot.
+CI: `.github/workflows/ci.yml` (check, e2e, image build and smoke test, dependency audit). Dependency updates: Dependabot.
 
 ## Configuration
 
