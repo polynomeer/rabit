@@ -53,6 +53,9 @@ jobs:
       - name: Build and publish the web client
         env:
           VITE_API_BASE: ${{ vars.API_BASE_URL }}
+          VITE_OIDC_ISSUER: ${{ vars.OIDC_ISSUER }}
+          VITE_OIDC_CLIENT_ID: ${{ vars.OIDC_CLIENT_ID }}
+          VITE_OIDC_AUDIENCE: ${{ vars.OIDC_AUDIENCE }}
         run: |
           pnpm install --frozen-lockfile --filter @rabit/web...
           pnpm --filter @rabit/web build
