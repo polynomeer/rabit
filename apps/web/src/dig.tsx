@@ -8,9 +8,10 @@ import {
   type Evidence,
 } from './api';
 import { usePlayer } from './player';
+import { entityHref } from './route';
 import { Status } from './views';
 
-const AXIS_TEXT: Record<string, string> = {
+export const AXIS_TEXT: Record<string, string> = {
   credits: 'Credits',
   same_producer: '같은 프로듀서',
   session_musicians: '세션 뮤지션',
@@ -43,7 +44,7 @@ const POPULARITY = [
 ] as const;
 
 /** Verified fact vs declared vs ML estimate are always distinguishable (DIG-018). */
-function EvidenceLine({ e }: { e: Evidence }) {
+export function EvidenceLine({ e }: { e: Evidence }) {
   const basis =
     e.basis === 'verified_fact'
       ? '검증된 사실'
@@ -214,7 +215,10 @@ export function Dig({ start }: { start: string | null }) {
         {conns.map((c) => (
           <li key={`${c.entity.entity_id}:${c.via.credit_id ?? c.via.relation_id ?? ''}`}>
             <div>
-              <strong>{c.entity.name}</strong> <span className="muted">{c.entity.subtitle}</span>
+              <strong>
+                <a href={entityHref(c.entity.entity_id)}>{c.entity.name}</a>
+              </strong>{' '}
+              <span className="muted">{c.entity.subtitle}</span>
               <br />
               <EvidenceLine e={c.evidence} />
               {c.playability ? (
@@ -270,7 +274,10 @@ export function Dig({ start }: { start: string | null }) {
 function Node({ entity }: { entity: EntitySummary }) {
   return (
     <div className="node" aria-live="polite">
-      <span className="badge">{entity.entity_type}</span> <strong>{entity.name}</strong>{' '}
+      <span className="badge">{entity.entity_type}</span>{' '}
+      <strong>
+        <a href={entityHref(entity.entity_id)}>{entity.name}</a>
+      </strong>{' '}
       <span className="muted">{entity.subtitle}</span>
     </div>
   );

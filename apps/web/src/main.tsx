@@ -1,13 +1,12 @@
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { devSignIn, hasToken, setToken } from './api';
+import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { Dig } from './dig';
 import { PlayerProvider } from './player';
+import { digHref, navigate, tabHref, TABS, useRoute } from './route';
 import { Account, Archive, Playlists, Search } from './views';
 import './styles.css';
-
-const TABS = ['Archive', 'Playlists', 'Search', 'DIG', 'Account'] as const;
-type Tab = (typeof TABS)[number];
 
 function SignIn({ onDone }: { onDone: () => void }) {
   const [err, setErr] = useState<string | null>(null);
@@ -39,8 +38,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
 
 function App() {
   const [signedIn, setSignedIn] = useState(hasToken());
-  const [tab, setTab] = useState<Tab>('Archive');
-  const [digStart, setDigStart] = useState<string | null>(null);
+  const route = useRoute();
   if (!signedIn)
     return (
       <SignIn
@@ -49,6 +47,8 @@ function App() {
         }}
       />
     );
+  // Detail pages belong to no tab; the menu keeps the tab the user came from unhighlighted.
+  const tab = route.kind === 'tab' ? route.tab : null;
   return (
     <PlayerProvider>
       <header className="top">
@@ -63,7 +63,7 @@ function App() {
               type="button"
               aria-current={tab === t ? 'page' : undefined}
               onClick={() => {
-                setTab(t);
+                navigate(tabHref(t));
               }}
             >
               {t}
@@ -82,17 +82,20 @@ function App() {
         </button>
       </header>
       <main>
+        {route.kind === 'recording' ? <RecordingDetail id={route.id} /> : null}
+        {route.kind === 'release' ? <ReleaseDetail id={route.id} /> : null}
+        {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
         {tab === 'Archive' ? <Archive /> : null}
         {tab === 'Playlists' ? <Playlists /> : null}
         {tab === 'Search' ? (
           <Search
+            query={route.kind === 'tab' ? route.query : ''}
             onDig={(id) => {
-              setDigStart(id);
-              setTab('DIG');
+              navigate(digHref(id));
             }}
           />
         ) : null}
-        {tab === 'DIG' ? <Dig start={digStart} /> : null}
+        {tab === 'DIG' && route.kind === 'tab' ? <Dig start={route.digStart} /> : null}
         {tab === 'Account' ? <Account /> : null}
       </main>
     </PlayerProvider>
