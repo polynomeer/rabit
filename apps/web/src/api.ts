@@ -58,11 +58,12 @@ export async function api<T>(
 export const get = <T>(path: string) => api<T>('GET', path).then((r) => r.data);
 
 /** Development sign-in (dev issuer, ADR-0009). Production uses the OIDC provider. */
-export async function devSignIn(subject: string): Promise<void> {
+/** `operator` asks the dev issuer for the operator role with MFA (development only). */
+export async function devSignIn(subject: string, operator = false): Promise<void> {
   const r = await fetch(`${API_BASE}/dev/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ subject }),
+    body: JSON.stringify({ subject, operator }),
   });
   if (!r.ok) throw new Error('Sign-in failed');
   setToken(((await r.json()) as { access_token: string }).access_token);

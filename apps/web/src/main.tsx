@@ -1,10 +1,11 @@
-import { StrictMode, useState } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { devSignIn, hasToken, setToken } from './api';
+import { devSignIn, get, hasToken, setToken } from './api';
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
+import { OpsConsole } from './ops';
 import { PlayerProvider } from './player';
-import { digHref, navigate, tabHref, TABS, useRoute } from './route';
+import { digHref, navigate, opsHref, tabHref, TABS, useRoute } from './route';
 import { Archive } from './archive';
 import { Account, Playlists, Search } from './views';
 import './styles.css';
@@ -18,14 +19,19 @@ function SignIn({ onDone }: { onDone: () => void }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          const subject = (e.currentTarget.elements.namedItem('subject') as HTMLInputElement).value;
-          devSignIn(subject).then(onDone, (x: unknown) => {
+          const f = e.currentTarget.elements;
+          const subject = (f.namedItem('subject') as HTMLInputElement).value;
+          const operator = (f.namedItem('operator') as HTMLInputElement).checked;
+          devSignIn(subject, operator).then(onDone, (x: unknown) => {
             setErr((x as Error).message);
           });
         }}
       >
         <label>
           개발용 로그인 ID <input name="subject" required maxLength={64} autoComplete="username" />
+        </label>
+        <label className="small">
+          <input type="checkbox" name="operator" /> 운영자 (개발용: 운영자 권한과 MFA 포함)
         </label>
         <button type="submit">로그인</button>
         <p className="small muted">
@@ -39,7 +45,21 @@ function SignIn({ onDone }: { onDone: () => void }) {
 
 function App() {
   const [signedIn, setSignedIn] = useState(hasToken());
+  const [operator, setOperator] = useState(false);
   const route = useRoute();
+  // The console entry is shown to operators only; the server checks the role on every call.
+  useEffect(() => {
+    if (!signedIn) {
+      setOperator(false);
+      return;
+    }
+    void get<{ is_operator: boolean }>('/v1/me').then(
+      (me) => {
+        setOperator(me.is_operator);
+      },
+      () => undefined,
+    );
+  }, [signedIn]);
   if (!signedIn)
     return (
       <SignIn
@@ -70,6 +90,17 @@ function App() {
               {t}
             </button>
           ))}
+          {operator ? (
+            <button
+              type="button"
+              aria-current={route.kind === 'ops' ? 'page' : undefined}
+              onClick={() => {
+                navigate(opsHref('users'));
+              }}
+            >
+              Ops
+            </button>
+          ) : null}
         </nav>
         <button
           type="button"
@@ -104,6 +135,7 @@ function App() {
           )
         ) : null}
         {route.kind === 'dig-session' ? <DigSessionView id={route.id} /> : null}
+        {route.kind === 'ops' ? <OpsConsole section={route.section} /> : null}
         {tab === 'Account' ? <Account /> : null}
       </main>
     </PlayerProvider>
