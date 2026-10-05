@@ -2,7 +2,7 @@ import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { devSignIn, hasToken, setToken } from './api';
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
-import { Dig } from './dig';
+import { DigHome, DigSessionView, DigStart } from './dig';
 import { PlayerProvider } from './player';
 import { digHref, navigate, tabHref, TABS, useRoute } from './route';
 import { Archive } from './archive';
@@ -48,8 +48,8 @@ function App() {
         }}
       />
     );
-  // Detail pages belong to no tab; the menu keeps the tab the user came from unhighlighted.
-  const tab = route.kind === 'tab' ? route.tab : null;
+  // Detail pages belong to no tab; a DIG session belongs to the DIG tab.
+  const tab = route.kind === 'tab' ? route.tab : route.kind === 'dig-session' ? 'DIG' : null;
   return (
     <PlayerProvider>
       <header className="top">
@@ -96,7 +96,14 @@ function App() {
             }}
           />
         ) : null}
-        {tab === 'DIG' && route.kind === 'tab' ? <Dig start={route.digStart} /> : null}
+        {route.kind === 'tab' && route.tab === 'DIG' ? (
+          route.digStart ? (
+            <DigStart entityId={route.digStart} />
+          ) : (
+            <DigHome />
+          )
+        ) : null}
+        {route.kind === 'dig-session' ? <DigSessionView id={route.id} /> : null}
         {tab === 'Account' ? <Account /> : null}
       </main>
     </PlayerProvider>

@@ -124,6 +124,9 @@ export interface Connection {
 }
 export interface DigSession {
   dig_session_id: string;
+  state: 'active' | 'ended';
+  title: string | null;
+  saved: boolean;
   current_seq: number;
   empty_state: { reason: string; message: string } | null;
   trail: {
@@ -132,6 +135,8 @@ export interface DigSession {
     entity: EntitySummary;
     via_axis: string | null;
     evidence: Evidence | null;
+    played: boolean;
+    saved: boolean;
   }[];
   summary: {
     nodes: number;
