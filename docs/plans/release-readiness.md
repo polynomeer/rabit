@@ -34,7 +34,7 @@
 | R15 | Dependency vulnerabilities | `pnpm audit --prod`: no known vulnerabilities (2026-10-04); Dependabot configured | CI `security` job | OK | OK |
 | R16 | Load test | Baseline measured on one laptop; media gateway not load-tested; no staging environment | performance-baseline.md | Follow-up | Blocker |
 | R17 | Runbooks | Written for the main failure modes; not rehearsed | runbooks.md | Must fix (one game day) | Blocker |
-| R18 | Support / admin tooling | Operator API only (rights, entitlements, subscriptions, license country, jobs, reports, integrity); no admin UI; no support tooling to view a user's state without DB access | ops endpoints | Follow-up | Must fix |
+| R18 | Support / admin tooling | Operator API (rights, entitlements, subscriptions, license country, jobs, reports, integrity, catalog audio removal). **Update 2026-10-05:** support summary per user (`GET /v1/ops/users/{id}/support-summary`, reason + audit, metadata only); users see their support ID in Account. No admin UI yet | `integrity-ops` "support summary (R18)" | OK | Follow-up (admin UI; private-content support access needs the OPS-007 process) |
 | R19 | Hosting | Cloud provider, CDN, KMS, region undecided (ADR-0004/0008/0012 Proposed) | ADR index | **Blocker** (for any hosted alpha) | Blocker |
 | R20 | Codec ladder | Single provisional AAC 160 kbps rendition; no listening test | ADR-0008 | Follow-up | Must fix |
 | R21 | Payments / ledger | Not implemented (ADR-0018 Proposed) | — | OK | Blocker |

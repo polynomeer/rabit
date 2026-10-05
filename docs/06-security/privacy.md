@@ -31,7 +31,8 @@
    - Source delete: immediate access block (status `deleting` + tombstone), sessions revoked, async removal of assets, search docs, library and playlist references resolve to `deleted`.
    - Account delete: immediate block of all new access, then all owned sources, logs, playlists, library, DIG sessions, exports and listening events deleted; user row anonymized (`status=deleted`, subject replaced by a hash so the same OIDC subject can re-register as new).
    - Backups: restore procedure must re-apply tombstones/deletion list (runbook).
-6. **Consent**: no consent-requiring processing exists in MVP (no ASR, location, ambient noise). The consent model (NFR-PRV-004) is added with the first such feature.
+6. **Support**: operators see a per-user summary of counts, states and ids (subscription, storage, processing and playback health, exports, reports); every view is audited with its reason. Titles, notes, filenames, audio and listening history are not visible to support (OPS-007 approval and consent process: future).
+7. **Consent**: no consent-requiring processing exists in MVP (no ASR, location, ambient noise). The consent model (NFR-PRV-004) is added with the first such feature.
 
 ## 3. Open legal items (not decided here)
 

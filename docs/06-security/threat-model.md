@@ -51,7 +51,7 @@
 | T27 | I | Export link leak | Shared download URL | Private data leak | Export URL presigned ≤ 15 min, export object deleted after 24 h; only owner's own data included | — | P0 | `export.test` only own data |
 | T28 | E | SSRF via URL import | Attacker supplies URL | Internal network access | No URL import (AUD-015); worker has no URL inputs | — | P0 | n/a (absence) |
 | T29 | T | DIG trail fabrication (client claims edges that don't exist) | User | Fake public trails later | Server verifies the relation/credit connects parent→child | — | P0 | `dig.test` |
-| T30 | I | Operator reading private audio | Insider | Privacy breach | No operator endpoint reads private content; support access requires future approved process (OPS-007) | audit | P0 (absence) | `ops.test` |
+| T30 | I | Operator reading private audio | Insider | Privacy breach | No operator endpoint reads private content. The support summary (R18) returns counts, states and ids only and audits each view with its reason. Access to private audio for support requires a future approved process (OPS-007) | audit | P0 (absence) | `integrity-ops` "support summary" (canary: private filename, Audio Log title/note and playlist title never appear) |
 
 ## 3. P0 gate
 

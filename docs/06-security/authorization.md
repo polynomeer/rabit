@@ -31,6 +31,7 @@
 | DIG session | owner | owner | 404 |
 | Report | — (reporter sees own id only) | any user (rate-limited) | — |
 | Rights grants, entitlements (ops), jobs, license country | operator | operator (+reason, audit) | 403 |
+| User support summary (`/v1/ops/users/{id}/support-summary`) | operator (+reason, audited per view); counts, states and ids only, never private content (OPS-007) | — | 403 |
 
 ## 3. Playback policy
 
