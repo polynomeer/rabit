@@ -23,6 +23,11 @@ const envSchema = z
 
     DATABASE_URL: z.string().startsWith('postgres'),
     DATABASE_POOL_MAX: positiveInt.default(10),
+    /**
+     * Password injected separately from DATABASE_URL, e.g. from the RDS-managed secret
+     * in Secrets Manager, so the URL itself holds no secret. Overrides a URL password.
+     */
+    DATABASE_PASSWORD: z.string().min(1).optional(),
 
     S3_ENDPOINT: z.url().optional(),
     S3_PUBLIC_ENDPOINT: z.url().optional(),
@@ -195,7 +200,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         .map((s) => s.trim())
         .filter((s) => s.length > 0),
     },
-    db: { url: e.DATABASE_URL, poolMax: e.DATABASE_POOL_MAX },
+    db: { url: withPassword(e.DATABASE_URL, e.DATABASE_PASSWORD), poolMax: e.DATABASE_POOL_MAX },
     s3: {
       endpoint: e.S3_ENDPOINT,
       publicEndpoint: e.S3_PUBLIC_ENDPOINT ?? e.S3_ENDPOINT,
@@ -231,4 +236,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       maxConcurrentUploads: e.QUOTA_FREE_MAX_CONCURRENT_UPLOADS,
     },
   };
+}
+
+function withPassword(url: string, password: string | undefined): string {
+  if (password === undefined) return url;
+  const u = new URL(url);
+  u.password = encodeURIComponent(password);
+  return u.toString();
 }

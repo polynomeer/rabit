@@ -90,4 +90,15 @@ describe('config', () => {
     });
     expect(cfg.s3.bucketPrefix).toBe('rabit-prod');
   });
+
+  it('puts a separately injected database password into the URL', () => {
+    const cfg = loadConfig({
+      ...base,
+      DATABASE_URL: 'postgres://rabit@db.example:5432/rabit?sslmode=verify-full',
+      DATABASE_PASSWORD: 'p@ss/word:1',
+    });
+    const u = new URL(cfg.db.url);
+    expect(decodeURIComponent(u.password)).toBe('p@ss/word:1');
+    expect(u.searchParams.get('sslmode')).toBe('verify-full');
+  });
 });
