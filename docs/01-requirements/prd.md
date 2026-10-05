@@ -158,6 +158,20 @@
 | STU-008 | Studio SaaS: 프로젝트 버전(immutable source refs)·협업·유료 quota·집계 분석 | AP-02, AP-07 M2 | REQ-18 | M2 | Deferred |
 | STU-009 | 공개 제작물의 무료 재생은 업로더와 관련 권리자가 허가한 범위로만 운영한다 | AP-01, AP-09 | REQ-01/18 | M1 | Legal (Q07) |
 
+### 7.1 Score-to-Audio (사진 악보 재생) — 제품 제안
+
+원문(AP/DIG/BRD/PB)에 없는 신규 제안입니다(product owner, 2026-10-05). AP REQ 레지스트리에 없으므로 `REQ` 열은 `—`이고, 원문 단계가 없으므로 `Stage`는 통합 표기 후보(`P2 후보`)로 적습니다. 미결정 사항은 [open-questions §4.2](../00-product/open-questions.md)의 `SC-xx`입니다. OMR 정확도·교정 비용 기술 스파이크 전에는 구현하지 않습니다.
+
+| ID | Requirement | Source | REQ | Stage | Status |
+|---|---|---|---|---|---|
+| STU-010 | 사용자가 촬영·스캔한 악보 이미지를 인식(OMR)해 편집 가능한 악보 데이터로 만들고, 합성 음원을 생성해 기존 AudioObject 재생 인터페이스로 재생한다. 인식·렌더링은 멱등·재시도 가능한 백그라운드 작업이다 | Product proposal 2026-10-05 | — | P2 후보 | Deferred (SC-03, SC-04, SC-06) |
+| STU-011 | 렌더링 전 인식 결과(음높이·리듬·조표·박자표·성부)를 사용자가 확인·교정할 수 있다. 인식 결과와 사용자 수정본을 구분해 보존한다 | Product proposal 2026-10-05 | — | P2 후보 | Deferred (SC-06) |
+| STU-012 | 연주 스타일을 옵션으로 고른다(템포, 루바토, 다이내믹, 스윙, 아티큘레이션 등 해석 파라미터 프리셋) | Product proposal 2026-10-05 | — | P2 후보 | Deferred (SC-05) |
+| STU-013 | 파트별 악기를 바꾸거나 기존 파트를 다른 악기로 추가(더블링)할 수 있다. 악보에 없는 새 성부의 자동 생성(편곡)은 이 요구사항에 포함하지 않는다 | Product proposal 2026-10-05 | — | P2 후보 | Deferred (SC-06) |
+| STU-014 | 생성 음원은 기본 private이다. 악보 이미지 보유로 작품 권리를 추론하지 않으며, 공개·공유·판매·Studio 공개 흐름(STU-003) 진입은 권리 기준이 정해지기 전 허용하지 않는다 | Product proposal 2026-10-05, PB 원칙 | — | P2 후보 | Legal (SC-01) |
+| STU-015 | 생성 음원의 Passport는 연주가 사람의 연주가 아닌 합성임을 표시하고 Human Only 필터 대상에서 제외한다. 원본 작품(Work) 크레딧과 렌더링 도구 사용을 구분해 기록한다 | Product proposal 2026-10-05, TRU-001 | — | P2 후보 | Proposed (SC-02) |
+| STU-016 | 업로드된 악보 이미지는 신뢰할 수 없는 입력으로 검증하고 EXIF 위치 등 메타데이터를 제거한다. 이미지·인식 결과·생성 음원은 계정·항목 삭제 정책(LIB)을 따른다 | Product proposal 2026-10-05, PB 원칙 | — | P2 후보 | Proposed |
+
 ## 8. CAT — Catalog & Rights
 
 | ID | Requirement | Source | REQ | Stage | Status |
@@ -428,11 +442,11 @@
 | Status | 건수 (주 상태 기준, 복합 상태는 첫 표기) |
 |---|---|
 | Confirmed | 17 |
-| Proposed | 136 |
+| Proposed | 138 |
 | Open | 17 |
-| Legal | 16 |
-| Deferred | 25 |
-| 합계 | 211 |
+| Legal | 17 |
+| Deferred | 29 |
+| 합계 | 218 |
 
 복합 상태 행(예: `Legal + Deferred`, `Confirmed / Proposed`)은 첫 상태로 집계했습니다. 괄호 안에 Open 의존(Q/CNF)이 붙은 Proposed 행도 Proposed로 집계했습니다. 집계 명령(재현용):
 
