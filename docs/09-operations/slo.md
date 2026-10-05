@@ -1,7 +1,7 @@
 # SLIs and SLOs
 
 - Status: Phase 20 (2026-10-04). Targets are **proposals** (AP-13, NFR-REL/PERF) to be approved after the launch region, devices and provider are fixed. Private-data leakage and ledger mismatch are not percentage budgets: the target is zero (NFR-REL-007).
-- Alert rules: [infra/observability/alerts.yml](../../infra/observability/alerts.yml). Baseline measurements: [performance-baseline](../10-testing/performance-baseline.md).
+- Alert rules: [infra/observability/alerts.yml](../../infra/observability/alerts.yml). Checked on every CI run: `pnpm alerts:check` (promtool syntax check and firing tests in `alerts.test.yml`) and `alerts.test.ts` (every rule uses exported metrics and labels and links an existing runbook section). Baseline measurements: [performance-baseline](../10-testing/performance-baseline.md).
 
 ## 1. Journeys
 

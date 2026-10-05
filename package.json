@@ -16,7 +16,8 @@
     "test": "pnpm -r test",
     "db:migrate": "pnpm --filter @rabit/server migrate:up",
     "check": "pnpm lint && pnpm typecheck && pnpm build && pnpm test",
-    "e2e": "pnpm --filter @rabit/web e2e"
+    "e2e": "pnpm --filter @rabit/web e2e",
+    "alerts:check": "docker run --rm --entrypoint sh -v \"$PWD/infra/observability:/w:ro\" -w /w prom/prometheus:v3.15.0 -c 'promtool check rules alerts.yml && promtool test rules alerts.test.yml'"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
