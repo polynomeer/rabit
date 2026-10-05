@@ -363,3 +363,59 @@ form[aria-label='Audio Log 편집'] label {
 .node .actions {
   margin-top: 8px;
 }
+
+/* Operator console. */
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 12px;
+}
+.subnav [aria-current='page'] {
+  font-weight: 600;
+  text-decoration: none;
+}
+.ops .reason {
+  display: block;
+  margin: 8px 0;
+}
+.ops .reason input {
+  width: 100%;
+  max-width: 480px;
+}
+.ops .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.ops .row input:not([type='date']):not([size]) {
+  flex: 1 1 220px;
+}
+.ops form.card label {
+  display: block;
+  margin: 8px 0;
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 4px 16px;
+  margin: 0 0 8px;
+}
+.facts dt {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.report-details,
+.job-error {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.card.danger {
+  border-color: var(--warn);
+}
