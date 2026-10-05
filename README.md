@@ -69,6 +69,17 @@ Local authentication uses the **development issuer** (ADR-0009), enabled only wh
 curl -s -X POST localhost:8080/dev/token -H 'content-type: application/json' -d '{"subject":"alice"}'
 ```
 
+To try the real sign-in flow (OIDC Authorization Code + PKCE) locally, start the mock provider and point the api and web client at it:
+
+```bash
+docker compose --profile oidc up -d oidc
+```
+
+It listens on port 8090 (`RABIT_OIDC_PORT` to change); the URLs below assume the default.
+
+- api: `AUTH_DEV_ISSUER_ENABLED=false`, `AUTH_ISSUER=http://localhost:8090/rabit`, `AUTH_JWKS_URL=http://localhost:8090/rabit/jwks`.
+- web: `VITE_OIDC_ISSUER=http://localhost:8090/rabit VITE_OIDC_CLIENT_ID=rabit-web pnpm --filter @rabit/web dev`.
+
 ## Troubleshooting (local)
 
 - **Uploads stay "처리 중" / processing jobs time out:** if Docker ran out of memory, SeaweedFS may have been OOM-killed. It can come back with server-side copies hanging (`FILER LOCK ... no lock server found` in `docker logs rabit-s3-1`). Restart it with `docker compose restart s3`. Storage calls now fail after 30 s of silence instead of hanging, so stuck jobs retry and then reach the DLQ.
@@ -82,7 +93,7 @@ curl -s -X POST localhost:8080/dev/token -H 'content-type: application/json' -d 
 | `pnpm typecheck` | `tsc --noEmit` with `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
 | `pnpm build` | compiled output for production |
 | `pnpm test` | Vitest against real Postgres + S3 (SeaweedFS); migrations are rolled back and re-applied at start |
-| `pnpm e2e` | Playwright browser tests against an isolated stack (database `rabit_e2e`, ports 18080/18081/15173); needs `pnpm infra:up` and ffmpeg |
+| `pnpm e2e` | Playwright browser tests against an isolated stack (database `rabit_e2e`, ports 18080/18081/15173, plus a mock OIDC provider in Docker on 18090 with its own api 18082 and web 15174); needs `pnpm infra:up`, Docker and ffmpeg |
 | `npx @redocly/cli@1 lint docs/05-api/openapi.yaml` | OpenAPI contract |
 | `pnpm audit --prod` | dependency vulnerabilities (CI) |
 
