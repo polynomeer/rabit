@@ -1,0 +1,15 @@
+{
+  "//": "Content-Security-Policy of the web client (one source for CloudFront and the E2E test). Placeholders: {api} {media} {oidc} {upload} are origins.",
+  "default-src": ["'self'"],
+  "script-src": ["'self'"],
+  "style-src": ["'self'"],
+  "img-src": ["'self'", "data:"],
+  "font-src": ["'self'"],
+  "connect-src": ["'self'", "{api}", "{media}", "{oidc}", "{upload}"],
+  "media-src": ["'self'", "blob:", "{media}"],
+  "worker-src": ["'self'", "blob:"],
+  "object-src": ["'none'"],
+  "base-uri": ["'none'"],
+  "form-action": ["'self'"],
+  "frame-ancestors": ["'none'"]
+}

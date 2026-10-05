@@ -127,8 +127,46 @@ data "aws_cloudfront_cache_policy" "optimized" {
   name = "Managed-CachingOptimized"
 }
 
-data "aws_cloudfront_response_headers_policy" "security" {
-  name = "Managed-SecurityHeadersPolicy"
+# The web client's Content-Security-Policy comes from infra/web/csp.json, the file
+# the E2E suite serves to the production build (apps/web/e2e/csp.spec.ts).
+locals {
+  csp_policy = { for d, sources in jsondecode(file("${path.module}/../web/csp.json")) : d => sources if d != "//" }
+  csp_origins = {
+    "{api}"    = "https://${local.hosts.api}"
+    "{media}"  = "https://${local.hosts.media}"
+    "{oidc}"   = regex("^https?://[^/]+", var.auth_issuer)
+    "{upload}" = "https://${local.buckets.quarantine}.s3.${var.region}.amazonaws.com"
+  }
+  content_security_policy = join("; ", [
+    for d, sources in local.csp_policy : "${d} ${join(" ", distinct([for s in sources : lookup(local.csp_origins, s, s)]))}"
+  ])
+}
+
+resource "aws_cloudfront_response_headers_policy" "web" {
+  name = "${local.name}-web"
+  security_headers_config {
+    content_security_policy {
+      content_security_policy = local.content_security_policy
+      override                = true
+    }
+    strict_transport_security {
+      access_control_max_age_sec = 63072000
+      include_subdomains         = true
+      preload                    = false
+      override                   = true
+    }
+    content_type_options {
+      override = true
+    }
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+  }
 }
 
 resource "aws_cloudfront_distribution" "web" {
@@ -151,7 +189,7 @@ resource "aws_cloudfront_distribution" "web" {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
-    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.web.id
     compress                   = true
   }
 

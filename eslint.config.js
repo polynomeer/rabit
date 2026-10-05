@@ -3,7 +3,16 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/coverage/**', 'audio-platform/**', 'docs/**', '**/*.d.ts'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      '**/e2e-results/**',
+      'audio-platform/**',
+      'docs/**',
+      '**/*.d.ts',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
