@@ -292,6 +292,18 @@ run "edge_uses_tls" {
     error_message = "Media is served over HTTPS only."
   }
   assert {
+    condition = alltrue([
+      strcontains(local.content_security_policy, "script-src 'self'"),
+      strcontains(local.content_security_policy, "frame-ancestors 'none'"),
+      strcontains(local.content_security_policy, "https://api.rabit.example"),
+      strcontains(local.content_security_policy, "https://rabit-stg-test-quarantine.s3.ap-northeast-2.amazonaws.com"),
+      strcontains(local.content_security_policy, "https://idp.example"),
+      !strcontains(local.content_security_policy, "unsafe-inline"),
+      !strcontains(local.content_security_policy, "{"),
+    ])
+    error_message = "The web client gets the CSP from infra/web/csp.json with this environment's origins."
+  }
+  assert {
     condition     = length(aws_lb_listener_rule.media.condition) == 2
     error_message = "The media origin requires its host and the CloudFront secret header."
   }

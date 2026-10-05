@@ -13,6 +13,8 @@ const webPort = port('E2E_WEB_PORT', 15173);
 const oidcPort = port('E2E_OIDC_PORT', 18090);
 const oidcApiPort = port('E2E_OIDC_API_PORT', 18082);
 const oidcWebPort = port('E2E_OIDC_WEB_PORT', 15174);
+/** The production build served with the production Content-Security-Policy. */
+const cspWebPort = port('E2E_CSP_WEB_PORT', 15175);
 
 export const E2E = {
   apiPort,
@@ -30,6 +32,9 @@ export const E2E = {
   oidcApiUrl: `http://localhost:${String(oidcApiPort)}`,
   oidcWebUrl: `http://localhost:${String(oidcWebPort)}`,
   oidcClientId: 'rabit-web',
+  cspWebPort,
+  cspWebUrl: `http://localhost:${String(cspWebPort)}`,
+  s3PublicUrl: process.env['S3_PUBLIC_ENDPOINT'] ?? 'http://127.0.0.1:59000',
   /** Maintenance connection used only to recreate the E2E database. */
   adminDatabaseUrl: `${pgBase}/postgres`,
   databaseUrl: `${pgBase}/rabit_e2e`,

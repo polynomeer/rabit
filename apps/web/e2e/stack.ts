@@ -30,7 +30,7 @@ const env: NodeJS.ProcessEnv = {
   METRICS_PORT: String(E2E.metricsPort),
   API_PUBLIC_BASE_URL: E2E.apiUrl,
   MEDIA_PUBLIC_BASE_URL: E2E.mediaUrl,
-  CORS_ALLOWED_ORIGINS: E2E.webUrl,
+  CORS_ALLOWED_ORIGINS: `${E2E.webUrl},${E2E.cspWebUrl}`,
   DATABASE_URL: E2E.databaseUrl,
   S3_ENDPOINT: process.env['S3_ENDPOINT'] ?? 'http://127.0.0.1:59000',
   S3_PUBLIC_ENDPOINT: process.env['S3_PUBLIC_ENDPOINT'] ?? 'http://127.0.0.1:59000',
@@ -54,8 +54,8 @@ const say = (msg: string) => {
   process.stdout.write(`[e2e stack] ${msg}\n`);
 };
 
-function runOnce(cmd: string, args: string[], cwd: string): void {
-  const r = spawnSync(cmd, args, { cwd, env, encoding: 'utf8' });
+function runOnce(cmd: string, args: string[], cwd: string, extra = {}): void {
+  const r = spawnSync(cmd, args, { cwd, env: { ...env, ...extra }, encoding: 'utf8' });
   log.write(r.stdout);
   log.write(r.stderr);
   if (r.status !== 0)
@@ -162,6 +162,7 @@ try {
     E2E.oidcPort,
     E2E.oidcApiPort,
     E2E.oidcWebPort,
+    E2E.cspWebPort,
   ])
     await assertPortFree(p);
   say('recreating database rabit_e2e');
@@ -255,7 +256,32 @@ try {
       VITE_OIDC_CLIENT_ID: E2E.oidcClientId,
     },
   );
+  // Production build under the production CSP (infra/web/csp.json).
+  const vite = resolve(web, 'node_modules/.bin/vite');
+  runOnce(vite, ['build', '--outDir', 'e2e-results/web-csp', '--emptyOutDir'], web, {
+    VITE_API_BASE: E2E.apiUrl,
+  });
+  start(
+    'web-csp',
+    vite,
+    [
+      'preview',
+      '--outDir',
+      'e2e-results/web-csp',
+      '--port',
+      String(E2E.cspWebPort),
+      '--strictPort',
+    ],
+    web,
+    {
+      RABIT_CSP_API: E2E.apiUrl,
+      RABIT_CSP_MEDIA: E2E.mediaUrl,
+      RABIT_CSP_OIDC: E2E.oidcIssuer,
+      RABIT_CSP_UPLOAD: E2E.s3PublicUrl,
+    },
+  );
   await waitFor('web', ok(E2E.webUrl));
+  await waitFor('web-csp', ok(E2E.cspWebUrl));
   await waitFor('web-oidc', ok(E2E.oidcWebUrl));
   say(`ready at ${E2E.webUrl}`);
 } catch (err) {
