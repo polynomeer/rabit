@@ -11,6 +11,17 @@ Infrastructure for [ADR-0012](../../docs/adr/ADR-0012-deployment.md), written fo
 | Edge | ALB with TLS 1.3 policy; CloudFront for media (origin locked by a secret header) and for the web client (S3 with origin access control); ACM certificates; Route 53 records |
 | Governance | Monthly budget with email alerts; GitHub OIDC deploy role limited to ECR push, task definitions, the ops task, service updates and web publishing |
 
+Security invariants are tested without an AWS account (`tests/security.tftest.hcl`, mocked providers, run in CI). They cover:
+- the worker has no internet route and no public IP;
+- containers are read-only and non-root, with no plain-text secrets;
+- buckets block public access and use SSE-KMS with a rotating key;
+- the database is private, encrypted, deletion-protected and connected with verified TLS;
+- the edge uses TLS only, and the media origin is locked to CloudFront.
+
+```bash
+tofu init -backend=false && tofu test
+```
+
 Estimated cost for staging (alpha size, Seoul list prices, 2026-10): about USD 220/month. See ADR-0012.
 
 ## What only the owner can do
