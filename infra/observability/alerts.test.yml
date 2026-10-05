@@ -81,3 +81,20 @@ tests:
               impact: Some uploads failed for non-user reasons and need an operator retry.
               runbook: docs/09-operations/runbooks.md#dead-letter-queue
 
+  - name: missing worker metrics page after 5 minutes
+    interval: 1m
+    input_series:
+      - series: rabit_job_oldest_queued_seconds
+        values: '0 0 _x20'
+    alert_rule_test:
+      # The last sample still counts for the 5 m lookback, then 5 m of `for`.
+      - eval_time: 8m
+        alertname: QueueMetricsMissing
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: QueueMetricsMissing
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              impact: No worker is reporting; uploads, deletions and rights revocations may have stopped.
+              runbook: docs/09-operations/runbooks.md#queue-backlog

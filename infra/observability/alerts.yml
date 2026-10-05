@@ -42,6 +42,16 @@ groups:
           impact: New uploads and Audio Logs stay "processing"; deletions and revocations are delayed.
           runbook: docs/09-operations/runbooks.md#queue-backlog
 
+      # Queue gauges are exported by the worker only: with every worker down, the
+      # two queue alerts above and below have no data and cannot fire.
+      - alert: QueueMetricsMissing
+        expr: absent(rabit_job_oldest_queued_seconds)
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          impact: No worker is reporting; uploads, deletions and rights revocations may have stopped.
+          runbook: docs/09-operations/runbooks.md#queue-backlog
+
       - alert: RevocationLagging
         expr: rabit_outbox_pending > 500 or rabit_job_oldest_queued_seconds > 60
         for: 2m
