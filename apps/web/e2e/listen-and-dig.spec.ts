@@ -51,9 +51,11 @@ test('search, play a licensed recording, and DIG without stopping playback', asy
   );
 
   // The trail becomes a playlist with both stops.
-  page.once('dialog', (d) => void d.accept());
   await page.getByRole('button', { name: '트레일을 플레이리스트로' }).click();
-  await openTab(page, 'Playlists');
+  await expect(
+    page.getByRole('status').filter({ hasText: '플레이리스트로 저장했습니다' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: '플레이리스트 보기' }).click();
   const lists = page.getByRole('region', { name: 'Playlists' }).getByRole('listitem');
   await expect(lists.first()).toContainText('2곡');
   await lists.first().getByRole('button').click();

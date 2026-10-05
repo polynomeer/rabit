@@ -346,3 +346,20 @@ form[aria-label='Audio Log 편집'] label {
 .player .waveform rect.played {
   fill: var(--accent);
 }
+
+/* DIG session bar: title, keep in history, end. */
+.session-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+.session-bar form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.node .actions {
+  margin-top: 8px;
+}
