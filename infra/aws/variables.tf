@@ -156,6 +156,17 @@ variable "budget_alert_emails" {
   type        = list(string)
 }
 
+variable "alert_emails" {
+  description = "Addresses that receive alerts (each must confirm the SNS subscription)."
+  type        = list(string)
+}
+
+variable "collector_image_tag" {
+  description = "AWS Distro for OpenTelemetry collector, pulled through the ECR cache of public.ecr.aws."
+  type        = string
+  default     = "v0.50.0"
+}
+
 variable "log_retention_days" {
   type    = number
   default = 30

@@ -7,3 +7,4 @@ auth_issuer         = "https://idp.example/"      # production OIDC provider (AD
 auth_jwks_url       = "https://idp.example/.well-known/jwks.json"
 budget_alert_emails = ["ops@example.com"]
 budget_monthly_usd  = 300
+alert_emails        = ["oncall@example.com"]

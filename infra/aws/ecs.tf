@@ -75,7 +75,8 @@ resource "aws_ecs_task_definition" "role" {
     name = "tmp"
   }
 
-  container_definitions = jsonencode([{
+  # The app container first; long-running roles add the metrics collector (R8).
+  container_definitions = jsonencode(concat([{
     name                   = each.key
     image                  = local.image
     essential              = true
@@ -96,7 +97,7 @@ resource "aws_ecs_task_definition" "role" {
         awslogs-stream-prefix = each.key
       }
     }
-  }])
+  }], each.key == "ops" ? [] : [local.collector[each.key]]))
 }
 
 resource "aws_ecs_service" "role" {
