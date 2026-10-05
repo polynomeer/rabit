@@ -13,10 +13,12 @@
     "migrate:up": "tsx --env-file-if-exists=.env src/entry/migrate.ts up",
     "migrate:down": "tsx --env-file-if-exists=.env src/entry/migrate.ts down",
     "catalog:ingest": "tsx --env-file-if-exists=.env src/entry/catalog-ingest.ts",
+    "restore:reconcile": "tsx --env-file-if-exists=.env src/entry/restore-reconcile.ts",
     "start:api": "node dist/entry/api.js",
     "start:worker": "node dist/entry/worker.js",
     "start:media": "node dist/entry/media.js",
-    "bench": "tsx --env-file-if-exists=.env bench/baseline.ts"
+    "bench": "tsx --env-file-if-exists=.env bench/baseline.ts",
+    "drill:restore": "tsx --env-file-if-exists=.env bench/restore-drill.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1146.0",
