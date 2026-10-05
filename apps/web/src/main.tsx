@@ -7,6 +7,7 @@ import { OpsConsole } from './ops';
 import { PlayerProvider } from './player';
 import { digHref, navigate, opsHref, tabHref, TABS, useRoute } from './route';
 import { Archive } from './archive';
+import { t } from './i18n';
 import { Account, Playlists, Search } from './views';
 import './styles.css';
 
@@ -15,7 +16,7 @@ function SignIn({ onDone }: { onDone: () => void }) {
   return (
     <main className="signin">
       <h1>Rabit</h1>
-      <p className="muted">Music takes you further.</p>
+      <p className="muted">{t('signin.tagline')}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -28,15 +29,14 @@ function SignIn({ onDone }: { onDone: () => void }) {
         }}
       >
         <label>
-          개발용 로그인 ID <input name="subject" required maxLength={64} autoComplete="username" />
+          {t('signin.subject')}{' '}
+          <input name="subject" required maxLength={64} autoComplete="username" />
         </label>
         <label className="small">
-          <input type="checkbox" name="operator" /> 운영자 (개발용: 운영자 권한과 MFA 포함)
+          <input type="checkbox" name="operator" /> {t('signin.operator')}
         </label>
-        <button type="submit">로그인</button>
-        <p className="small muted">
-          로컬 개발용 발급기입니다(ADR-0009). 운영에서는 OIDC 공급자를 사용합니다.
-        </p>
+        <button type="submit">{t('signin.submit')}</button>
+        <p className="small muted">{t('signin.devNote')}</p>
         {err ? <p className="warn">{err}</p> : null}
       </form>
     </main>
@@ -77,17 +77,17 @@ function App() {
           ◖
         </span>
         <strong>Rabit</strong>
-        <nav aria-label="주 메뉴">
-          {TABS.map((t) => (
+        <nav aria-label={t('nav.main')}>
+          {TABS.map((entry) => (
             <button
-              key={t}
+              key={entry}
               type="button"
-              aria-current={tab === t ? 'page' : undefined}
+              aria-current={tab === entry ? 'page' : undefined}
               onClick={() => {
-                navigate(tabHref(t));
+                navigate(tabHref(entry));
               }}
             >
-              {t}
+              {entry}
             </button>
           ))}
           {operator ? (
@@ -110,7 +110,7 @@ function App() {
             setSignedIn(false);
           }}
         >
-          로그아웃
+          {t('nav.logout')}
         </button>
       </header>
       <main>

@@ -9,7 +9,8 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { api, ApiError, OWNERSHIP_TEXT, REASON_TEXT } from './api';
+import { api, ApiError, OWNERSHIP_TEXT } from './api';
+import { t, tCode, type MessageKey } from './i18n';
 
 /** A queue entry references an id — never a file URL (PB Phase 13). */
 export interface QueueEntry {
@@ -37,6 +38,14 @@ interface PlayerApi {
 }
 
 const Ctx = createContext<PlayerApi | null>(null);
+
+/** Playback-session error codes the listener gets a plain explanation for. */
+const START_ERROR_TEXT: Record<string, MessageKey> = {
+  SUBSCRIPTION_REQUIRED: 'reason.subscription_required',
+  RIGHTS_UNAVAILABLE: 'reason.rights_unavailable',
+  NOT_FOUND: 'reason.not_found',
+  INVALID_STATE: 'reason.not_ready',
+};
 const DEVICE_KEY = 'rabit.device';
 
 function deviceId(): string {
@@ -118,21 +127,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       await el.play().catch(() => undefined);
     } catch (e) {
-      const code = e instanceof ApiError ? e.code : '';
-      const text: Record<string, string> = {
-        SUBSCRIPTION_REQUIRED: REASON_TEXT['subscription_required'] ?? '',
-        RIGHTS_UNAVAILABLE: REASON_TEXT['rights_unavailable'] ?? '',
-        NOT_FOUND: REASON_TEXT['not_found'] ?? '',
-        INVALID_STATE: REASON_TEXT['not_ready'] ?? '',
-      };
-      setMessage(`재생할 수 없습니다: ${text[code] ?? (e as Error).message}`);
+      const key: MessageKey | undefined = START_ERROR_TEXT[e instanceof ApiError ? e.code : ''];
+      setMessage(t('player.cannotPlay', { reason: key ? t(key) : (e as Error).message }));
     }
   }, []);
 
   // Refresh the session (and media token) while playing; the server re-checks rights.
   useEffect(() => {
     if (!session) return;
-    const t = setInterval(() => {
+    const refresh = setInterval(() => {
       api<Session>('POST', `/v1/playback-sessions/${session.session_id}/refresh`)
         .then(({ data }) => {
           token.current = tokenOf(data.manifest_url);
@@ -140,14 +143,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         .catch((e: unknown) => {
           hls.current?.destroy();
           audio.current?.pause();
-          setMessage(`재생이 중단되었습니다: ${e instanceof ApiError ? e.message : '오류'}`);
+          setMessage(
+            t('player.stopped', { reason: e instanceof ApiError ? e.message : t('player.error') }),
+          );
         });
     }, 40_000);
     const beat = setInterval(() => {
       if (audio.current && !audio.current.paused) send('heartbeat', session);
     }, 15_000);
     return () => {
-      clearInterval(t);
+      clearInterval(refresh);
       clearInterval(beat);
     };
   }, [session, send]);
@@ -197,28 +202,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api_}>
       {children}
-      <footer className="player" aria-label="플레이어">
+      <footer className="player" aria-label={t('player.region')}>
         <div className="now">
           {current ? (
             <>
               <strong>{current.title}</strong>
               {current.subtitle ? <span className="muted"> · {current.subtitle}</span> : null}
               {current.ownership ? (
-                <span className="badge">
-                  {OWNERSHIP_TEXT[current.ownership] ?? current.ownership}
-                </span>
+                <span className="badge">{tCode(OWNERSHIP_TEXT, current.ownership)}</span>
               ) : null}
               {session ? (
                 <span className="muted small">
                   {' '}
-                  {session.quality.codec.toUpperCase()} {session.quality.bitrate_kbps}kbps
-                  {session.quality.lossless ? ' · lossless' : ''}
-                  {session.quality.provisional ? ' (임시 설정)' : ''}
+                  {t('player.quality', {
+                    codec: session.quality.codec.toUpperCase(),
+                    kbps: session.quality.bitrate_kbps,
+                  })}
+                  {session.quality.lossless ? ` · ${t('player.quality.lossless')}` : ''}
+                  {session.quality.provisional ? ` ${t('player.quality.provisional')}` : ''}
                 </span>
               ) : null}
             </>
           ) : (
-            <span className="muted">재생 중인 오디오 없음</span>
+            <span className="muted">{t('player.idle')}</span>
           )}
           {message ? (
             <p role="status" className="warn">
@@ -229,7 +235,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         <audio
           ref={audio}
           controls
-          aria-label="오디오 컨트롤"
+          aria-label={t('player.controls')}
           onPlay={() => {
             if (session) send('started', session);
           }}
@@ -240,7 +246,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         />
         {peaks && peaks.length > 0 ? <Waveform peaks={peaks} audio={audio} /> : null}
         <button type="button" onClick={playNext} disabled={index + 1 >= queue.length}>
-          다음
+          {t('player.next')}
         </button>
       </footer>
     </Ctx.Provider>

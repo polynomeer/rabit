@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { api, get, sha256Hex, type LibraryItem } from './api';
+import { formatDateTime, t, type MessageKey } from './i18n';
 import { usePlayer } from './player';
 import { errorText, ItemTitle, Ownership, Status, toEntry } from './views';
 
 /** Upload → presigned PUT → finalize → poll (audio-pipeline §2). */
 function Upload({ onDone }: { onDone: () => void }) {
-  const [busy, setBusy] = useState<string | null>(null);
+  // `settled` marks a final outcome (failed or cancelled): the form may be submitted again.
+  const [busy, setBusy] = useState<{ text: string; settled: boolean } | null>(null);
+  const working = (key: MessageKey) => {
+    setBusy({ text: t(key), settled: false });
+  };
   const [intent, setIntent] = useState<'private_upload' | 'audio_log'>('private_upload');
   const [logTitle, setLogTitle] = useState('');
   // Cancelling is possible until finalize: it stops the transfer and releases the
@@ -18,7 +23,7 @@ function Upload({ onDone }: { onDone: () => void }) {
     cancel.current = null;
     c.abort.abort();
     if (c.uploadId) await api('DELETE', `/v1/uploads/${c.uploadId}`).catch(() => undefined);
-    setBusy('업로드를 취소했습니다.');
+    setBusy({ text: t('archive.upload.cancelled'), settled: true });
   }
 
   async function submit(e: SyntheticEvent<HTMLFormElement>) {
@@ -30,10 +35,10 @@ function Upload({ onDone }: { onDone: () => void }) {
     cancel.current = run;
     const cancelled = () => run.abort.signal.aborted;
     try {
-      setBusy('체크섬 계산 중…');
+      working('archive.upload.hashing');
       const sha256 = await sha256Hex(file);
       if (cancelled()) return;
-      setBusy('업로드 준비 중…');
+      working('archive.upload.preparing');
       const { data: intentRes } = await api<{
         upload: { upload_id: string };
         upload_url: string;
@@ -44,14 +49,14 @@ function Upload({ onDone }: { onDone: () => void }) {
         await api('DELETE', `/v1/uploads/${run.uploadId}`).catch(() => undefined);
         return;
       }
-      setBusy('전송 중…');
+      working('archive.upload.transferring');
       const put = await fetch(intentRes.upload_url, {
         method: 'PUT',
         headers: intentRes.upload_headers,
         body: file,
         signal: run.abort.signal,
       });
-      if (!put.ok) throw new Error(`Upload failed (${String(put.status)})`);
+      if (!put.ok) throw new Error(t('archive.upload.transferFailed', { status: put.status }));
       if (cancelled()) return;
       cancel.current = null; // finalize begins: from here on, delete the audio instead
       const { data: fin } = await api<{ audio_source_id: string }>(
@@ -60,13 +65,14 @@ function Upload({ onDone }: { onDone: () => void }) {
         undefined,
         { 'idempotency-key': `fin-${intentRes.upload.upload_id}` },
       );
-      setBusy('처리 중…');
+      working('archive.upload.processing');
       for (let i = 0; i < 240; i++) {
         const s = await get<{ status: string; failure_code: string | null }>(
           `/v1/audio-sources/${fin.audio_source_id}`,
         );
         if (s.status === 'ready') break;
-        if (s.status === 'failed') throw new Error(`처리 실패: ${s.failure_code ?? ''}`);
+        if (s.status === 'failed')
+          throw new Error(t('archive.upload.processingFailed', { code: s.failure_code ?? '' }));
         await new Promise((r) => setTimeout(r, 1000));
       }
       if (intent === 'audio_log') {
@@ -79,7 +85,7 @@ function Upload({ onDone }: { onDone: () => void }) {
       }
       // The Archive entry is created asynchronously after processing (AudioReady
       // consumer); wait briefly so the list does not reload before it exists.
-      setBusy('보관함에 추가하는 중…');
+      working('archive.upload.adding');
       for (let i = 0; i < 20; i++) {
         const lib = await get<{ items: LibraryItem[] }>(
           '/v1/library?ref_type=audio_source&limit=100',
@@ -94,15 +100,15 @@ function Upload({ onDone }: { onDone: () => void }) {
     } catch (err) {
       if (cancelled()) return;
       cancel.current = null;
-      setBusy(`실패: ${errorText(err)}`);
+      setBusy({ text: t('archive.upload.failed', { error: errorText(err) }), settled: true });
     }
   }
 
   return (
-    <form className="card" onSubmit={(e) => void submit(e)} aria-label="오디오 업로드">
-      <h3>업로드</h3>
+    <form className="card" onSubmit={(e) => void submit(e)} aria-label={t('archive.upload.form')}>
+      <h3>{t('archive.upload.title')}</h3>
       <fieldset>
-        <legend>종류</legend>
+        <legend>{t('archive.upload.kind')}</legend>
         <label>
           <input
             type="radio"
@@ -112,7 +118,7 @@ function Upload({ onDone }: { onDone: () => void }) {
               setIntent('private_upload');
             }}
           />{' '}
-          개인 오디오
+          {t('archive.upload.private')}
         </label>
         <label>
           <input
@@ -128,7 +134,7 @@ function Upload({ onDone }: { onDone: () => void }) {
       </fieldset>
       {intent === 'audio_log' ? (
         <label>
-          제목{' '}
+          {t('common.title')}{' '}
           <input
             value={logTitle}
             onChange={(e) => {
@@ -138,19 +144,25 @@ function Upload({ onDone }: { onDone: () => void }) {
           />
         </label>
       ) : null}
-      <input name="file" type="file" accept="audio/*" aria-label="오디오 파일" required />
+      <input
+        name="file"
+        type="file"
+        accept="audio/*"
+        aria-label={t('archive.upload.file')}
+        required
+      />
       <div className="actions">
-        <button type="submit" disabled={busy !== null && !/^(실패|업로드를 취소)/.test(busy)}>
-          업로드
+        <button type="submit" disabled={busy !== null && !busy.settled}>
+          {t('archive.upload.submit')}
         </button>
         {busy !== null && cancel.current ? (
           <button type="button" onClick={() => void stop()}>
-            업로드 취소
+            {t('archive.upload.cancel')}
           </button>
         ) : null}
       </div>
-      <p className="small muted">비공개로 저장되며 다른 사용자에게 보이지 않습니다.</p>
-      {busy ? <p role="status">{busy}</p> : null}
+      <p className="small muted">{t('archive.upload.privacyNote')}</p>
+      {busy ? <p role="status">{busy.text}</p> : null}
     </form>
   );
 }
@@ -189,7 +201,7 @@ function AudioLogEditor({
   return (
     <form
       className="card"
-      aria-label="Audio Log 편집"
+      aria-label={t('archive.log.editForm')}
       onSubmit={(e) => {
         e.preventDefault();
         const f = e.currentTarget.elements;
@@ -198,8 +210,8 @@ function AudioLogEditor({
         const note = value('note').trim();
         const tags = value('tags')
           .split(',')
-          .map((t) => t.trim())
-          .filter((t) => t.length > 0);
+          .map((tag) => tag.trim())
+          .filter((tag) => tag.length > 0);
         const when = value('recorded_at');
         const patch: Record<string, unknown> = {};
         if (title !== log.title) patch['title'] = title;
@@ -214,21 +226,22 @@ function AudioLogEditor({
           return;
         }
         api('PATCH', `/v1/audio-logs/${log.audio_log_id}`, patch).then(onSaved, (err: unknown) => {
-          setMsg(`저장하지 못했습니다: ${errorText(err)}`);
+          setMsg(t('archive.log.saveFailed', { error: errorText(err) }));
         });
       }}
     >
       <label>
-        제목 <input name="title" defaultValue={log.title} required maxLength={200} />
+        {t('common.title')} <input name="title" defaultValue={log.title} required maxLength={200} />
       </label>
       <label>
-        메모 <textarea name="note" defaultValue={log.note ?? ''} maxLength={5000} rows={3} />
+        {t('archive.log.note')}{' '}
+        <textarea name="note" defaultValue={log.note ?? ''} maxLength={5000} rows={3} />
       </label>
       <label>
-        태그 (쉼표로 구분) <input name="tags" defaultValue={log.tags.join(', ')} />
+        {t('archive.log.tags')} <input name="tags" defaultValue={log.tags.join(', ')} />
       </label>
       <label>
-        녹음 시각{' '}
+        {t('archive.log.recordedAt')}{' '}
         <input
           name="recorded_at"
           type="datetime-local"
@@ -237,9 +250,9 @@ function AudioLogEditor({
         />
       </label>
       <div className="actions">
-        <button type="submit">저장</button>
+        <button type="submit">{t('common.save')}</button>
         <button type="button" onClick={onCancel}>
-          취소
+          {t('common.cancel')}
         </button>
       </div>
       {msg ? <p role="status">{msg}</p> : null}
@@ -288,7 +301,7 @@ export function Archive() {
                 <Status p={i.playability} />
                 {log ? (
                   <p className="small muted log-meta">
-                    {new Date(log.recorded_at).toLocaleString()} ({log.recorded_tz})
+                    {formatDateTime(log.recorded_at)} ({log.recorded_tz})
                     {log.tags.length > 0 ? ` · #${log.tags.join(' #')}` : ''}
                     {log.note ? <span className="log-note"> · {log.note}</span> : null}
                   </p>
@@ -302,7 +315,7 @@ export function Archive() {
                       player.play(playable.map(toEntry), playable.indexOf(i));
                     }}
                   >
-                    재생
+                    {t('common.play')}
                   </button>
                 ) : null}
                 {log ? (
@@ -312,19 +325,19 @@ export function Archive() {
                       setEditing(editing === log.audio_log_id ? null : log.audio_log_id);
                     }}
                   >
-                    편집
+                    {t('archive.item.edit')}
                   </button>
                 ) : null}
                 {i.ref_type === 'audio_source' ? (
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm('이 오디오를 삭제할까요? 되돌릴 수 없습니다.')) {
+                      if (confirm(t('archive.item.deleteConfirm'))) {
                         void api('DELETE', `/v1/audio-sources/${i.ref_id}`).then(load);
                       }
                     }}
                   >
-                    삭제
+                    {t('archive.item.delete')}
                   </button>
                 ) : null}
                 {i.origin === 'saved' ? (
@@ -335,7 +348,7 @@ export function Archive() {
                       void api('DELETE', `/v1/library/${i.library_item_id}`).then(load)
                     }
                   >
-                    라이브러리에서 빼기
+                    {t('archive.item.removeFromLibrary')}
                   </button>
                 ) : null}
               </div>
@@ -354,9 +367,7 @@ export function Archive() {
             </li>
           );
         })}
-        {items.length === 0 ? (
-          <li className="muted">아직 아무것도 없습니다. 첫 녹음이나 파일을 올려 보세요.</li>
-        ) : null}
+        {items.length === 0 ? <li className="muted">{t('archive.empty')}</li> : null}
       </ul>
     </section>
   );

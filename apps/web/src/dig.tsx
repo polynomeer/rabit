@@ -7,55 +7,57 @@ import {
   type EntitySummary,
   type Evidence,
 } from './api';
+import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { usePlayer } from './player';
 import { digSessionHref, entityHref, replaceRoute, tabHref } from './route';
 import { Status } from './views';
 
-export const AXIS_TEXT: Record<string, string> = {
-  credits: 'Credits',
-  same_producer: '같은 프로듀서',
-  session_musicians: '세션 뮤지션',
-  artists: '아티스트',
-  members: '멤버',
-  member_of: '소속',
-  tracks: '수록곡',
-  releases: '릴리스',
-  same_label: '같은 레이블',
-  samples: '샘플링한 곡',
-  sampled_by: '이 곡을 샘플링',
-  covers: '원곡',
-  covered_by: '커버',
-  remix_of: '원곡(리믹스)',
-  remixes: '리믹스',
-  influenced_by: '영향 받음',
-  influences: '영향을 줌',
+/** DIG axis code → label (use with `tCode`). */
+export const AXIS_TEXT: Record<string, MessageKey> = {
+  credits: 'dig.axis.credits',
+  same_producer: 'dig.axis.same_producer',
+  session_musicians: 'dig.axis.session_musicians',
+  artists: 'dig.axis.artists',
+  members: 'dig.axis.members',
+  member_of: 'dig.axis.member_of',
+  tracks: 'dig.axis.tracks',
+  releases: 'dig.axis.releases',
+  same_label: 'dig.axis.same_label',
+  samples: 'dig.axis.samples',
+  sampled_by: 'dig.axis.sampled_by',
+  covers: 'dig.axis.covers',
+  covered_by: 'dig.axis.covered_by',
+  remix_of: 'dig.axis.remix_of',
+  remixes: 'dig.axis.remixes',
+  influenced_by: 'dig.axis.influenced_by',
+  influences: 'dig.axis.influences',
 };
-const GROUP_TEXT: Record<string, string> = {
-  people: 'PEOPLE',
-  history: 'HISTORY',
-  sound: 'SOUND',
-  place: 'PLACE',
+const GROUP_TEXT: Record<string, MessageKey> = {
+  people: 'dig.group.people',
+  history: 'dig.group.history',
+  sound: 'dig.group.sound',
+  place: 'dig.group.place',
 };
 const POPULARITY = [
-  ['any', 'Any'],
-  ['below_top_50', 'Below Top 50%'],
-  ['deep_cuts', 'Deep Cuts'],
-  ['obscure', 'Obscure'],
-] as const;
+  ['any', 'dig.popularity.any'],
+  ['below_top_50', 'dig.popularity.below_top_50'],
+  ['deep_cuts', 'dig.popularity.deep_cuts'],
+  ['obscure', 'dig.popularity.obscure'],
+] as const satisfies readonly (readonly [string, MessageKey])[];
 
 /** Verified fact vs declared vs ML estimate are always distinguishable (DIG-018). */
 export function EvidenceLine({ e }: { e: Evidence }) {
   const basis =
     e.basis === 'verified_fact'
-      ? '검증된 사실'
+      ? t('dig.evidence.verified')
       : e.basis === 'declared'
-        ? '신고된 정보'
-        : `추정 (신뢰도 ${Math.round((e.confidence ?? 0) * 100)}%)`;
+        ? t('dig.evidence.declared')
+        : t('dig.evidence.inferred', { percent: Math.round((e.confidence ?? 0) * 100) });
   return (
     <span className="small">
       {e.explanation} — <em>{basis}</em>
       {e.license_status && e.license_status !== 'not_applicable' ? (
-        <span className="muted"> · 이용허락: {e.license_status}</span>
+        <span className="muted"> · {t('dig.evidence.license', { status: e.license_status })}</span>
       ) : null}
     </span>
   );
@@ -150,7 +152,7 @@ export function DigSessionView({ id }: { id: string }) {
   const end = () => change('POST', '/end');
   const back = (seq: number) => change('POST', '/cursor', { seq });
 
-  if (!session) return <p role="status">불러오는 중…</p>;
+  if (!session) return <p role="status">{t('common.loading')}</p>;
 
   const groups = [...new Set(axes.map((a) => a.group))];
   return (
@@ -162,7 +164,7 @@ export function DigSessionView({ id }: { id: string }) {
         onSave={(saved) => update({ saved })}
         onEnd={() => void end()}
       />
-      <nav aria-label="Digging Trail" className="trail">
+      <nav aria-label={t('dig.trail')} className="trail">
         {session.trail.map((n) => (
           <button
             key={n.seq}
@@ -172,11 +174,11 @@ export function DigSessionView({ id }: { id: string }) {
             onClick={() => void back(n.seq)}
           >
             {n.via_axis ? (
-              <span className="muted small">{AXIS_TEXT[n.via_axis] ?? n.via_axis} → </span>
+              <span className="muted small">{tCode(AXIS_TEXT, n.via_axis)} → </span>
             ) : null}
             {n.entity.name}
-            {n.saved ? <span aria-label="저장됨"> ★</span> : null}
-            {n.played ? <span aria-label="들음"> ♪</span> : null}
+            {n.saved ? <span aria-label={t('dig.trail.saved')}> ★</span> : null}
+            {n.played ? <span aria-label={t('dig.trail.played')}> ♪</span> : null}
           </button>
         ))}
       </nav>
@@ -204,10 +206,10 @@ export function DigSessionView({ id }: { id: string }) {
         />
       ) : null}
 
-      <div className="axes" role="tablist" aria-label="탐험 축">
+      <div className="axes" role="tablist" aria-label={t('dig.axes')}>
         {groups.map((g) => (
           <div key={g}>
-            <span className="group">{GROUP_TEXT[g] ?? g}</span>
+            <span className="group">{tCode(GROUP_TEXT, g)}</span>
             {axes
               .filter((a) => a.group === g)
               .map((a) => (
@@ -220,7 +222,7 @@ export function DigSessionView({ id }: { id: string }) {
                     setAxis(a.axis);
                   }}
                 >
-                  {AXIS_TEXT[a.axis] ?? a.axis} <span className="muted">{a.count}</span>
+                  {tCode(AXIS_TEXT, a.axis)} <span className="muted">{a.count}</span>
                 </button>
               ))}
           </div>
@@ -228,7 +230,7 @@ export function DigSessionView({ id }: { id: string }) {
       </div>
       <div className="filters">
         <label>
-          인지도{' '}
+          {t('dig.filter.popularity')}{' '}
           <select
             value={pop}
             onChange={(e) => {
@@ -237,7 +239,7 @@ export function DigSessionView({ id }: { id: string }) {
           >
             {POPULARITY.map(([v, l]) => (
               <option key={v} value={v}>
-                {l}
+                {t(l)}
               </option>
             ))}
           </select>
@@ -250,10 +252,10 @@ export function DigSessionView({ id }: { id: string }) {
               setInferred(e.target.checked);
             }}
           />{' '}
-          추정 관계 포함
+          {t('dig.filter.inferred')}
         </label>
       </div>
-      <ul className="list" aria-label="연결">
+      <ul className="list" aria-label={t('common.connections')}>
         {conns.map((c) => (
           <li key={`${c.entity.entity_id}:${c.via.credit_id ?? c.via.relation_id ?? ''}`}>
             <div>
@@ -285,12 +287,12 @@ export function DigSessionView({ id }: { id: string }) {
                     ]);
                   }}
                 >
-                  미리듣기
+                  {t('dig.conn.preview')}
                 </button>
               ) : null}
               {ended ? null : (
                 <button type="button" onClick={() => void step(c)}>
-                  따라가기
+                  {t('dig.conn.follow')}
                 </button>
               )}
             </div>
@@ -298,9 +300,13 @@ export function DigSessionView({ id }: { id: string }) {
         ))}
       </ul>
       <p className="small muted">
-        {session.summary.nodes}개 지점 · 아티스트 {session.summary.distinct_artists}명 · 축:{' '}
-        {session.summary.axes_used.join(', ') || '-'} · 들은 곡 {session.summary.played} · 저장{' '}
-        {session.summary.saved}
+        {t('dig.summary', {
+          nodes: session.summary.nodes,
+          artists: session.summary.distinct_artists,
+          axes: session.summary.axes_used.join(', ') || '-',
+          played: session.summary.played,
+          saved: session.summary.saved,
+        })}
       </p>
       <button
         type="button"
@@ -311,19 +317,19 @@ export function DigSessionView({ id }: { id: string }) {
             {},
           ).then(
             ({ data }) => {
-              setSaved(`'${data.title}' 플레이리스트로 저장했습니다.`);
+              setSaved(t('dig.playlist.saved', { title: data.title }));
             },
             () => {
-              setSaved('플레이리스트로 저장하지 못했습니다.');
+              setSaved(t('dig.playlist.failed'));
             },
           )
         }
       >
-        트레일을 플레이리스트로
+        {t('dig.playlist.create')}
       </button>
       {saved ? (
         <p role="status">
-          {saved} <a href={tabHref('Playlists')}>플레이리스트 보기</a>
+          {saved} <a href={tabHref('Playlists')}>{t('dig.playlist.view')}</a>
         </p>
       ) : null}
     </section>
@@ -351,11 +357,11 @@ function Node({
       <div className="actions">
         {onPlay ? (
           <button type="button" onClick={onPlay}>
-            이 지점 재생
+            {t('dig.node.play')}
           </button>
         ) : null}
         <button type="button" onClick={onSave} disabled={saved} aria-pressed={saved}>
-          {saved ? '저장한 지점' : '이 지점 저장'}
+          {saved ? t('dig.node.saved') : t('dig.node.save')}
         </button>
       </div>
     </div>
@@ -382,7 +388,7 @@ function SessionHeader({
   return (
     <div className="session-bar">
       <form
-        aria-label="DIG 제목"
+        aria-label={t('dig.session.title')}
         onSubmit={(e) => {
           e.preventDefault();
           const v = (e.currentTarget.elements.namedItem('title') as HTMLInputElement).value.trim();
@@ -391,13 +397,13 @@ function SessionHeader({
       >
         <input
           name="title"
-          aria-label="DIG 제목"
-          placeholder="제목 없는 탐험"
+          aria-label={t('dig.session.title')}
+          placeholder={t('dig.session.untitled')}
           defaultValue={session.title ?? ''}
           key={session.title ?? ''}
           maxLength={200}
         />
-        <button type="submit">제목 저장</button>
+        <button type="submit">{t('dig.session.saveTitle')}</button>
       </form>
       <label>
         <input
@@ -411,13 +417,13 @@ function SessionHeader({
             });
           }}
         />{' '}
-        기록에 보관
+        {t('dig.session.keep')}
       </label>
       {session.state === 'ended' ? (
-        <span className="badge">끝난 탐험</span>
+        <span className="badge">{t('dig.session.ended')}</span>
       ) : (
         <button type="button" onClick={onEnd}>
-          탐험 끝내기
+          {t('dig.session.end')}
         </button>
       )}
     </div>
@@ -441,7 +447,7 @@ export function DigStart({ entityId }: { entityId: string }) {
       },
     );
   }, [entityId]);
-  return <p role="status">{failed ? 'DIG를 시작하지 못했습니다.' : '탐험을 준비하는 중…'}</p>;
+  return <p role="status">{failed ? t('dig.start.failed') : t('dig.start.preparing')}</p>;
 }
 
 interface SessionSummary {
@@ -472,7 +478,7 @@ export function DigHome() {
   return (
     <section aria-labelledby="dig-home-h">
       <h2 id="dig-home-h">DIG</h2>
-      <p className="muted">Search나 곡·아티스트 화면에서 DIG를 시작하세요.</p>
+      <p className="muted">{t('dig.home.hint')}</p>
       <label>
         <input
           type="checkbox"
@@ -481,27 +487,30 @@ export function DigHome() {
             setOnlySaved(e.target.checked);
           }}
         />{' '}
-        보관한 탐험만
+        {t('dig.home.onlySaved')}
       </label>
-      <ul className="list" aria-label="내 DIG 기록">
+      <ul className="list" aria-label={t('dig.home.history')}>
         {(items ?? []).map((s) => (
           <li key={s.dig_session_id}>
             <div>
               <strong>
                 <a href={digSessionHref(s.dig_session_id)}>
-                  {s.title ?? (s.start_entity ? `${s.start_entity.name}에서 시작` : '탐험')}
+                  {s.title ??
+                    (s.start_entity
+                      ? t('dig.home.startedFrom', { name: s.start_entity.name })
+                      : t('dig.home.untitled'))}
                 </a>
               </strong>{' '}
               <span className="muted small">
-                {s.nodes}개 지점 · {new Date(s.started_at).toLocaleDateString()}
+                {t('dig.home.meta', { nodes: s.nodes, date: formatDate(s.started_at) })}
               </span>{' '}
-              {s.saved ? <span className="badge">보관</span> : null}{' '}
-              {s.state === 'ended' ? <span className="badge">끝남</span> : null}
+              {s.saved ? <span className="badge">{t('dig.home.kept')}</span> : null}{' '}
+              {s.state === 'ended' ? <span className="badge">{t('dig.home.ended')}</span> : null}
             </div>
           </li>
         ))}
         {items !== null && items.length === 0 ? (
-          <li className="muted">아직 탐험 기록이 없습니다.</li>
+          <li className="muted">{t('dig.home.empty')}</li>
         ) : null}
       </ul>
     </section>

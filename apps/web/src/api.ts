@@ -1,5 +1,7 @@
 /** Thin client for the Rabit API (docs/05-api/openapi.yaml). */
 
+import { t, type MessageKey } from './i18n';
+
 export const API_BASE =
   (import.meta.env['VITE_API_BASE'] as string | undefined) ?? 'http://localhost:8080';
 
@@ -15,9 +17,9 @@ export class ApiError extends Error {
 
 let token: string | null = sessionStorage.getItem('rabit.token');
 
-export function setToken(t: string | null): void {
-  token = t;
-  if (t) sessionStorage.setItem('rabit.token', t);
+export function setToken(value: string | null): void {
+  token = value;
+  if (value) sessionStorage.setItem('rabit.token', value);
   else sessionStorage.removeItem('rabit.token');
 }
 
@@ -49,7 +51,7 @@ export async function api<T>(
     throw new ApiError(
       res.status,
       err?.code ?? 'UNKNOWN',
-      err?.message ?? `Request failed (${res.status})`,
+      err?.message ?? t('error.requestFailed', { status: res.status }),
     );
   }
   return { data: json as T, etag: res.headers.get('etag') };
@@ -65,7 +67,7 @@ export async function devSignIn(subject: string, operator = false): Promise<void
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ subject, operator }),
   });
-  if (!r.ok) throw new Error('Sign-in failed');
+  if (!r.ok) throw new Error(t('error.signInFailed'));
   setToken(((await r.json()) as { access_token: string }).access_token);
 }
 
@@ -148,23 +150,25 @@ export interface DigSession {
   };
 }
 
-export const REASON_TEXT: Record<string, string> = {
-  not_ready: '처리 중',
-  rights_unavailable: '이 지역에서 재생할 수 없음',
-  subscription_required: 'Listen 구독 필요',
-  purchase_available: '구매 가능',
-  no_audio: '음원 없음',
-  deleted: '삭제됨',
-  not_found: '찾을 수 없음',
-  capability_denied: '사용할 수 없음',
+/** Playability reason code → label (use with `tCode`). */
+export const REASON_TEXT: Record<string, MessageKey> = {
+  not_ready: 'reason.not_ready',
+  rights_unavailable: 'reason.rights_unavailable',
+  subscription_required: 'reason.subscription_required',
+  purchase_available: 'reason.purchase_available',
+  no_audio: 'reason.no_audio',
+  deleted: 'reason.deleted',
+  not_found: 'reason.not_found',
+  capability_denied: 'reason.capability_denied',
 };
 
-export const OWNERSHIP_TEXT: Record<string, string> = {
-  private: 'Private',
-  audio_log: 'Audio Log',
-  streaming: 'Streaming',
-  purchased: 'Purchased',
-  granted: 'Granted',
+/** Ownership code → badge label (use with `tCode`). */
+export const OWNERSHIP_TEXT: Record<string, MessageKey> = {
+  private: 'ownership.private',
+  audio_log: 'ownership.audio_log',
+  streaming: 'ownership.streaming',
+  purchased: 'ownership.purchased',
+  granted: 'ownership.granted',
 };
 
 export async function sha256Hex(file: Blob): Promise<string> {

@@ -8,20 +8,21 @@ import {
   type Playability,
   type Playlist,
 } from './api';
+import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
 import { entityHref, navigate, searchHref } from './route';
 
 export function Status({ p }: { p: Playability }) {
   // Never colour-only (NFR-A11Y-003): always a text label.
   return p.playable ? (
-    <span className="ok">재생 가능</span>
+    <span className="ok">{t('item.playable')}</span>
   ) : (
-    <span className="warn">{REASON_TEXT[p.reason ?? ''] ?? p.reason}</span>
+    <span className="warn">{tCode(REASON_TEXT, p.reason ?? '')}</span>
   );
 }
 
 export function Ownership({ o }: { o: string | null }) {
-  return o ? <span className="badge">{OWNERSHIP_TEXT[o] ?? o}</span> : null;
+  return o ? <span className="badge">{tCode(OWNERSHIP_TEXT, o)}</span> : null;
 }
 
 /** Catalog items link to their detail page; private audio has none. */
@@ -34,12 +35,14 @@ export function ItemTitle({
   refId: string;
   title: string | null;
 }) {
-  if (title === null) return <>(삭제됨)</>;
+  if (title === null) return <>{t('common.deletedTitle')}</>;
   return refType === 'audio_source' ? <>{title}</> : <a href={entityHref(refId)}>{title}</a>;
 }
 
 export function errorText(e: unknown): string {
-  return e instanceof ApiError ? `${e.message} (${e.code})` : (e as Error).message;
+  return e instanceof ApiError
+    ? t('error.withCode', { message: e.message, code: e.code })
+    : (e as Error).message;
 }
 
 export const toEntry = (i: {
@@ -50,7 +53,7 @@ export const toEntry = (i: {
   ownership: string | null;
 }): QueueEntry => ({
   key: `${i.ref_type}:${i.ref_id}`,
-  title: i.title ?? '(제목 없음)',
+  title: i.title ?? t('common.untitled'),
   subtitle: i.subtitle,
   ownership: i.ownership,
   ...(i.ref_type === 'audio_source' ? { audio_source_id: i.ref_id } : { recording_id: i.ref_id }),
@@ -90,7 +93,7 @@ export function Playlists() {
       });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
-        setMsg('다른 곳에서 변경되어 다시 불러왔습니다.');
+        setMsg(t('playlists.reloaded'));
         await openPl(open.playlist_id);
       } else setMsg(errorText(e));
     }
@@ -103,11 +106,7 @@ export function Playlists() {
       setEtag(r.etag);
     } catch (e) {
       // 412: someone else changed it — reload instead of overwriting (concurrent edits).
-      setMsg(
-        e instanceof ApiError && e.status === 412
-          ? '다른 곳에서 변경되어 다시 불러왔습니다.'
-          : errorText(e),
-      );
+      setMsg(e instanceof ApiError && e.status === 412 ? t('playlists.reloaded') : errorText(e));
       if (open) await openPl(open.playlist_id);
     }
   };
@@ -124,12 +123,12 @@ export function Playlists() {
       >
         <input
           name="title"
-          placeholder="새 플레이리스트 이름"
+          placeholder={t('playlists.new.placeholder')}
           required
           maxLength={200}
-          aria-label="플레이리스트 이름"
+          aria-label={t('playlists.new.label')}
         />
-        <button type="submit">만들기</button>
+        <button type="submit">{t('playlists.new.submit')}</button>
       </form>
       <ul className="list">
         {list.map((p) => (
@@ -137,7 +136,7 @@ export function Playlists() {
             <button type="button" className="link" onClick={() => void openPl(p.playlist_id)}>
               {p.title}
             </button>{' '}
-            <span className="muted">{p.item_count}곡</span>
+            <span className="muted">{t('playlists.itemCount', { count: p.item_count })}</span>
           </li>
         ))}
       </ul>
@@ -163,11 +162,11 @@ export function Playlists() {
                       player.play(open.items.map(toEntry), idx);
                     }}
                   >
-                    재생
+                    {t('common.play')}
                   </button>
                   <button
                     type="button"
-                    aria-label="위로"
+                    aria-label={t('playlists.item.up')}
                     disabled={i.position === 0}
                     onClick={() =>
                       void mutate(
@@ -185,7 +184,7 @@ export function Playlists() {
                       void mutate('DELETE', `/v1/playlists/${open.playlist_id}/items/${i.item_id}`)
                     }
                   >
-                    빼기
+                    {t('playlists.item.remove')}
                   </button>
                 </div>
               </li>
@@ -193,7 +192,7 @@ export function Playlists() {
           </ol>
           {open.items_next_cursor ? (
             <button type="button" onClick={() => void loadMore()}>
-              더 보기 ({open.items.length}/{open.item_count})
+              {t('playlists.more', { loaded: open.items.length, total: open.item_count })}
             </button>
           ) : null}
         </div>
@@ -241,14 +240,14 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
       >
         <input
           name="q"
-          placeholder="아티스트, 곡, 사람, 내 녹음"
+          placeholder={t('search.placeholder')}
           required
           maxLength={200}
-          aria-label="검색어"
+          aria-label={t('search.label')}
           defaultValue={query}
           key={query}
         />
-        <button type="submit">검색</button>
+        <button type="submit">{t('search.submit')}</button>
       </form>
       <ul className="list">
         {results.map((r) => (
@@ -258,7 +257,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
                 {r.scope === 'catalog' ? <a href={entityHref(r.id)}>{r.title}</a> : r.title}
               </strong>{' '}
               <span className="muted">{r.subtitle}</span>{' '}
-              <span className="badge">{r.scope === 'mine' ? '내 오디오' : r.kind}</span>
+              <span className="badge">{r.scope === 'mine' ? t('search.mine') : r.kind}</span>
             </div>
             <div className="actions">
               {r.kind === 'recording' || r.kind === 'private_audio' || r.kind === 'audio_log' ? (
@@ -277,7 +276,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
                     ]);
                   }}
                 >
-                  재생
+                  {t('common.play')}
                 </button>
               ) : null}
               {r.scope === 'catalog' ? (
@@ -299,7 +298,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
                     )
                   }
                 >
-                  저장
+                  {t('common.save')}
                 </button>
               ) : null}
             </div>
@@ -326,32 +325,31 @@ interface Entitlement {
   valid_to: string | null;
 }
 
-const SUB_STATE: Record<string, string> = {
-  active: '이용 중',
-  past_due: '결제 지연',
-  cancelled: '해지됨',
-  expired: '만료됨',
-  none: '구독 없음',
+const SUB_STATE: Record<string, MessageKey> = {
+  active: 'account.sub.state.active',
+  past_due: 'account.sub.state.past_due',
+  cancelled: 'account.sub.state.cancelled',
+  expired: 'account.sub.state.expired',
+  none: 'account.sub.state.none',
 };
 // Plans are configuration placeholders until pricing is decided (Q03).
-const PLAN_TEXT: Record<string, string> = { listen_sandbox: 'Listen (테스트 요금제)' };
-const SCOPE_TEXT: Record<string, string> = {
-  catalog_all: '전체 카탈로그',
-  release: '앨범',
-  recording: '곡',
+const PLAN_TEXT: Record<string, MessageKey> = { listen_sandbox: 'account.plan.listen_sandbox' };
+const SCOPE_TEXT: Record<string, MessageKey> = {
+  catalog_all: 'account.scope.catalog_all',
+  release: 'account.scope.release',
+  recording: 'account.scope.recording',
 };
-const ORIGIN_TEXT: Record<string, string> = {
-  subscription: '구독',
-  purchase: '구매',
-  grant: '부여',
+const ORIGIN_TEXT: Record<string, MessageKey> = {
+  subscription: 'account.origin.subscription',
+  purchase: 'account.origin.purchase',
+  grant: 'account.origin.grant',
 };
-const ENT_STATUS: Record<string, string> = {
-  active: '유효',
-  suspended: '일시 중지',
-  revoked: '취소됨',
-  expired: '만료됨',
+const ENT_STATUS: Record<string, MessageKey> = {
+  active: 'account.entStatus.active',
+  suspended: 'account.entStatus.suspended',
+  revoked: 'account.entStatus.revoked',
+  expired: 'account.entStatus.expired',
 };
-const day = (iso: string) => new Date(iso).toLocaleDateString();
 
 /** Names a release or recording an entitlement covers (catalog metadata only). */
 function ResourceName({ id }: { id: string }) {
@@ -386,46 +384,44 @@ function Entitlements() {
   if (sub === undefined) return null;
   return (
     <section className="card" aria-labelledby="ent-h">
-      <h3 id="ent-h">구독과 이용권</h3>
+      <h3 id="ent-h">{t('account.entitlements.heading')}</h3>
       {sub ? (
         <p>
-          {PLAN_TEXT[sub.plan] ?? sub.plan} · <strong>{SUB_STATE[sub.state] ?? sub.state}</strong> ·{' '}
-          {day(sub.paid_through)}
-          까지
+          {tCode(PLAN_TEXT, sub.plan)} · <strong>{tCode(SUB_STATE, sub.state)}</strong> ·{' '}
+          {t('account.sub.paidThrough', { date: formatDate(sub.paid_through) })}
           {sub.source !== 'sandbox' ? (
-            <span className="small muted"> (운영자가 설정, 결제 연동 전)</span>
+            <span className="small muted"> {t('account.sub.operatorSet')}</span>
           ) : null}
         </p>
       ) : (
-        <p>{SUB_STATE['none']}</p>
+        <p>{t('account.sub.state.none')}</p>
       )}
-      <ul className="list" aria-label="이용권">
+      <ul className="list" aria-label={t('account.entitlements.list')}>
         {ents.map((e) => (
           <li key={e.entitlement_id}>
             <div>
               <strong>
-                {e.resource_id ? <ResourceName id={e.resource_id} /> : SCOPE_TEXT[e.scope]}
+                {e.resource_id ? <ResourceName id={e.resource_id} /> : tCode(SCOPE_TEXT, e.scope)}
               </strong>{' '}
-              {e.resource_id ? (
-                <span className="badge">{SCOPE_TEXT[e.scope] ?? e.scope}</span>
-              ) : null}{' '}
-              <span className="badge">{ORIGIN_TEXT[e.origin] ?? e.origin}</span>
+              {e.resource_id ? <span className="badge">{tCode(SCOPE_TEXT, e.scope)}</span> : null}{' '}
+              <span className="badge">{tCode(ORIGIN_TEXT, e.origin)}</span>
               <br />
               <span className="small">
                 <span className={e.status === 'active' ? 'ok' : 'warn'}>
-                  {ENT_STATUS[e.status] ?? e.status}
+                  {tCode(ENT_STATUS, e.status)}
                 </span>{' '}
-                · {day(e.valid_from)} ~ {e.valid_to ? day(e.valid_to) : '기한 없음'}
+                ·{' '}
+                {t('account.entitlements.period', {
+                  from: formatDate(e.valid_from),
+                  to: e.valid_to ? formatDate(e.valid_to) : t('common.noEndDate'),
+                })}
               </span>
             </div>
           </li>
         ))}
-        {ents.length === 0 ? <li className="muted">이용권이 없습니다.</li> : null}
+        {ents.length === 0 ? <li className="muted">{t('account.entitlements.empty')}</li> : null}
       </ul>
-      <p className="small muted">
-        CD나 파일을 갖고 있어도 카탈로그 음원 이용권이 생기지 않습니다. 이용권은 구독·구매·부여로만
-        생깁니다.
-      </p>
+      <p className="small muted">{t('account.entitlements.note')}</p>
     </section>
   );
 }
@@ -447,30 +443,30 @@ export function Account() {
       <h2 id="acct-h">Account</h2>
       {me ? (
         <dl className="card">
-          <dt>구독</dt>
-          <dd>{SUB_STATE[me.subscription_state] ?? me.subscription_state}</dd>
-          <dt>라이선스 지역</dt>
-          <dd>{me.license_country ?? '미설정'}</dd>
-          <dt>지원 문의 ID</dt>
+          <dt>{t('account.subscription')}</dt>
+          <dd>{tCode(SUB_STATE, me.subscription_state)}</dd>
+          <dt>{t('account.licenseCountry')}</dt>
+          <dd>{me.license_country ?? t('account.licenseCountry.unset')}</dd>
+          <dt>{t('account.supportId')}</dt>
           <dd>
             <code>{me.user_id}</code>
-            <span className="small muted"> 문의할 때 이 ID를 알려 주세요.</span>
+            <span className="small muted"> {t('account.supportId.hint')}</span>
           </dd>
-          <dt>저장 공간</dt>
+          <dt>{t('account.storage')}</dt>
           <dd>
             {quota
-              ? `${(quota.used_bytes / 1024 ** 2).toFixed(1)} MiB / ${(quota.max_total_bytes / 1024 ** 3).toFixed(1)} GiB`
+              ? t('account.storage.usage', {
+                  used: (quota.used_bytes / 1024 ** 2).toFixed(1),
+                  max: (quota.max_total_bytes / 1024 ** 3).toFixed(1),
+                })
               : ''}
           </dd>
         </dl>
       ) : null}
       <Entitlements />
       <div className="card">
-        <h3>내보내기</h3>
-        <p className="small muted">
-          내가 올린 원본과 기록(라이브러리, 플레이리스트, Audio Log, DIG 기록)을 받습니다. 카탈로그
-          음원은 포함되지 않습니다.
-        </p>
+        <h3>{t('account.export.heading')}</h3>
+        <p className="small muted">{t('account.export.note')}</p>
         <button
           type="button"
           onClick={() => {
@@ -491,7 +487,7 @@ export function Account() {
             });
           }}
         >
-          내보내기 요청
+          {t('account.export.request')}
         </button>
         {exp ? (
           <p role="status">
@@ -499,7 +495,7 @@ export function Account() {
             {exp.download_url ? (
               <>
                 {' '}
-                — <a href={exp.download_url}>다운로드 (15분 유효)</a>
+                — <a href={exp.download_url}>{t('account.export.download')}</a>
               </>
             ) : null}
           </p>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get } from './api';
+import { formatDate, formatDateTime, t, type MessageKey } from './i18n';
 import { entityHref, opsHref, OPS_SECTIONS, type OpsSection } from './route';
 
 /**
@@ -7,15 +8,26 @@ import { entityHref, opsHref, OPS_SECTIONS, type OpsSection } from './route';
  * carries a reason, which the server audits; nothing here shows private content
  * (OPS-007, T30). The server enforces the operator role and MFA on every call.
  */
-const SECTION_TEXT: Record<OpsSection, string> = {
-  users: '사용자 지원',
-  reports: '신고',
-  jobs: '작업 큐',
-  rights: '카탈로그 권리',
+const SECTION_TEXT: Record<OpsSection, MessageKey> = {
+  users: 'ops.section.users',
+  reports: 'ops.section.reports',
+  jobs: 'ops.section.jobs',
+  rights: 'ops.section.rights',
+};
+/** Button labels for the status an entitlement or rights grant is moved to. */
+const GRANT_STATUS_ACTION: Record<'active' | 'suspended' | 'revoked', MessageKey> = {
+  active: 'ops.status.reactivate',
+  suspended: 'ops.status.suspend',
+  revoked: 'ops.status.revoke',
+};
+const REPORT_STATUS_ACTION: Record<'triaged' | 'actioned' | 'dismissed', MessageKey> = {
+  triaged: 'ops.reports.triage',
+  actioned: 'ops.reports.action.actioned',
+  dismissed: 'ops.reports.dismiss',
 };
 
 function errorText(e: unknown): string {
-  if (e instanceof ApiError) return `${e.message} (${e.code})`;
+  if (e instanceof ApiError) return t('error.withCode', { message: e.message, code: e.code });
   return e instanceof Error ? e.message : String(e);
 }
 
@@ -25,13 +37,13 @@ const idem = () => ({ 'idempotency-key': `ops-${crypto.randomUUID()}` });
 function useAction() {
   const [msg, setMsg] = useState<string | null>(null);
   const run = useCallback(async (label: string, fn: () => Promise<unknown>) => {
-    setMsg(`${label}…`);
+    setMsg(t('ops.action.running', { label }));
     try {
       await fn();
-      setMsg(`${label}: 완료`);
+      setMsg(t('ops.action.done', { label }));
       return true;
     } catch (e) {
-      setMsg(`${label}: 실패 — ${errorText(e)}`);
+      setMsg(t('ops.action.failed', { label, error: errorText(e) }));
       return false;
     }
   }, []);
@@ -54,39 +66,37 @@ export function OpsConsole({ section }: { section: OpsSection }) {
       setAllowed(me.is_operator);
     });
   }, []);
-  if (allowed === null) return <p role="status">불러오는 중…</p>;
+  if (allowed === null) return <p role="status">{t('common.loading')}</p>;
   if (!allowed)
     return (
       <section aria-labelledby="ops-h">
-        <h2 id="ops-h">운영</h2>
-        <p role="status">운영자 권한이 필요합니다.</p>
+        <h2 id="ops-h">{t('ops.heading')}</h2>
+        <p role="status">{t('ops.forbidden')}</p>
       </section>
     );
   const valid = reason.trim().length >= 3;
   return (
     <section aria-labelledby="ops-h" className="ops">
-      <h2 id="ops-h">운영</h2>
-      <nav aria-label="운영 메뉴" className="subnav">
+      <h2 id="ops-h">{t('ops.heading')}</h2>
+      <nav aria-label={t('ops.menu')} className="subnav">
         {OPS_SECTIONS.map((s) => (
           <a key={s} href={opsHref(s)} aria-current={s === section ? 'page' : undefined}>
-            {SECTION_TEXT[s]}
+            {t(SECTION_TEXT[s])}
           </a>
         ))}
       </nav>
       <label className="reason">
-        처리 사유 (감사 기록에 남습니다){' '}
+        {t('ops.reason')}{' '}
         <input
           value={reason}
           onChange={(e) => {
             setReason(e.target.value);
           }}
           maxLength={500}
-          placeholder="예: 티켓 4711, 계약 종료"
+          placeholder={t('ops.reason.placeholder')}
         />
       </label>
-      {!valid ? (
-        <p className="small muted">변경과 사용자 조회에는 3자 이상의 사유가 필요합니다.</p>
-      ) : null}
+      {!valid ? <p className="small muted">{t('ops.reason.required')}</p> : null}
       {section === 'users' ? <Users reason={reason} valid={valid} /> : null}
       {section === 'reports' ? <Reports reason={reason} valid={valid} /> : null}
       {section === 'jobs' ? <Jobs reason={reason} valid={valid} /> : null}
@@ -152,7 +162,7 @@ function Users({ reason, valid }: Props) {
   const { msg, run } = useAction();
   const load = useCallback(
     (id: string) =>
-      run('조회', async () => {
+      run(t('ops.users.lookup'), async () => {
         setSummary(
           await get<Summary>(
             `/v1/ops/users/${id}/support-summary?reason=${encodeURIComponent(reason)}`,
@@ -179,7 +189,7 @@ function Users({ reason, valid }: Props) {
   return (
     <div>
       <form
-        aria-label="사용자 조회"
+        aria-label={t('ops.users.lookupForm')}
         className="row"
         onSubmit={(e) => {
           e.preventDefault();
@@ -187,8 +197,8 @@ function Users({ reason, valid }: Props) {
         }}
       >
         <input
-          aria-label="사용자 ID"
-          placeholder="usr_… (사용자의 Account 화면 지원 문의 ID)"
+          aria-label={t('ops.users.id')}
+          placeholder={t('ops.users.id.placeholder')}
           value={userId}
           onChange={(e) => {
             setUserId(e.target.value);
@@ -197,23 +207,21 @@ function Users({ reason, valid }: Props) {
           required
         />
         <button type="submit" disabled={!valid}>
-          지원 요약 조회
+          {t('ops.users.summary.load')}
         </button>
       </form>
       <Status msg={msg} />
       {summary ? (
-        <div className="card" aria-label="지원 요약">
-          <p className="small muted">
-            개수·상태·ID만 표시됩니다. 제목·메모·파일명·오디오는 볼 수 없습니다(OPS-007).
-          </p>
+        <div className="card" aria-label={t('ops.users.summary')}>
+          <p className="small muted">{t('ops.users.summary.note')}</p>
           {Object.entries(summary.sections).map(([name, data]) => (
-            <section key={name} aria-label={`요약: ${name}`}>
+            <section key={name} aria-label={t('ops.users.summary.section', { name })}>
               <h4>{name}</h4>
               <Facts data={data} />
             </section>
           ))}
-          <h4>이용권</h4>
-          <ul className="list" aria-label="사용자 이용권">
+          <h4>{t('ops.users.entitlements')}</h4>
+          <ul className="list" aria-label={t('ops.users.entitlements.list')}>
             {ents.map((e) => (
               <li key={e.entitlement_id}>
                 <div className="small">
@@ -235,7 +243,7 @@ function Users({ reason, valid }: Props) {
                         type="button"
                         disabled={!valid || e.status === 'revoked'}
                         onClick={() =>
-                          void run(`이용권 ${s}`, () =>
+                          void run(t('ops.users.entitlement.action', { status: s }), () =>
                             api(
                               'POST',
                               `/v1/ops/entitlements/${e.entitlement_id}/status`,
@@ -245,7 +253,7 @@ function Users({ reason, valid }: Props) {
                           ).then(after)
                         }
                       >
-                        {s === 'active' ? '재활성' : s === 'suspended' ? '일시 중지' : '취소'}
+                        {t(GRANT_STATUS_ACTION[s])}
                       </button>
                     ))}
                 </div>
@@ -285,12 +293,12 @@ function UserActions({
   return (
     <div className="ops-actions">
       <form
-        aria-label="라이선스 지역 변경"
+        aria-label={t('ops.users.country.form')}
         className="row"
         onSubmit={(e) => {
           e.preventDefault();
           const country = (e.currentTarget.elements.namedItem('country') as HTMLInputElement).value;
-          void run('라이선스 지역 변경', () =>
+          void run(t('ops.users.country.form'), () =>
             api('PUT', `/v1/ops/users/${userId}/license-country`, {
               license_country: country.toUpperCase(),
               reason,
@@ -299,22 +307,22 @@ function UserActions({
         }}
       >
         <label>
-          라이선스 지역{' '}
+          {t('ops.users.country')}{' '}
           <input name="country" pattern="[A-Za-z]{2}" maxLength={2} required size={3} />
         </label>
         <button type="submit" disabled={!valid}>
-          변경
+          {t('ops.users.country.submit')}
         </button>
       </form>
       <form
-        aria-label="구독 설정"
+        aria-label={t('ops.users.subscription.form')}
         className="row"
         onSubmit={(e) => {
           e.preventDefault();
           const f = e.currentTarget.elements;
           const state = (f.namedItem('state') as HTMLSelectElement).value;
           const until = (f.namedItem('until') as HTMLInputElement).value;
-          void run('구독 설정', () =>
+          void run(t('ops.users.subscription.form'), () =>
             api('PUT', `/v1/ops/users/${userId}/subscription`, {
               state,
               paid_through: new Date(`${until}T23:59:59Z`).toISOString(),
@@ -324,7 +332,7 @@ function UserActions({
         }}
       >
         <label>
-          구독 상태{' '}
+          {t('ops.users.subscription.state')}{' '}
           <select name="state" defaultValue="active">
             <option value="active">active</option>
             <option value="past_due">past_due</option>
@@ -333,21 +341,22 @@ function UserActions({
           </select>
         </label>
         <label>
-          결제 기한 <input name="until" type="date" defaultValue={in30Days} required />
+          {t('ops.users.subscription.until')}{' '}
+          <input name="until" type="date" defaultValue={in30Days} required />
         </label>
         <button type="submit" disabled={!valid}>
-          설정
+          {t('ops.users.subscription.submit')}
         </button>
       </form>
       <form
-        aria-label="이용권 부여"
+        aria-label={t('ops.users.grant.form')}
         className="row"
         onSubmit={(e) => {
           e.preventDefault();
           const f = e.currentTarget.elements;
           const scope = (f.namedItem('scope') as HTMLSelectElement).value;
           const resource = (f.namedItem('resource') as HTMLInputElement).value.trim();
-          void run('이용권 부여', () =>
+          void run(t('ops.users.grant.form'), () =>
             api(
               'POST',
               '/v1/ops/entitlements',
@@ -358,21 +367,21 @@ function UserActions({
         }}
       >
         <label>
-          범위{' '}
+          {t('ops.users.grant.scope')}{' '}
           <select name="scope" defaultValue="release">
-            <option value="release">앨범</option>
-            <option value="recording">곡</option>
+            <option value="release">{t('common.release')}</option>
+            <option value="recording">{t('common.recording')}</option>
           </select>
         </label>
         <input
           name="resource"
-          aria-label="앨범 또는 곡 ID"
+          aria-label={t('ops.users.grant.resource')}
           placeholder="rel_… / rec_…"
           pattern="(rel|rec)_[0-9A-HJKMNP-TV-Z]{26}"
           required
         />
         <button type="submit" disabled={!valid}>
-          부여
+          {t('ops.users.grant.submit')}
         </button>
       </form>
     </div>
@@ -404,9 +413,9 @@ function Reports({ reason, valid }: Props) {
   return (
     <div>
       <label>
-        상태{' '}
+        {t('common.status')}{' '}
         <select
-          aria-label="신고 상태"
+          aria-label={t('ops.reports.status')}
           value={status}
           onChange={(e) => {
             setStatus(e.target.value);
@@ -420,7 +429,7 @@ function Reports({ reason, valid }: Props) {
         </select>
       </label>
       <Status msg={msg} />
-      <ul className="list" aria-label="신고 목록">
+      <ul className="list" aria-label={t('ops.reports.list')}>
         {items.map((r) => (
           <li key={r.report_id}>
             <div>
@@ -434,7 +443,7 @@ function Reports({ reason, valid }: Props) {
                 )}
               </span>
               {r.details ? <p className="small report-details">{r.details}</p> : null}
-              <span className="small muted">{new Date(r.created_at).toLocaleString()}</span>
+              <span className="small muted">{formatDateTime(r.created_at)}</span>
             </div>
             <div className="actions">
               {(['triaged', 'actioned', 'dismissed'] as const)
@@ -445,7 +454,7 @@ function Reports({ reason, valid }: Props) {
                     type="button"
                     disabled={!valid}
                     onClick={() =>
-                      void run(`신고 ${s}`, () =>
+                      void run(t('ops.reports.action', { status: s }), () =>
                         api('POST', `/v1/ops/reports/${r.report_id}/status`, {
                           status: s,
                           reason,
@@ -455,17 +464,15 @@ function Reports({ reason, valid }: Props) {
                       })
                     }
                   >
-                    {s === 'triaged' ? '분류' : s === 'actioned' ? '조치' : '기각'}
+                    {t(REPORT_STATUS_ACTION[s])}
                   </button>
                 ))}
             </div>
           </li>
         ))}
-        {items.length === 0 ? <li className="muted">해당 상태의 신고가 없습니다.</li> : null}
+        {items.length === 0 ? <li className="muted">{t('ops.reports.empty')}</li> : null}
       </ul>
-      <p className="small muted">
-        신고는 자동으로 아무것도 삭제하지 않습니다. 조치는 권리·이용권 화면에서 따로 합니다.
-      </p>
+      <p className="small muted">{t('ops.reports.note')}</p>
     </div>
   );
 }
@@ -495,9 +502,9 @@ function Jobs({ reason, valid }: Props) {
   return (
     <div>
       <label>
-        상태{' '}
+        {t('common.status')}{' '}
         <select
-          aria-label="작업 상태"
+          aria-label={t('ops.jobs.status')}
           value={status}
           onChange={(e) => {
             setStatus(e.target.value);
@@ -511,14 +518,18 @@ function Jobs({ reason, valid }: Props) {
         </select>
       </label>
       <Status msg={msg} />
-      <ul className="list" aria-label="작업 목록">
+      <ul className="list" aria-label={t('ops.jobs.list')}>
         {items.map((j) => (
           <li key={j.job_id}>
             <div>
               <strong>{j.kind}</strong>{' '}
               <span className="small">
-                {j.status} · 시도 {j.attempts}/{j.max_attempts} ·{' '}
-                {new Date(j.updated_at).toLocaleString()}
+                {t('ops.jobs.attempts', {
+                  status: j.status,
+                  attempts: j.attempts,
+                  max: j.max_attempts,
+                  date: formatDateTime(j.updated_at),
+                })}
               </span>
               {j.last_error ? <p className="small warn job-error">{j.last_error}</p> : null}
             </div>
@@ -528,20 +539,20 @@ function Jobs({ reason, valid }: Props) {
                   type="button"
                   disabled={!valid}
                   onClick={() =>
-                    void run('재시도', () =>
+                    void run(t('ops.jobs.retry'), () =>
                       api('POST', `/v1/ops/jobs/${j.job_id}/retry`, { reason }),
                     ).then((ok) => {
                       if (ok) load();
                     })
                   }
                 >
-                  재시도
+                  {t('ops.jobs.retry')}
                 </button>
               </div>
             ) : null}
           </li>
         ))}
-        {items.length === 0 ? <li className="muted">해당 상태의 작업이 없습니다.</li> : null}
+        {items.length === 0 ? <li className="muted">{t('ops.jobs.empty')}</li> : null}
       </ul>
     </div>
   );
@@ -576,7 +587,7 @@ function Rights({ reason, valid }: Props) {
   const { msg, run } = useAction();
   const load = useCallback(
     (id: string) =>
-      run('권리 조회', async () => {
+      run(t('ops.rights.lookup'), async () => {
         setGrants((await get<{ items: Grant[] }>(`/v1/ops/recordings/${id}/rights-grants`)).items);
         setLoaded(id);
       }),
@@ -595,7 +606,7 @@ function Rights({ reason, valid }: Props) {
   return (
     <div>
       <form
-        aria-label="곡 권리 조회"
+        aria-label={t('ops.rights.lookupForm')}
         className="row"
         onSubmit={(e) => {
           e.preventDefault();
@@ -603,7 +614,7 @@ function Rights({ reason, valid }: Props) {
         }}
       >
         <input
-          aria-label="곡 ID"
+          aria-label={t('ops.rights.recordingId')}
           placeholder="rec_…"
           value={recordingId}
           onChange={(e) => {
@@ -612,22 +623,22 @@ function Rights({ reason, valid }: Props) {
           pattern="rec_[0-9A-HJKMNP-TV-Z]{26}"
           required
         />
-        <button type="submit">권리 조회</button>
+        <button type="submit">{t('ops.rights.lookup')}</button>
       </form>
       <Status msg={msg} />
       {loaded ? (
         <>
           <p>
-            <a href={entityHref(loaded)}>곡 화면 보기</a>
+            <a href={entityHref(loaded)}>{t('ops.rights.viewRecording')}</a>
           </p>
-          <ul className="list" aria-label="권리 목록">
+          <ul className="list" aria-label={t('ops.rights.list')}>
             {grants.map((g) => (
               <li key={g.rights_grant_id}>
                 <div className="small">
                   <strong>{g.status}</strong> · {g.rights_holder} · {g.territories.join(', ')} ·{' '}
-                  {g.uses.join(', ')} · {new Date(g.valid_from).toLocaleDateString()} ~{' '}
-                  {g.valid_to ? new Date(g.valid_to).toLocaleDateString() : '기한 없음'} ·{' '}
-                  {g.contract_ref} · v{g.version}
+                  {g.uses.join(', ')} · {formatDate(g.valid_from)} ~{' '}
+                  {g.valid_to ? formatDate(g.valid_to) : t('common.noEndDate')} · {g.contract_ref} ·
+                  v{g.version}
                 </div>
                 <div className="actions">
                   {(['active', 'suspended', 'revoked'] as const)
@@ -638,7 +649,7 @@ function Rights({ reason, valid }: Props) {
                         type="button"
                         disabled={!valid || g.status === 'revoked'}
                         onClick={() =>
-                          void run(`권리 ${s}`, () =>
+                          void run(t('ops.rights.action', { status: s }), () =>
                             api(
                               'POST',
                               `/v1/ops/rights-grants/${g.rights_grant_id}/status`,
@@ -648,23 +659,23 @@ function Rights({ reason, valid }: Props) {
                           ).then(reload)
                         }
                       >
-                        {s === 'active' ? '재활성' : s === 'suspended' ? '일시 중지' : '취소'}
+                        {t(GRANT_STATUS_ACTION[s])}
                       </button>
                     ))}
                 </div>
               </li>
             ))}
-            {grants.length === 0 ? <li className="muted">권리가 없습니다.</li> : null}
+            {grants.length === 0 ? <li className="muted">{t('ops.rights.empty')}</li> : null}
           </ul>
           <form
-            aria-label="권리 추가"
+            aria-label={t('ops.rights.add')}
             className="card"
             onSubmit={(e) => {
               e.preventDefault();
               const f = e.currentTarget.elements;
               const v = (n: string) => (f.namedItem(n) as HTMLInputElement).value.trim();
               const until = v('valid_to');
-              void run('권리 추가', () =>
+              void run(t('ops.rights.add'), () =>
                 api(
                   'POST',
                   '/v1/ops/rights-grants',
@@ -673,7 +684,7 @@ function Rights({ reason, valid }: Props) {
                     rights_holder: v('holder'),
                     territories: v('territories')
                       .split(',')
-                      .map((t) => t.trim().toUpperCase())
+                      .map((territory) => territory.trim().toUpperCase())
                       .filter(Boolean),
                     uses: ['stream'],
                     valid_from: new Date(`${v('valid_from')}T00:00:00Z`).toISOString(),
@@ -686,14 +697,14 @@ function Rights({ reason, valid }: Props) {
               ).then(reload);
             }}
           >
-            <h4>권리 추가 (스트리밍)</h4>
-            <Field label="권리자">
+            <h4>{t('ops.rights.add.heading')}</h4>
+            <Field label={t('ops.rights.holder')}>
               <input name="holder" required maxLength={200} />
             </Field>
-            <Field label="지역 (쉼표로 구분, WORLD 가능)">
+            <Field label={t('ops.rights.territories')}>
               <input name="territories" required placeholder="KR, JP" />
             </Field>
-            <Field label="시작일">
+            <Field label={t('ops.rights.validFrom')}>
               <input
                 name="valid_from"
                 type="date"
@@ -701,33 +712,30 @@ function Rights({ reason, valid }: Props) {
                 defaultValue={new Date().toISOString().slice(0, 10)}
               />
             </Field>
-            <Field label="종료일 (선택)">
+            <Field label={t('ops.rights.validTo')}>
               <input name="valid_to" type="date" />
             </Field>
-            <Field label="계약 참조">
+            <Field label={t('ops.rights.contract')}>
               <input name="contract" required maxLength={200} />
             </Field>
             <button type="submit" disabled={!valid}>
-              권리 추가
+              {t('ops.rights.add')}
             </button>
           </form>
           <div className="card danger">
-            <h4>음원 파일 삭제 (R10)</h4>
-            <p className="small">
-              유효하거나 일시 중지된 권리가 남아 있으면 거부됩니다. 재생이 즉시 막히고 원본·파생
-              파일이 삭제됩니다. 메타데이터는 남습니다. 되돌릴 수 없습니다.
-            </p>
+            <h4>{t('ops.rights.removal.heading')}</h4>
+            <p className="small">{t('ops.rights.removal.note')}</p>
             <button
               type="button"
               disabled={!valid}
               onClick={() => {
-                if (!confirm('이 곡의 음원 파일을 삭제할까요? 되돌릴 수 없습니다.')) return;
-                void run('음원 삭제', () =>
+                if (!confirm(t('ops.rights.removal.confirm'))) return;
+                void run(t('ops.rights.removal.submit'), () =>
                   api('POST', `/v1/ops/recordings/${loaded}/audio-removal`, { reason }, idem()),
                 ).then(reload);
               }}
             >
-              음원 삭제
+              {t('ops.rights.removal.submit')}
             </button>
           </div>
         </>
