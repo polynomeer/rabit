@@ -124,9 +124,11 @@ async function waitReady(ids: string[], timeoutMs: number): Promise<number> {
 function run(
   name: string,
   opts: {
-    path: string;
+    path?: string;
+    /** Absolute URL instead of an api path, e.g. a media gateway URL (token in the path). */
+    url?: string;
     method?: 'GET' | 'POST';
-    token: string;
+    token?: string;
     body?: unknown;
     headers?: Record<string, string>;
   },
@@ -134,12 +136,12 @@ function run(
   return new Promise<void>((resolve, reject) => {
     autocannon(
       {
-        url: `${API}${opts.path}`,
+        url: opts.url ?? `${API}${opts.path ?? '/'}`,
         method: opts.method ?? 'GET',
         connections: CONNECTIONS,
         duration: DURATION,
         headers: {
-          authorization: `Bearer ${opts.token}`,
+          ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
           'content-type': 'application/json',
           ...(opts.headers ?? {}),
         },
@@ -303,6 +305,24 @@ await run('POST /v1/playback-sessions (catalog)', {
   token: user,
   body: { recording_id: rec0, device_id: 'bench-device-1' },
 });
+
+// ---- media gateway (R16): token check, session check, object read per request ----
+const session = await json<{ manifest_url: string }>('POST', '/v1/playback-sessions', user, {
+  recording_id: rec0,
+  device_id: 'bench-media',
+});
+let playlistUrl = session.body.manifest_url;
+let segmentUrl: string | null = null;
+for (let depth = 0; depth < 3 && !segmentUrl; depth++) {
+  const text = await (await fetch(playlistUrl)).text();
+  const first = text.split('\n').find((l) => l.trim() && !l.startsWith('#'));
+  if (!first) throw new Error(`no media entry in ${playlistUrl}`);
+  const next = new URL(first.trim(), playlistUrl).toString();
+  if (first.trim().endsWith('.m3u8')) playlistUrl = next;
+  else segmentUrl = next;
+}
+await run('GET media manifest', { url: session.body.manifest_url });
+await run('GET media segment', { url: segmentUrl ?? '' });
 
 // ---- query plans ----
 const plan = async (name: string, q: ReturnType<typeof sql>) => {
