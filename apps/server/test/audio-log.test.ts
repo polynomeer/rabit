@@ -1,5 +1,7 @@
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { fixtures } from './helpers/audio-fixtures.js';
+import { seedCatalog } from './helpers/catalog.js';
 import { createHarness, uploadReady, type Harness, type TestUser } from './helpers/harness.js';
 
 let h: Harness;
@@ -200,19 +202,93 @@ describe('Audio Log (LOG-001..009)', () => {
   });
 });
 
-describe('deletion race guard (review #5)', () => {
-  it('refuses to write Audio Log text once the source is tombstoned, even after a passed read check', async () => {
-    const u = await h.user();
-    const id = await uploadReady(h, u, fixtures.wav(), { intent: 'audio_log' });
-    const { lockLiveSource } = await import('../src/modules/audio/sources.js');
-    // Simulate the race: the read check passed, then the delete committed before the write.
-    await h.ctx.db
-      .updateTable('audio_source')
-      .set({ status: 'deleting', deleted_at: new Date() })
-      .where('id', '=', id)
+describe('deletion racing an Audio Log write (review #5)', () => {
+  let recordingId: string;
+  beforeAll(async () => {
+    recordingId = (await seedCatalog(h)).ids['r1']!;
+  });
+
+  /**
+   * Runs `write` so that it has passed its read check and is paused before its
+   * write transaction, while the real deletion request commits and the deletion
+   * job runs to completion; then lets the write continue. The pause needs no
+   * hook in the code: the write's link check reads `recording`, which this test
+   * locks; deletion never touches that table.
+   */
+  async function raceDeletion(
+    u: TestUser,
+    sourceId: string,
+    write: () => Promise<{ statusCode: number }>,
+  ) {
+    let response: Promise<{ statusCode: number }> | undefined;
+    await h.ctx.db.transaction().execute(async (lock) => {
+      await sql`LOCK TABLE recording IN ACCESS EXCLUSIVE MODE`.execute(lock);
+      response = write();
+      // Deterministic: wait until the write is blocked on the lock, not a sleep.
+      await expect
+        .poll(async () => {
+          const r = await sql<{ n: number }>`
+            SELECT count(*)::int AS n FROM pg_stat_activity
+            WHERE wait_event_type = 'Lock' AND query LIKE '%from "recording"%'`.execute(h.ctx.db);
+          return r.rows[0]?.n;
+        })
+        .toBe(1);
+      const del = await h.api.inject({
+        method: 'DELETE',
+        url: `/v1/audio-sources/${sourceId}`,
+        headers: u.headers,
+      });
+      expect(del.statusCode).toBe(202);
+      await h.worker.drain();
+      const gone = await h.ctx.db
+        .selectFrom('audio_source')
+        .select('status')
+        .where('id', '=', sourceId)
+        .executeTakeFirstOrThrow();
+      expect(gone.status).toBe('deleted');
+    });
+    return (await response!).statusCode;
+  }
+
+  async function personalTextLeft(sourceId: string, canary: string) {
+    const logs = await h.ctx.db
+      .selectFrom('audio_log')
+      .selectAll()
+      .where('audio_source_id', '=', sourceId)
       .execute();
-    await expect(
-      h.ctx.db.transaction().execute((tx) => lockLiveSource(tx, id)),
-    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const src = await h.ctx.db
+      .selectFrom('audio_source')
+      .select('title')
+      .where('id', '=', sourceId)
+      .executeTakeFirstOrThrow();
+    return JSON.stringify({ logs, title: src.title }).includes(canary);
+  }
+
+  it('does not write a new Audio Log for audio deleted during the request', async () => {
+    const u = await h.user();
+    const sourceId = await uploadReady(h, u, fixtures.wav(), { intent: 'audio_log' });
+    const canary = `CANARY-create-${sourceId.slice(-6)}`;
+    const status = await raceDeletion(u, sourceId, () =>
+      createLog(u, sourceId, { title: canary, note: canary, linked_recording_id: recordingId }),
+    );
+    expect(status).toBe(404);
+    expect(await personalTextLeft(sourceId, canary)).toBe(false);
+  });
+
+  it('does not write edited Audio Log text back after the deletion job removed it', async () => {
+    const u = await h.user();
+    const sourceId = await uploadReady(h, u, fixtures.wav(), { intent: 'audio_log' });
+    const log = (await createLog(u, sourceId)).json<{ audio_log_id: string }>();
+    const canary = `CANARY-update-${sourceId.slice(-6)}`;
+    const status = await raceDeletion(u, sourceId, () =>
+      h.api.inject({
+        method: 'PATCH',
+        url: `/v1/audio-logs/${log.audio_log_id}`,
+        headers: u.headers,
+        payload: { title: canary, note: canary, linked_recording_id: recordingId },
+      }),
+    );
+    expect(status).toBe(404);
+    expect(await personalTextLeft(sourceId, canary)).toBe(false);
   });
 });
