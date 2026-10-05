@@ -461,6 +461,7 @@ export function Search({ onDig }: { onDig: (entityId: string) => void }) {
 
 export function Account() {
   const [me, setMe] = useState<{
+    user_id: string;
     subscription_state: string;
     license_country: string | null;
     quota: { used_bytes: number; max_total_bytes: number };
@@ -479,6 +480,11 @@ export function Account() {
           <dd>{me.subscription_state}</dd>
           <dt>라이선스 지역</dt>
           <dd>{me.license_country ?? '미설정'}</dd>
+          <dt>지원 문의 ID</dt>
+          <dd>
+            <code>{me.user_id}</code>
+            <span className="small muted"> 문의할 때 이 ID를 알려 주세요.</span>
+          </dd>
           <dt>저장 공간</dt>
           <dd>
             {quota
