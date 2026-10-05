@@ -19,3 +19,9 @@ coverage/
 .tmp/
 infra/demo/out/
 apps/web/e2e-results/
+
+# OpenTofu
+infra/aws/.terraform/
+infra/aws/*.tfstate*
+infra/aws/environments/*.tfvars
+infra/aws/environments/*.backend.hcl

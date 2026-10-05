@@ -151,6 +151,19 @@ jobs:
         if: failure()
         run: docker logs api || true
 
+  infra:
+    # AWS infrastructure code (ADR-0012): formatting and validation without credentials.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: OpenTofu fmt and validate
+        run: |
+          tofu() { docker run --rm -v "$PWD/infra/aws:/w" -w /w ghcr.io/opentofu/opentofu:1.12.7 "$@"; }
+          tofu fmt -recursive -check -diff
+          tofu init -backend=false -input=false
+          tofu validate
+      - name: Shell scripts
+        run: shellcheck infra/aws/scripts/*.sh
   security:
     runs-on: ubuntu-24.04
     steps:

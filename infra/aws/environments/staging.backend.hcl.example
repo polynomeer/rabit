@@ -1,0 +1,6 @@
+# Copy to staging.backend.hcl. The state bucket is created once by hand (README).
+bucket       = "rabit-tfstate-0000"
+key          = "staging/terraform.tfstate"
+region       = "ap-northeast-2"
+encrypt      = true
+use_lockfile = true

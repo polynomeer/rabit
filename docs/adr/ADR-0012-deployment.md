@@ -40,7 +40,7 @@ First launch is in Korea (Q01, country only) and runs on **AWS `ap-northeast-2` 
 - Accounts: separate AWS accounts (or at least separate state and prefixes) for staging and production; humans use IAM Identity Center, CI deploys through GitHub OIDC with a role scoped to ECR push and ECS deploy.
 
 ## Consequences
-- Alpha estimate ≈ USD 150/month before interface endpoints (≈ USD 30–60/month more, depending on AZ count); at 10k MAU ≈ USD 2,460/month, ~74 % of it media egress.
+- Alpha estimate ≈ USD 220/month: the ≈ USD 150 of the comparison plus a NAT gateway (≈ USD 43) and the worker's interface endpoints (5 × USD 0.013/h ≈ USD 47 in one zone). At 10k MAU ≈ USD 2,500/month, ~72 % of it media egress.
 - Production configuration refuses `S3_SSE` other than `aws:kms` and uses the task IAM role instead of static S3 keys.
 - Media egress is the cost driver; Cloudflare R2 + Workers remains the documented alternative (ADR-0008 revisit trigger).
 
