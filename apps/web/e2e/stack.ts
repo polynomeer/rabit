@@ -76,10 +76,39 @@ function start(name: string, cmd: string, args: string[], cwd: string, extra = {
   children.push(child);
 }
 
+const OIDC_CONTAINER = 'rabit-e2e-oidc';
+/**
+ * Mock OIDC provider (navikt/mock-oauth2-server): an interactive sign-in page where
+ * the test types a subject and optional claims. Every token carries the API
+ * audience and a verified email; the web client is the authorized party.
+ */
+const OIDC_CONFIG = JSON.stringify({
+  interactiveLogin: true,
+  httpServer: 'NettyWrapper',
+  tokenCallbacks: [
+    {
+      issuerId: 'rabit',
+      tokenExpiry: 3600,
+      requestMappings: [
+        {
+          requestParam: 'grant_type',
+          match: 'authorization_code',
+          claims: {
+            aud: ['rabit-api', E2E.oidcClientId],
+            azp: E2E.oidcClientId,
+            email_verified: true,
+          },
+        },
+      ],
+    },
+  ],
+});
+
 let stopping = false;
 function stop(code = 0): void {
   stopping = true;
   for (const c of children) c.kill('SIGTERM');
+  spawnSync('docker', ['rm', '-f', OIDC_CONTAINER]);
   setTimeout(() => process.exit(code), 2_000).unref();
 }
 process.on('SIGTERM', () => {
@@ -111,7 +140,9 @@ async function assertPortFree(port: number): Promise<void> {
         ),
       );
     });
-    probe.listen(port, '127.0.0.1', () => {
+    // All interfaces, as the servers bind: a container publishing 0.0.0.0:<port>
+    // does not conflict with a probe on 127.0.0.1 alone.
+    probe.listen(port, () => {
       probe.close(() => {
         resolveFree();
       });
@@ -127,6 +158,10 @@ try {
     E2E.metricsPort,
     E2E.metricsPort + 1,
     E2E.metricsPort + 2,
+    E2E.metricsPort + 3,
+    E2E.oidcPort,
+    E2E.oidcApiPort,
+    E2E.oidcWebPort,
   ])
     await assertPortFree(p);
   say('recreating database rabit_e2e');
@@ -143,7 +178,39 @@ try {
   start('worker', tsx, ['src/entry/worker.ts'], server);
   start('api', tsx, ['src/entry/api.ts'], server);
   start('media', tsx, ['src/entry/media.ts'], server);
+
+  say('starting the mock OIDC provider');
+  spawnSync('docker', ['rm', '-f', OIDC_CONTAINER]);
+  runOnce(
+    'docker',
+    [
+      'run',
+      '-d',
+      '--rm',
+      '--name',
+      OIDC_CONTAINER,
+      '-p',
+      `127.0.0.1:${String(E2E.oidcPort)}:8080`,
+      '-e',
+      `JSON_CONFIG=${OIDC_CONFIG}`,
+      'ghcr.io/navikt/mock-oauth2-server:6.0.4',
+    ],
+    root,
+  );
+  await waitFor('mock OIDC provider', ok(`${E2E.oidcIssuer}/.well-known/openid-configuration`));
+  // A second api that trusts only the mock provider, as production trusts only its own.
+  start('api-oidc', tsx, ['src/entry/api.ts'], server, {
+    API_PORT: String(E2E.oidcApiPort),
+    METRICS_PORT: String(E2E.metricsPort + 3),
+    API_PUBLIC_BASE_URL: E2E.oidcApiUrl,
+    CORS_ALLOWED_ORIGINS: E2E.oidcWebUrl,
+    AUTH_ISSUER: E2E.oidcIssuer,
+    AUTH_JWKS_URL: `${E2E.oidcIssuer}/jwks`,
+    AUTH_DEV_ISSUER_ENABLED: 'false',
+  });
+
   await waitFor('api', ok(`${E2E.apiUrl}/readyz`));
+  await waitFor('api-oidc', ok(`${E2E.oidcApiUrl}/readyz`));
   await waitFor('media', ok(`${E2E.mediaUrl}/healthz`));
 
   const db = new pg.Client({ connectionString: E2E.databaseUrl });
@@ -177,7 +244,19 @@ try {
       VITE_API_BASE: E2E.apiUrl,
     },
   );
+  start(
+    'web-oidc',
+    resolve(web, 'node_modules/.bin/vite'),
+    ['--port', String(E2E.oidcWebPort), '--strictPort'],
+    web,
+    {
+      VITE_API_BASE: E2E.oidcApiUrl,
+      VITE_OIDC_ISSUER: E2E.oidcIssuer,
+      VITE_OIDC_CLIENT_ID: E2E.oidcClientId,
+    },
+  );
   await waitFor('web', ok(E2E.webUrl));
+  await waitFor('web-oidc', ok(E2E.oidcWebUrl));
   say(`ready at ${E2E.webUrl}`);
 } catch (err) {
   say(`failed: ${(err as Error).message}`);

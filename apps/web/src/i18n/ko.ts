@@ -46,6 +46,8 @@ export const ko = {
   'signin.subject': '개발용 로그인 ID',
   'signin.operator': '운영자 (개발용: 운영자 권한과 MFA 포함)',
   'signin.submit': '로그인',
+  'signin.completing': '로그인을 마무리하는 중…',
+  'signin.failed': '로그인하지 못했습니다: {reason}',
   'signin.devNote': '로컬 개발용 발급기입니다(ADR-0009). 운영에서는 OIDC 공급자를 사용합니다.',
   'nav.main': '주 메뉴',
   'nav.logout': '로그아웃',

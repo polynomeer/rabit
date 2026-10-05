@@ -23,6 +23,9 @@ export function setToken(value: string | null): void {
   else sessionStorage.removeItem('rabit.token');
 }
 
+/** Window event fired when the API rejects the token (expired or revoked). */
+export const SIGNED_OUT = 'rabit:signed-out';
+
 export function hasToken(): boolean {
   return token !== null;
 }
@@ -44,6 +47,10 @@ export async function api<T>(
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
+  if (res.status === 401 && token) {
+    setToken(null);
+    window.dispatchEvent(new Event(SIGNED_OUT));
+  }
   if (res.status === 204) return { data: undefined as T, etag: null };
   const json = (await res.json().catch(() => null)) as unknown;
   if (!res.ok) {

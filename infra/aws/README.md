@@ -46,7 +46,8 @@ The services start with zero tasks because no image exists yet. Then:
 1. In GitHub, create the `staging` environment and set these variables from `tofu output`:
    - `AWS_REGION` (`ap-northeast-2`), `AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY_URL`;
    - `OPS_SUBNETS` (comma-separated), `OPS_SECURITY_GROUP`;
-   - `WEB_BUCKET`, `WEB_DISTRIBUTION_ID`, `API_BASE_URL` (`https://api.<domain>`).
+   - `WEB_BUCKET`, `WEB_DISTRIBUTION_ID`, `API_BASE_URL` (`https://api.<domain>`);
+   - `OIDC_ISSUER`, `OIDC_CLIENT_ID` and, if the provider needs it, `OIDC_AUDIENCE` (the web client's sign-in, ADR-0009).
 2. Run the **deploy** workflow for `staging`. It builds the ARM64 image, runs migrations as the `ops` task, rolls out the services and publishes the web client.
 3. Apply again without the zero counts: `tofu apply -var-file=environments/staging.tfvars`.
 
