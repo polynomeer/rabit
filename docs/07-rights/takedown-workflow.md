@@ -23,7 +23,7 @@ flowchart TD
 | Step | Catalog content (MVP mechanisms) | Public UGC (P1) |
 |---|---|---|
 | Interim restriction | Suspend RightsGrant (`status=suspended`) → sessions revoked ≤ 60 s | Source visibility restriction (to be built) |
-| Final removal | Revoke grant | Remove publication; keep private copy for uploader unless law requires otherwise |
+| Final removal | Revoke grant; then, when the decision or contract requires it, remove the audio files (`POST /v1/ops/recordings/{id}/audio-removal`, refused while any grant is in force or suspended; metadata stays). Whether and when removal is mandatory is Legal (RQ-01) | Remove publication; keep private copy for uploader unless law requires otherwise |
 | Scope | Per recording, territory, use — never whole-account private data (OPS-002) | Same |
 | Records | Audit log entry with reason, actor, correlation | Case table (P1) |
 | Purchasers | P1: decide re-download/refund impact per contract | — |

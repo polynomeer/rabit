@@ -60,7 +60,7 @@ The media gateway receives only `(bucket, prefix)` from a verified token and nev
 | Private original | processing | source deletion job |
 | Private derivatives | processing | source deletion job |
 | Export archive | export job | 24 h after ready |
-| Catalog originals/derivatives | ingest | operator removal (not in MVP API) |
+| Catalog originals/derivatives | ingest | operator removal `POST /v1/ops/recordings/{id}/audio-removal` (R10): refused while a grant is in force or suspended; access ends at once, files removed by `audio.delete_source`. No automatic removal or retention period (Legal, open-questions RQ-01) |
 
 Deletion job `audio.delete_source`: revoke sessions → delete search doc → delete all assets (list by prefix, not just rows) → delete asset rows → status `deleted` → `SourceDeleted`. Idempotent; safe to re-run.
 

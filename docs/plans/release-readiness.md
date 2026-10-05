@@ -26,7 +26,7 @@
 | R7 | API compatibility | Contract test passes both directions; `/v1` only; no breaking change policy violations | `contract.test.ts` | OK | OK |
 | R8 | SLO / alerts | SLIs/SLOs proposed, alert rules written but not deployed; client-side SLIs (TTFP, rebuffer) need a client | slo.md, alerts.yml | Must fix (deploy alerts) | Blocker |
 | R9 | Backup / restore | Restore procedure documented (re-apply tombstones) but no drill performed; RPO/RTO unverified | runbooks#backup-restore | **Blocker** | Blocker |
-| R10 | Object lifecycle | Quarantine/exports lifecycle (2 d) + expiry jobs; deletion sweeps prefixes; catalog object removal has no API | audio-pipeline §5 | OK | Must fix (catalog takedown removal path) |
+| R10 | Object lifecycle | Quarantine/exports lifecycle (2 d) + expiry jobs; deletion sweeps prefixes. **Update 2026-10-05:** catalog audio removal API for operators (refused while a grant is in force or suspended, audited); mandatory removal and retention periods are Legal (RQ-01) | audio-pipeline §5; `library-entitlement` "catalog audio removal (R10)" | OK | OK (policy: RQ-01) |
 | R11 | Moderation / takedown | Reports + triage + grant suspension implemented; uploader notification, appeals, counter-notice absent; staffing Q18 | moderation.md | Follow-up | Blocker |
 | R12 | Feature flags | No feature-flag system; all P0 features always on; P2 features absent rather than flagged | — | OK | Follow-up |
 | R13 | Rate limits | Per-user and per-route limits on. **Update 2026-10-05:** counters shared in Postgres for every api instance (ADR-0020); fail-open on store failure, with a metric and an alert | `rate-limit.test.ts` (two instances share one limit) | OK | OK (re-measure overhead on staging) |

@@ -88,6 +88,7 @@
 | DM-01 | 개인 업로드를 카탈로그 Recording에 연결할 수 있게 할 것인가? (예: 내가 녹음한 X의 라이브) MVP는 Audio Log의 `linked_recording_id`만 허용 | domain-model §5 | 제품 | open |
 | DM-02 | 계정 삭제 유예(취소 가능) 기간 | domain-model §5 | 제품·법무 | open |
 | DM-04 | Audio Log에 연결된 recording에서 DIG를 시작하는 것을 허용할 것인가 (MVP: 허용) | domain-model §5 | 제품 확인 | open |
+| RQ-01 | 계약 종료·테이크다운 시 카탈로그 원본·파생 음원을 **반드시** 삭제해야 하는가, 삭제 기한은, 증거 보존(legal hold)을 위해 원본을 남겨야 하는가, 백업에 남은 원본은 언제까지 지워야 하는가? 구현은 운영자의 명시적 삭제만 제공(R10, `POST /v1/ops/recordings/{id}/audio-removal`)하며 자동 삭제·보존 기간은 정하지 않음 | takedown-workflow §2, release-readiness R10 | 법무·권리 | open |
 | CNF-11 | Track 정의 | glossary | 기술 | **decided** 2026-10-04 (Phase 4): Track = ReleaseTrack/Recording의 UI 용어, 별도 aggregate 없음 |
 | CNF-12 | DIG 데이터 모델 통합 | DIG §6 vs AP-05 | 기술 | **decided** 2026-10-04 (Phase 4): MusicEntity registry + 타입별 테이블, MusicRelation(저장 edge) + Credit/Release에서 파생되는 axis |
 
