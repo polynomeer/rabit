@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { api, ApiError, OWNERSHIP_TEXT, REASON_TEXT } from './api';
 
@@ -163,6 +164,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   };
 
   const current = queue[index];
+  const waveformSource = current?.audio_source_id ?? null;
+  const [peaks, setPeaks] = useState<number[] | null>(null);
+  // Private audio has a waveform (processing output); catalog playback does not.
+  useEffect(() => {
+    setPeaks(null);
+    if (!waveformSource) return;
+    let stale = false;
+    api<{ peaks: number[] }>('GET', `/v1/audio-sources/${waveformSource}/waveform`).then(
+      ({ data }) => {
+        if (!stale) setPeaks(data.peaks);
+      },
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, [waveformSource]);
   const api_: PlayerApi = {
     queue,
     index,
@@ -220,6 +238,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           }}
           onEnded={playNext}
         />
+        {peaks && peaks.length > 0 ? <Waveform peaks={peaks} audio={audio} /> : null}
         <button type="button" onClick={playNext} disabled={index + 1 >= queue.length}>
           다음
         </button>
@@ -232,4 +251,55 @@ export function usePlayer(): PlayerApi {
   const p = useContext(Ctx);
   if (!p) throw new Error('PlayerProvider missing');
   return p;
+}
+
+/**
+ * Decorative peak overview with the played part highlighted; the audio controls stay
+ * the accessible control. It follows the audio element itself, so playback progress
+ * re-renders only this component, not every player consumer.
+ */
+function Waveform({
+  peaks,
+  audio,
+}: {
+  peaks: number[];
+  audio: RefObject<HTMLAudioElement | null>;
+}) {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const el = audio.current;
+    if (!el) return;
+    const update = () => {
+      setProgress(el.duration > 0 ? el.currentTime / el.duration : 0);
+    };
+    el.addEventListener('timeupdate', update);
+    return () => {
+      el.removeEventListener('timeupdate', update);
+    };
+  }, [audio]);
+  const bars = 120;
+  const step = peaks.length / bars;
+  const values = Array.from({ length: bars }, (_, i) => {
+    const from = Math.floor(i * step);
+    return Math.max(0.04, ...peaks.slice(from, Math.max(Math.floor((i + 1) * step), from + 1)));
+  });
+  return (
+    <svg
+      className="waveform"
+      viewBox={`0 0 ${String(bars)} 40`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      {values.map((v, i) => (
+        <rect
+          key={i}
+          x={i + 0.15}
+          width={0.7}
+          y={20 - v * 19}
+          height={v * 38}
+          className={i / bars < progress ? 'played' : ''}
+        />
+      ))}
+    </svg>
+  );
 }
