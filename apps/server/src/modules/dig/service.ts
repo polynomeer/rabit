@@ -107,7 +107,7 @@ export async function explore(
           credit_id: c.creditId,
           via_entity: c.viaEntityId ? (vias.get(c.viaEntityId) ?? null) : null,
         },
-        evidence: c.evidence,
+        evidence: { ...c.evidence, reason: c.evidence.reason ?? null },
         popularity_tier: pop.get(c.entityId)?.tier ?? 'unknown',
         playability: entity.entity_type === 'recording' ? playabilityOf(c.entityId) : null,
       };
@@ -191,7 +191,10 @@ export async function sessionView(db: DbOrTx, s: SessionRow) {
         subtitle: null,
       },
       via_axis: n.via_axis,
-      evidence: n.via_evidence,
+      // Nodes stored before reason codes existed carry only the sentence.
+      evidence: n.via_evidence
+        ? { ...n.via_evidence, reason: n.via_evidence.reason ?? null }
+        : null,
       played: n.played,
       saved: n.saved,
       created_at: n.created_at.toISOString(),

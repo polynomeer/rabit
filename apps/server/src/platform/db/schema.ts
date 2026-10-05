@@ -423,7 +423,15 @@ export interface DigEvidence {
   source: string;
   confidence: number | null;
   license_status: 'unknown' | 'licensed' | 'not_applicable' | null;
+  /** English sentence, kept for existing clients. */
   explanation: string;
+  /** The same reason as a code plus values, for clients to render in their language. Absent on nodes stored before it existed. */
+  reason?: DigReason;
+}
+
+export interface DigReason {
+  code: string;
+  params: Record<string, string>;
 }
 
 export interface DigSessionTable {

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get, type Connection, type EntitySummary, type Playability } from './api';
-import { AXIS_TEXT, EvidenceLine } from './dig';
+import { AXIS_TEXT, EvidenceLine, roleText } from './dig';
 import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
 import { digHref, entityHref } from './route';
@@ -339,7 +339,7 @@ function PassportView({ recordingId }: { recordingId: string }) {
                 <div>
                   <a href={entityHref(c.contributor.entity_id)}>{c.contributor.name}</a>{' '}
                   <span className="muted">
-                    {c.role}
+                    {roleText(c.role)}
                     {c.instrument ? ` (${c.instrument})` : ''}
                   </span>
                   <br />

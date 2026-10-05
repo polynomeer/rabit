@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { enqueue } from '../src/platform/jobs/queue.js';
 import { fixtures } from './helpers/audio-fixtures.js';
@@ -41,6 +42,7 @@ async function connections(entity: string, axis: string, query = '', who: TestUs
       confidence: number | null;
       license_status: string | null;
       explanation: string;
+      reason: { code: string; params: Record<string, string> } | null;
     };
     popularity_tier: string;
     playability: { playable: boolean; reason: string | null } | null;
@@ -84,6 +86,21 @@ describe('Rabbit Hole axes (DIG-003/004)', () => {
     expect(credits.map((c) => c.evidence.basis)).toEqual(['verified_fact', 'declared']);
     expect(credits[0]!.evidence.explanation).toMatch(/^Producer: Pat Producer/);
     expect(credits[1]!.evidence.explanation).toMatch(/^Performer \(bass\): Bea Bassist/);
+    // The same reason as a code and values, for clients to localize.
+    expect(credits.map((c) => c.evidence.reason)).toEqual([
+      {
+        code: 'credit',
+        params: { role: 'producer', name: expect.stringMatching(/^Pat Producer/) },
+      },
+      {
+        code: 'credit',
+        params: {
+          role: 'performer',
+          instrument: 'bass',
+          name: expect.stringMatching(/^Bea Bassist/),
+        },
+      },
+    ]);
     expect(credits.every((c) => c.via.credit_id !== null)).toBe(true);
   });
 
@@ -96,6 +113,8 @@ describe('Rabbit Hole axes (DIG-003/004)', () => {
       license_status: 'licensed',
     });
     expect(c!.evidence.explanation).toContain('is sampled by');
+    expect(c!.evidence.reason?.code).toBe('relation.sampled_by');
+    expect(Object.keys(c!.evidence.reason?.params ?? {}).sort()).toEqual(['object', 'subject']);
     expect(c!.via.relation_id).toMatch(/^mrl_/);
   });
 
@@ -152,6 +171,11 @@ describe('Credits Digging (DIG-006)', () => {
     const sm = await connections(id('r1'), 'session_musicians');
     expect(sm.map((c) => c.entity.entity_id)).toEqual([id('r2')]);
     expect(sm[0]!.evidence.explanation).toMatch(/Same bass player/);
+    expect(sm[0]!.evidence.reason).toMatchObject({
+      code: 'same_session_player',
+      params: { instrument: 'bass' },
+    });
+    expect(sp[0]!.evidence.reason?.code).toBe('same_producer');
   });
 });
 
@@ -374,9 +398,19 @@ describe('Digging Trails (DIG-005/022/025)', () => {
       seq: 1,
       parent_seq: 0,
       via_axis: 'sampled_by',
-      evidence: { basis: 'verified_fact' },
+      evidence: { basis: 'verified_fact', reason: { code: 'relation.sampled_by' } },
     });
     expect(step.json().current_seq).toBe(1);
+  });
+
+  it('reads nodes stored before reason codes with a null reason', async () => {
+    await sql`UPDATE dig_trail_node SET via_evidence = via_evidence - 'reason'
+              WHERE session_id = ${sessionId} AND via_evidence IS NOT NULL`.execute(h.ctx.db);
+    const r = await h.api.inject({ url: `/v1/dig-sessions/${sessionId}`, headers: u.headers });
+    expect(r.json().trail[1].evidence).toMatchObject({
+      explanation: expect.any(String),
+      reason: null,
+    });
   });
 
   it('refuses fabricated edges (T29)', async () => {

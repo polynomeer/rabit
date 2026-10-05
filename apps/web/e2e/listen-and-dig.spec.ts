@@ -34,6 +34,8 @@ test('search, play a licensed recording, and DIG without stopping playback', asy
     .filter({ hasText: 'Ember (Harbour Flip)' });
   // Evidence is shown with the connection, not just the link.
   await expect(connection).toContainText('검증된 사실');
+  // The reason is rendered from its code in the client's language.
+  await expect(connection).toContainText('이 곡을 샘플링: Ember (Harbour Flip)');
   await connection.getByRole('button', { name: '따라가기' }).click();
   await expect(trail.getByRole('button')).toHaveCount(2);
   await expect(trail.getByRole('button', { name: /Ember \(Harbour Flip\)/ })).toHaveAttribute(
