@@ -36,7 +36,17 @@ Contract risk; treat as urgent.
 `identity.delete_account` is idempotent: retry it from the DLQ. Each module deleter can be re-run safely.
 
 ## backup-restore
-After restoring a backup, re-run deletion for accounts with `status in ('deletion_requested','deleted')` and sources with `deleted_at IS NOT NULL` (tombstones re-applied, LIB-008) before opening traffic. This also covers catalog audio removed by operators (R10): its source is tombstoned. Removals made after the backup was taken are in the audit log (`action = 'recording.audio_removed'`, `details.audio_source_id`) and must be re-applied too.
+A database restore must never bring back what users or operators deleted (LIB-008, R10). Object storage is **not** rolled back with the database, so audio deleted after the backup is missing from storage while its restored row still says `ready`.
+
+1. Restore the database; keep api, media and worker stopped (no traffic).
+2. Run migrations (`migrate:up`; a no-op when the backup is on the current schema).
+3. `restore:reconcile --dry-run`, review the report, then `restore:reconcile` (`node dist/entry/restore-reconcile.js` in the image). It:
+   - queues deletion again for accounts still `deletion_requested` and for tombstoned sources not yet `deleted`;
+   - finds `ready` sources whose original object is missing (deleted after the backup), tombstones them, detaches catalog recordings from them and audits `source.deletion_reapplied`; their deletion job removes the remaining objects and personal metadata;
+   - lists `accountsToReview`: active accounts whose every source was missing.
+4. Start the worker and wait for the queue to drain (`queue-backlog`), then open traffic.
+
+Limits: an **account** deleted after the backup cannot be recognized from the database (the audit log is restored to the backup point too); check `accountsToReview` against support records. Deletions of catalog audio by operators after the backup are recognized by the missing object, not by the audit log. Rehearse with `drill:restore` (local; numbers in [release-readiness](../plans/release-readiness.md) R9).
 
 ## slow-queries
 Check `pg_stat_statements`; search uses GIN (tsv, trigram); DIG uses `(from_entity_id, relation_type)` / credit contributor indexes. Compare with [performance-baseline](../10-testing/performance-baseline.md).
