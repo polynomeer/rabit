@@ -24,7 +24,12 @@
 
 ## 2. Evidence on every connection (DIG-004, DIG-018)
 
-`evidence = {basis, verification_state, source, confidence, license_status, explanation}`.
+`evidence = {basis, verification_state, source, confidence, license_status, explanation, reason}`.
+
+- `reason = {code, params}` is the explanation as a code plus names/role codes, so
+  clients localize it; `explanation` stays as the English sentence for existing
+  clients and as the fallback for unknown codes. Trail nodes stored before `reason`
+  existed return `reason: null` (additive change, no migration).
 
 - Credit- and relation-based connections carry the stored provenance.
 - Shared-person axes (`same_producer`, `session_musicians`) take the **weaker** of the two credits.

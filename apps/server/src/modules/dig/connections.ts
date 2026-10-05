@@ -2,6 +2,7 @@ import type { DbOrTx } from '../../platform/db/db.js';
 import type {
   Basis,
   DigEvidence,
+  DigReason,
   EntityType,
   PopularityTier,
   RelationType,
@@ -106,7 +107,7 @@ export interface Connection {
  * Structural catalog metadata (artists, tracklists, labels) comes from the ingest
  * source; it is shown as declared catalog data, not as independently verified fact.
  */
-function catalogEvidence(explanation: string): DigEvidence {
+function catalogEvidence(explanation: string, reason: DigReason): DigEvidence {
   return {
     basis: 'declared',
     verification_state: 'self_declared',
@@ -114,14 +115,28 @@ function catalogEvidence(explanation: string): DigEvidence {
     confidence: null,
     license_status: null,
     explanation,
+    reason,
   };
 }
 
 function creditEvidence(
   c: { basis: Basis; verification_state: VerificationState; source: string },
   explanation: string,
+  reason: DigReason,
 ): DigEvidence {
-  return { ...c, confidence: null, license_status: null, explanation };
+  return { ...c, confidence: null, license_status: null, explanation, reason };
+}
+
+/**
+ * Reason codes (docs/05-api): `relation.<axis>`, `credit`, `credited_as`,
+ * `same_producer`, `same_session_player`, `main_artist`, `on_release`,
+ * `recording_by_artist`, `appears_on`, `released_on_label`, `release_by_artist`,
+ * `same_label`. Params carry names and raw codes (credit `role`), never sentences.
+ */
+function reason(code: string, params: Record<string, string | null | undefined> = {}): DigReason {
+  const clean: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params)) if (v) clean[k] = v;
+  return { code, params: clean };
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -209,6 +224,10 @@ export async function connectionsFor(
           // The relation fact and its license are separate (DIG-018, rights-model §2.4).
           license_status: r.license_status,
           explanation: `${names(n, entityId)} ${phrase[axis]} ${names(n, other(r))}`,
+          reason: reason(`relation.${axis}`, {
+            subject: names(n, entityId),
+            object: names(n, other(r)),
+          }),
         },
       });
     }
@@ -239,6 +258,11 @@ export async function connectionsFor(
             evidence: creditEvidence(
               c,
               `${role}${c.instrument ? ` (${c.instrument})` : ''}: ${names(n, c.contributor_entity_id)}`,
+              reason('credit', {
+                role: c.role,
+                instrument: c.instrument,
+                name: names(n, c.contributor_entity_id),
+              }),
             ),
           });
         }
@@ -260,6 +284,7 @@ export async function connectionsFor(
             evidence: creditEvidence(
               c,
               `${names(n, entityId)} is credited as ${(ROLE_LABEL[c.role] ?? c.role).toLowerCase()}`,
+              reason('credited_as', { role: c.role, name: names(n, entityId) }),
             ),
           });
         }
@@ -307,7 +332,16 @@ export async function connectionsFor(
           relationId: null,
           creditId: c.id,
           viaEntityId: c.contributor_entity_id,
-          evidence: creditEvidence(weaker, `${label}: ${names(n, c.contributor_entity_id)}`),
+          evidence: creditEvidence(
+            weaker,
+            `${label}: ${names(n, c.contributor_entity_id)}`,
+            axis === 'same_producer'
+              ? reason('same_producer', { name: names(n, c.contributor_entity_id) })
+              : reason('same_session_player', {
+                  name: names(n, c.contributor_entity_id),
+                  instrument: c.instrument,
+                }),
+          ),
         });
       }
       return dedupe(out);
@@ -333,7 +367,7 @@ export async function connectionsFor(
         relationId: null,
         creditId: null,
         viaEntityId: null,
-        evidence: catalogEvidence('Main artist'),
+        evidence: catalogEvidence('Main artist', reason('main_artist')),
       }));
     }
     case 'tracks': {
@@ -358,9 +392,10 @@ export async function connectionsFor(
         relationId: null,
         creditId: null,
         viaEntityId: null,
-        evidence: catalogEvidence(
-          type === 'release' ? 'On this release' : 'Recording by this artist',
-        ),
+        evidence:
+          type === 'release'
+            ? catalogEvidence('On this release', reason('on_release'))
+            : catalogEvidence('Recording by this artist', reason('recording_by_artist')),
       }));
     }
     case 'releases': {
@@ -387,17 +422,17 @@ export async function connectionsFor(
                 .execute();
       const why =
         type === 'recording'
-          ? 'Appears on'
+          ? catalogEvidence('Appears on', reason('appears_on'))
           : type === 'label'
-            ? 'Released on this label'
-            : 'Release by this artist';
+            ? catalogEvidence('Released on this label', reason('released_on_label'))
+            : catalogEvidence('Release by this artist', reason('release_by_artist'));
       return rows.map((r) => ({
         entityId: r.release_id,
         axis,
         relationId: null,
         creditId: null,
         viaEntityId: null,
-        evidence: catalogEvidence(why),
+        evidence: why,
       }));
     }
     case 'same_label': {
@@ -434,7 +469,10 @@ export async function connectionsFor(
           relationId: null,
           creditId: null,
           viaEntityId: r.label_id,
-          evidence: catalogEvidence(`Same label: ${names(n, r.label_id ?? '')}`),
+          evidence: catalogEvidence(
+            `Same label: ${names(n, r.label_id ?? '')}`,
+            reason('same_label', { name: names(n, r.label_id ?? '') }),
+          ),
         }));
       }
       const rows = await db
@@ -452,7 +490,10 @@ export async function connectionsFor(
         relationId: null,
         creditId: null,
         viaEntityId: r.label_id,
-        evidence: catalogEvidence(`Same label: ${names(n, r.label_id ?? '')}`),
+        evidence: catalogEvidence(
+          `Same label: ${names(n, r.label_id ?? '')}`,
+          reason('same_label', { name: names(n, r.label_id ?? '') }),
+        ),
       }));
     }
     default:

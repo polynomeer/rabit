@@ -1431,14 +1431,31 @@ components:
       default: any
     Evidence:
       type: object
-      required: [basis, verification_state, source, confidence, license_status, explanation]
+      required: [basis, verification_state, source, confidence, license_status, explanation, reason]
       properties:
         basis: { type: string, enum: [verified_fact, declared, ml_inferred] }
         verification_state: { type: string }
         source: { type: string }
         confidence: { type: [number, 'null'] }
         license_status: { type: [string, 'null'], enum: [null, unknown, licensed, not_applicable] }
-        explanation: { type: string, description: 'Human-readable reason, for example "Same producer - X"' }
+        explanation: { type: string, description: 'English sentence, for example "Same producer: X". Kept for existing clients; localized clients render `reason`.' }
+        reason:
+          description: >-
+            The same reason as a code plus values, so clients render it in their own
+            language. Null on trail nodes stored before codes existed (fall back to
+            `explanation`). Codes: relation.<axis> (subject, object), credit (role,
+            name, instrument?), credited_as (role, name), same_producer (name),
+            same_session_player (name, instrument?), main_artist, on_release,
+            recording_by_artist, appears_on, released_on_label, release_by_artist,
+            same_label (name). `role` is a credit role code. Clients show
+            `explanation` for codes they do not know.
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [code, params]
+              properties:
+                code: { type: string }
+                params: { type: object, additionalProperties: { type: string } }
     DigAxes:
       type: object
       required: [entity, axes]
