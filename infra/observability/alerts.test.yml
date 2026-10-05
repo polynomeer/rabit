@@ -1,0 +1,83 @@
+# promtool unit tests for alerts.yml (R8): each case feeds synthetic series and
+# states which alerts must fire. Run: see .github/workflows/ci.yml (alerts step).
+rule_files:
+  - alerts.yml
+evaluation_interval: 1m
+tests:
+  - name: revocation lag pages when the queue stalls
+    interval: 1m
+    input_series:
+      - series: rabit_job_oldest_queued_seconds
+        values: '0 0 120x5'
+      - series: rabit_outbox_pending
+        values: '0x7'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RevocationLagging
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: RevocationLagging
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              impact: Rights withdrawals and subscription changes may not stop active sessions within 60 s (contract risk).
+              runbook: docs/09-operations/runbooks.md#rights-revocation-not-applied
+
+  - name: api fast burn pages on a sustained 5xx share
+    interval: 1m
+    input_series:
+      # 100 req/min, 5 of them 5xx (5 % > 1.44 %), for more than an hour.
+      - series: 'rabit_http_request_duration_seconds_count{service="api",status_class="2xx",route="/v1/me",method="GET"}'
+        values: '0+95x70'
+      - series: 'rabit_http_request_duration_seconds_count{service="api",status_class="5xx",route="/v1/me",method="GET"}'
+        values: '0+5x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: ApiAvailabilityFastBurn
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              impact: Users see errors when opening the app, their library or starting playback.
+              runbook: docs/09-operations/runbooks.md#api-errors
+
+  - name: api fast burn stays quiet under budget
+    interval: 1m
+    input_series:
+      - series: 'rabit_http_request_duration_seconds_count{service="api",status_class="2xx",route="/v1/me",method="GET"}'
+        values: '0+999x70'
+      - series: 'rabit_http_request_duration_seconds_count{service="api",status_class="5xx",route="/v1/me",method="GET"}'
+        values: '0+1x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: ApiAvailabilityFastBurn
+        exp_alerts: []
+
+  - name: rate-limit store failures open a ticket after 5 minutes
+    interval: 1m
+    input_series:
+      - series: rabit_rate_limit_store_errors_total
+        values: '0+3x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: RateLimitStoreFailing
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              impact: API rate limits are not enforced (fail-open, ADR-0020); abuse limits such as uploads and reports are open.
+              runbook: docs/09-operations/runbooks.md#rate-limit-store
+
+  - name: dead letters open a ticket
+    interval: 1m
+    input_series:
+      - series: 'rabit_jobs_total{kind="audio.process_source",outcome="dead"}'
+        values: '0+1x60'
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: DeadLetterGrowth
+        exp_alerts:
+          # Counted per job kind, so the alert names the failing kind.
+          - exp_labels: { severity: ticket, kind: audio.process_source, outcome: dead }
+            exp_annotations:
+              impact: Some uploads failed for non-user reasons and need an operator retry.
+              runbook: docs/09-operations/runbooks.md#dead-letter-queue
+
