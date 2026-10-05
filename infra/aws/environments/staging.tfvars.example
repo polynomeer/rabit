@@ -1,0 +1,9 @@
+# Copy to staging.tfvars (not committed) and fill in.
+environment         = "staging"
+domain              = "rabit.example"            # decided by the owner
+hosted_zone_id      = "Z0000000000000000000"
+bucket_prefix       = "rabit-stg-0000"            # globally unique
+auth_issuer         = "https://idp.example/"      # production OIDC provider (ADR-0009, open)
+auth_jwks_url       = "https://idp.example/.well-known/jwks.json"
+budget_alert_emails = ["ops@example.com"]
+budget_monthly_usd  = 300

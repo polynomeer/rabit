@@ -1,0 +1,37 @@
+output "ecr_repository_url" {
+  value = aws_ecr_repository.app.repository_url
+}
+
+output "deploy_role_arn" {
+  description = "Set as AWS_DEPLOY_ROLE_ARN in the GitHub environment."
+  value       = aws_iam_role.deploy.arn
+}
+
+output "cluster" {
+  value = aws_ecs_cluster.main.name
+}
+
+output "ops_task" {
+  description = "Run migrations or restore reconcile: aws ecs run-task with this family and a command override."
+  value = {
+    family          = aws_ecs_task_definition.role["ops"].family
+    subnets         = aws_subnet.isolated[*].id
+    security_groups = [aws_security_group.worker.id]
+  }
+}
+
+output "web_bucket" {
+  value = aws_s3_bucket.web.bucket
+}
+
+output "web_distribution_id" {
+  value = aws_cloudfront_distribution.web.id
+}
+
+output "urls" {
+  value = { for k, h in local.hosts : k => "https://${h}" if k != "media_origin" }
+}
+
+output "kms_key_arn" {
+  value = aws_kms_key.data.arn
+}

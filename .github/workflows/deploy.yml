@@ -1,0 +1,60 @@
+# Manual deploy to AWS Seoul (ADR-0012). Credentials come from GitHub OIDC; the
+# GitHub environment holds the variables below and its protection rules (e.g.
+# required reviewers for production) gate the job.
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Fargate tasks run on ARM64 (ADR-0012); build natively on an ARM runner.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    environment: ${{ inputs.environment }}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      ENVIRONMENT: ${{ inputs.environment }}
+      IMAGE: ${{ vars.ECR_REPOSITORY_URL }}:${{ github.sha }}
+      OPS_SUBNETS: ${{ vars.OPS_SUBNETS }}
+      OPS_SECURITY_GROUP: ${{ vars.OPS_SECURITY_GROUP }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push the image
+        run: |
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+      - name: Migrate and roll out api, media and worker
+        run: infra/aws/scripts/deploy.sh
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Build and publish the web client
+        env:
+          VITE_API_BASE: ${{ vars.API_BASE_URL }}
+        run: |
+          pnpm install --frozen-lockfile --filter @rabit/web...
+          pnpm --filter @rabit/web build
+          aws s3 sync apps/web/dist "s3://${{ vars.WEB_BUCKET }}" --delete
+          aws cloudfront create-invalidation --distribution-id "${{ vars.WEB_DISTRIBUTION_ID }}" --paths '/*'
