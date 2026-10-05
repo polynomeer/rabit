@@ -310,6 +310,126 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
   );
 }
 
+interface Subscription {
+  plan: string;
+  state: 'active' | 'past_due' | 'cancelled' | 'expired';
+  paid_through: string;
+  source: 'operator' | 'sandbox';
+}
+interface Entitlement {
+  entitlement_id: string;
+  scope: 'catalog_all' | 'release' | 'recording';
+  resource_id: string | null;
+  origin: 'subscription' | 'purchase' | 'grant';
+  status: 'active' | 'suspended' | 'revoked' | 'expired';
+  valid_from: string;
+  valid_to: string | null;
+}
+
+const SUB_STATE: Record<string, string> = {
+  active: '이용 중',
+  past_due: '결제 지연',
+  cancelled: '해지됨',
+  expired: '만료됨',
+  none: '구독 없음',
+};
+// Plans are configuration placeholders until pricing is decided (Q03).
+const PLAN_TEXT: Record<string, string> = { listen_sandbox: 'Listen (테스트 요금제)' };
+const SCOPE_TEXT: Record<string, string> = {
+  catalog_all: '전체 카탈로그',
+  release: '앨범',
+  recording: '곡',
+};
+const ORIGIN_TEXT: Record<string, string> = {
+  subscription: '구독',
+  purchase: '구매',
+  grant: '부여',
+};
+const ENT_STATUS: Record<string, string> = {
+  active: '유효',
+  suspended: '일시 중지',
+  revoked: '취소됨',
+  expired: '만료됨',
+};
+const day = (iso: string) => new Date(iso).toLocaleDateString();
+
+/** Names a release or recording an entitlement covers (catalog metadata only). */
+function ResourceName({ id }: { id: string }) {
+  const [name, setName] = useState<string | null>(null);
+  useEffect(() => {
+    let stale = false;
+    void get<{ name: string }>(`/v1/entities/${id}`).then(
+      (e) => {
+        if (!stale) setName(e.name);
+      },
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, [id]);
+  return <a href={entityHref(id)}>{name ?? id}</a>;
+}
+
+/** What the account may play and why (ADR-0016): subscription and each entitlement. */
+function Entitlements() {
+  const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
+  const [ents, setEnts] = useState<Entitlement[]>([]);
+  useEffect(() => {
+    void get<{ subscription: Subscription | null }>('/v1/subscription').then((r) => {
+      setSub(r.subscription);
+    });
+    void get<{ items: Entitlement[] }>('/v1/entitlements').then((r) => {
+      setEnts(r.items);
+    });
+  }, []);
+  if (sub === undefined) return null;
+  return (
+    <section className="card" aria-labelledby="ent-h">
+      <h3 id="ent-h">구독과 이용권</h3>
+      {sub ? (
+        <p>
+          {PLAN_TEXT[sub.plan] ?? sub.plan} · <strong>{SUB_STATE[sub.state] ?? sub.state}</strong> ·{' '}
+          {day(sub.paid_through)}
+          까지
+          {sub.source !== 'sandbox' ? (
+            <span className="small muted"> (운영자가 설정, 결제 연동 전)</span>
+          ) : null}
+        </p>
+      ) : (
+        <p>{SUB_STATE['none']}</p>
+      )}
+      <ul className="list" aria-label="이용권">
+        {ents.map((e) => (
+          <li key={e.entitlement_id}>
+            <div>
+              <strong>
+                {e.resource_id ? <ResourceName id={e.resource_id} /> : SCOPE_TEXT[e.scope]}
+              </strong>{' '}
+              {e.resource_id ? (
+                <span className="badge">{SCOPE_TEXT[e.scope] ?? e.scope}</span>
+              ) : null}{' '}
+              <span className="badge">{ORIGIN_TEXT[e.origin] ?? e.origin}</span>
+              <br />
+              <span className="small">
+                <span className={e.status === 'active' ? 'ok' : 'warn'}>
+                  {ENT_STATUS[e.status] ?? e.status}
+                </span>{' '}
+                · {day(e.valid_from)} ~ {e.valid_to ? day(e.valid_to) : '기한 없음'}
+              </span>
+            </div>
+          </li>
+        ))}
+        {ents.length === 0 ? <li className="muted">이용권이 없습니다.</li> : null}
+      </ul>
+      <p className="small muted">
+        CD나 파일을 갖고 있어도 카탈로그 음원 이용권이 생기지 않습니다. 이용권은 구독·구매·부여로만
+        생깁니다.
+      </p>
+    </section>
+  );
+}
+
 export function Account() {
   const [me, setMe] = useState<{
     user_id: string;
@@ -328,7 +448,7 @@ export function Account() {
       {me ? (
         <dl className="card">
           <dt>구독</dt>
-          <dd>{me.subscription_state}</dd>
+          <dd>{SUB_STATE[me.subscription_state] ?? me.subscription_state}</dd>
           <dt>라이선스 지역</dt>
           <dd>{me.license_country ?? '미설정'}</dd>
           <dt>지원 문의 ID</dt>
@@ -344,6 +464,7 @@ export function Account() {
           </dd>
         </dl>
       ) : null}
+      <Entitlements />
       <div className="card">
         <h3>내보내기</h3>
         <p className="small muted">

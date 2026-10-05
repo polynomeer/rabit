@@ -70,6 +70,21 @@ export async function provision(subject: string, opts: { listener?: boolean } = 
   return userId;
 }
 
+/** An operator call (operator role + MFA via the dev issuer), with a reason. */
+export async function asOperator(method: string, path: string, body: Record<string, unknown>) {
+  const op = await token('e2e-operator', true);
+  const r = await fetch(`${E2E.apiUrl}${path}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${op}`,
+      'content-type': 'application/json',
+      'idempotency-key': `e2e-${crypto.randomUUID()}`,
+    },
+    body: JSON.stringify(body),
+  });
+  return { status: r.status, json: (await r.json().catch(() => null)) as unknown };
+}
+
 export async function signIn(page: Page, subject: string): Promise<void> {
   await page.goto('/');
   await page.getByLabel('개발용 로그인 ID').fill(subject);
