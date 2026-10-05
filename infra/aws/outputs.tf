@@ -35,3 +35,12 @@ output "urls" {
 output "kms_key_arn" {
   value = aws_kms_key.data.arn
 }
+
+output "prometheus_workspace_id" {
+  value = aws_prometheus_workspace.main.id
+}
+
+output "alerts_topic_arn" {
+  description = "Each address in alert_emails must confirm its subscription."
+  value       = aws_sns_topic.alerts.arn
+}

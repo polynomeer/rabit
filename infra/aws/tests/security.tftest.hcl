@@ -122,6 +122,15 @@ mock_provider "aws" {
     target = aws_security_group.endpoints
     values = { id = "sg-endpoints" }
   }
+  mock_resource "aws_prometheus_workspace" {
+    defaults = {
+      arn                 = "arn:aws:aps:ap-northeast-2:111122223333:workspace/ws-mock"
+      prometheus_endpoint = "https://aps-workspaces.ap-northeast-2.amazonaws.com/workspaces/ws-mock/"
+    }
+  }
+  mock_resource "aws_sns_topic" {
+    defaults = { arn = "arn:aws:sns:ap-northeast-2:111122223333:mock-alerts" }
+  }
   override_resource {
     target = aws_db_instance.main
     values = {
@@ -149,6 +158,7 @@ variables {
   auth_issuer         = "https://idp.example/"
   auth_jwks_url       = "https://idp.example/jwks"
   budget_alert_emails = ["ops@example.com"]
+  alert_emails        = ["oncall@example.com"]
 }
 
 run "worker_is_isolated" {
@@ -194,7 +204,7 @@ run "containers_are_locked_down" {
     condition = alltrue([
       for td in aws_ecs_task_definition.role : alltrue([
         for c in jsondecode(td.container_definitions) :
-        contains([for e in c.environment : "${e.name}=${e.value}"], "AUTH_DEV_ISSUER_ENABLED=false") &&
+        c.name == "metrics" || contains([for e in c.environment : "${e.name}=${e.value}"], "AUTH_DEV_ISSUER_ENABLED=false") &&
         contains([for e in c.environment : "${e.name}=${e.value}"], "S3_SSE=aws:kms") &&
         contains([for e in c.environment : "${e.name}=${e.value}"], "NODE_ENV=production")
       ])
@@ -284,6 +294,37 @@ run "edge_uses_tls" {
   assert {
     condition     = length(aws_lb_listener_rule.media.condition) == 2
     error_message = "The media origin requires its host and the CloudFront secret header."
+  }
+}
+
+run "alerts_are_deployed" {
+  command = apply
+
+  assert {
+    condition     = aws_prometheus_rule_group_namespace.alerts.data == file("${path.module}/../observability/alerts.yml")
+    error_message = "Managed Prometheus loads the same alert rules CI checks with promtool (R8)."
+  }
+  assert {
+    condition = alltrue([
+      for role in ["api", "media", "worker"] :
+      length([for c in jsondecode(aws_ecs_task_definition.role[role].container_definitions) : c if c.name == "metrics"]) == 1
+    ])
+    error_message = "Every long-running role ships its metrics to Managed Prometheus."
+  }
+  assert {
+    condition = alltrue([
+      for role in ["api", "media", "worker"] :
+      jsondecode(aws_ecs_task_definition.role[role].container_definitions)[0].name == role
+    ])
+    error_message = "The app container comes first (the deploy script swaps its image by name)."
+  }
+  assert {
+    condition     = contains(keys(aws_vpc_endpoint.interface), "aps-workspaces")
+    error_message = "The isolated worker reaches Managed Prometheus through an endpoint, not the internet."
+  }
+  assert {
+    condition     = strcontains(aws_prometheus_alert_manager_definition.main.definition, aws_sns_topic.alerts.arn)
+    error_message = "Alertmanager sends to the alerts topic."
   }
 }
 

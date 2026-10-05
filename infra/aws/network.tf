@@ -103,9 +103,10 @@ resource "aws_vpc_endpoint" "s3" {
   tags              = { Name = "${local.name}-s3" }
 }
 
-# What the isolated worker needs besides S3: image pull, logs, secrets, KMS.
+# What the isolated worker needs besides S3: image pull, logs, secrets, KMS, and
+# remote write to Managed Prometheus (R8).
 resource "aws_vpc_endpoint" "interface" {
-  for_each            = toset(["ecr.api", "ecr.dkr", "logs", "secretsmanager", "kms"])
+  for_each            = toset(["ecr.api", "ecr.dkr", "logs", "secretsmanager", "kms", "aps-workspaces"])
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.region}.${each.key}"
   vpc_endpoint_type   = "Interface"

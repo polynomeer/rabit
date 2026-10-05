@@ -16,8 +16,8 @@ CLUSTER="$NAME"
 # New revision of a task definition family with only the image changed.
 register() {
   aws ecs describe-task-definition --task-definition "$NAME-$1" --query taskDefinition --output json |
-    jq --arg image "$IMAGE" '
-      .containerDefinitions[0].image = $image
+    jq --arg image "$IMAGE" --arg role "$1" '
+      (.containerDefinitions[] | select(.name == $role)).image = $image
       | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities,
             .registeredAt, .registeredBy, .deregisteredAt)' >"/tmp/td-$1.json"
   aws ecs register-task-definition --cli-input-json "file:///tmp/td-$1.json" \
