@@ -56,4 +56,38 @@ describe('config', () => {
       expect(String(err)).not.toContain('tooshort-secret-value');
     }
   });
+
+  it('uses the IAM role when no S3 keys are set, and refuses only one key', () => {
+    const roleBased = loadConfig({
+      ...base,
+      S3_ACCESS_KEY_ID: undefined,
+      S3_SECRET_ACCESS_KEY: undefined,
+    });
+    expect(roleBased.s3.credentials).toBeUndefined();
+    expect(() => loadConfig({ ...base, S3_SECRET_ACCESS_KEY: undefined })).toThrow(
+      /S3_SECRET_ACCESS_KEY/,
+    );
+  });
+
+  it('requires a customer-managed KMS key in production (NFR-SEC-004)', () => {
+    const prod = {
+      ...base,
+      NODE_ENV: 'production',
+      AUTH_DEV_ISSUER_ENABLED: 'false',
+      AUTH_JWKS_URL: 'https://idp.example/jwks',
+    };
+    expect(() => loadConfig(prod)).toThrow(/S3_SSE/);
+    expect(() => loadConfig({ ...prod, S3_SSE: 'aws:kms' })).toThrow(/S3_SSE_KMS_KEY_ID/);
+    const cfg = loadConfig({
+      ...prod,
+      S3_SSE: 'aws:kms',
+      S3_SSE_KMS_KEY_ID: 'arn:aws:kms:ap-northeast-2:111122223333:key/example',
+      S3_BUCKET_PREFIX: 'rabit-prod',
+    });
+    expect(cfg.s3.sse).toEqual({
+      mode: 'aws:kms',
+      kmsKeyId: 'arn:aws:kms:ap-northeast-2:111122223333:key/example',
+    });
+    expect(cfg.s3.bucketPrefix).toBe('rabit-prod');
+  });
 });

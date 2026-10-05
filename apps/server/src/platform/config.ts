@@ -27,9 +27,21 @@ const envSchema = z
     S3_ENDPOINT: z.url().optional(),
     S3_PUBLIC_ENDPOINT: z.url().optional(),
     S3_REGION: z.string().min(1).default('us-east-1'),
-    S3_ACCESS_KEY_ID: z.string().min(1),
-    S3_SECRET_ACCESS_KEY: z.string().min(1),
+    /** Static keys for local S3 servers. Leave both unset on AWS to use the task's IAM role. */
+    S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+    S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     S3_FORCE_PATH_STYLE: bool.default(false),
+    /**
+     * Physical bucket names are `<prefix>-quarantine`, `<prefix>-private-media`, …
+     * (ADR-0004); S3 bucket names are global, so each environment sets its own.
+     */
+    S3_BUCKET_PREFIX: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/)
+      .default('rabit'),
+    /** Server-side encryption on every write: `aws:kms` with a customer key in production (NFR-SEC-004). */
+    S3_SSE: z.enum(['AES256', 'aws:kms']).default('AES256'),
+    S3_SSE_KMS_KEY_ID: z.string().min(1).optional(),
 
     AUTH_ISSUER: z.url(),
     AUTH_AUDIENCE: z.string().min(1),
@@ -80,6 +92,27 @@ const envSchema = z
         message: 'must be postgres when NODE_ENV=production (limits shared by every instance)',
       });
     }
+    if ((c.S3_ACCESS_KEY_ID === undefined) !== (c.S3_SECRET_ACCESS_KEY === undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_SECRET_ACCESS_KEY'],
+        message: 'set both S3 keys, or neither to use the IAM role',
+      });
+    }
+    if (c.S3_SSE === 'aws:kms' && !c.S3_SSE_KMS_KEY_ID) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_SSE_KMS_KEY_ID'],
+        message: 'is required when S3_SSE=aws:kms',
+      });
+    }
+    if (c.NODE_ENV === 'production' && c.S3_SSE !== 'aws:kms') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_SSE'],
+        message: 'must be aws:kms when NODE_ENV=production (customer-managed key, NFR-SEC-004)',
+      });
+    }
     if (!c.AUTH_DEV_ISSUER_ENABLED && !c.AUTH_JWKS_URL) {
       ctx.addIssue({
         code: 'custom',
@@ -107,9 +140,11 @@ export interface Config {
     endpoint: string | undefined;
     publicEndpoint: string | undefined;
     region: string;
-    accessKeyId: string;
-    secretAccessKey: string;
+    /** Undefined: the default AWS credential chain (IAM role on ECS). */
+    credentials: { accessKeyId: string; secretAccessKey: string } | undefined;
     forcePathStyle: boolean;
+    bucketPrefix: string;
+    sse: { mode: 'AES256' } | { mode: 'aws:kms'; kmsKeyId: string };
   };
   auth: {
     issuer: string;
@@ -165,9 +200,16 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       endpoint: e.S3_ENDPOINT,
       publicEndpoint: e.S3_PUBLIC_ENDPOINT ?? e.S3_ENDPOINT,
       region: e.S3_REGION,
-      accessKeyId: e.S3_ACCESS_KEY_ID,
-      secretAccessKey: e.S3_SECRET_ACCESS_KEY,
+      credentials:
+        e.S3_ACCESS_KEY_ID && e.S3_SECRET_ACCESS_KEY
+          ? { accessKeyId: e.S3_ACCESS_KEY_ID, secretAccessKey: e.S3_SECRET_ACCESS_KEY }
+          : undefined,
       forcePathStyle: e.S3_FORCE_PATH_STYLE,
+      bucketPrefix: e.S3_BUCKET_PREFIX,
+      sse:
+        e.S3_SSE === 'aws:kms'
+          ? { mode: 'aws:kms', kmsKeyId: e.S3_SSE_KMS_KEY_ID ?? '' }
+          : { mode: 'AES256' },
     },
     auth: {
       issuer: e.AUTH_ISSUER,

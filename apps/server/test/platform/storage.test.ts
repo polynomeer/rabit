@@ -129,3 +129,34 @@ describe('S3 blob store timeouts', () => {
     expect(Date.now() - started).toBeLessThan(5_000);
   });
 });
+
+describe('S3 adapter settings for AWS (ADR-0012)', () => {
+  it('signs KMS encryption into presigned uploads and maps buckets to the environment prefix', async () => {
+    const kmsKeyId = 'arn:aws:kms:ap-northeast-2:111122223333:key/example';
+    const store = new S3BlobStore({
+      ...ctx.config.s3,
+      bucketPrefix: 'rabit-stg',
+      sse: { mode: 'aws:kms', kmsKeyId },
+    });
+    const put = await store.presignPut(BUCKETS.quarantine, 'u/abc', {
+      bytes: 10,
+      sha256Base64: 'n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg=',
+      expiresInSeconds: 60,
+    });
+    const url = new URL(put.url);
+    expect(url.pathname).toBe('/rabit-stg-quarantine/u/abc');
+    const signed = url.searchParams.get('X-Amz-SignedHeaders')?.split(';') ?? [];
+    expect(signed).toEqual(
+      expect.arrayContaining([
+        'x-amz-server-side-encryption',
+        'x-amz-server-side-encryption-aws-kms-key-id',
+        'x-amz-server-side-encryption-bucket-key-enabled',
+        'x-amz-checksum-sha256',
+      ]),
+    );
+    expect(put.headers).toMatchObject({
+      'x-amz-server-side-encryption': 'aws:kms',
+      'x-amz-server-side-encryption-aws-kms-key-id': kmsKeyId,
+    });
+  });
+});
