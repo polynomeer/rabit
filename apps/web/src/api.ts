@@ -115,7 +115,9 @@ export interface Evidence {
   source: string;
   confidence: number | null;
   license_status: string | null;
+  /** English sentence; shown only when there is no reason code (older trail nodes). */
   explanation: string;
+  reason: { code: string; params: Record<string, string> } | null;
 }
 export interface Connection {
   entity: EntitySummary;

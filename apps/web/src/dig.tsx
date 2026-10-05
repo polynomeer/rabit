@@ -45,6 +45,62 @@ const POPULARITY = [
   ['obscure', 'dig.popularity.obscure'],
 ] as const satisfies readonly (readonly [string, MessageKey])[];
 
+const ROLE_TEXT: Record<string, MessageKey> = {
+  composer: 'credit.role.composer',
+  lyricist: 'credit.role.lyricist',
+  producer: 'credit.role.producer',
+  engineer: 'credit.role.engineer',
+  mixing_engineer: 'credit.role.mixing_engineer',
+  mastering_engineer: 'credit.role.mastering_engineer',
+  performer: 'credit.role.performer',
+  featured_artist: 'credit.role.featured_artist',
+  arranger: 'credit.role.arranger',
+};
+
+/** A credit role code in the client's language; unknown roles show as sent. */
+export const roleText = (role: string) => tCode(ROLE_TEXT, role);
+
+const REASON_TEXT: Record<string, MessageKey> = {
+  'relation.samples': 'dig.reason.relation.samples',
+  'relation.sampled_by': 'dig.reason.relation.sampled_by',
+  'relation.covers': 'dig.reason.relation.covers',
+  'relation.covered_by': 'dig.reason.relation.covered_by',
+  'relation.remix_of': 'dig.reason.relation.remix_of',
+  'relation.remixes': 'dig.reason.relation.remixes',
+  'relation.influenced_by': 'dig.reason.relation.influenced_by',
+  'relation.influences': 'dig.reason.relation.influences',
+  'relation.member_of': 'dig.reason.relation.member_of',
+  'relation.members': 'dig.reason.relation.members',
+  credit: 'dig.reason.credit',
+  credited_as: 'dig.reason.credited_as',
+  same_producer: 'dig.reason.same_producer',
+  same_session_player: 'dig.reason.same_session_player',
+  main_artist: 'dig.reason.main_artist',
+  on_release: 'dig.reason.on_release',
+  recording_by_artist: 'dig.reason.recording_by_artist',
+  appears_on: 'dig.reason.appears_on',
+  released_on_label: 'dig.reason.released_on_label',
+  release_by_artist: 'dig.reason.release_by_artist',
+  same_label: 'dig.reason.same_label',
+};
+
+/**
+ * The connection's reason in the client's language. Falls back to the server's
+ * English sentence for unknown codes and for trail nodes stored before codes existed.
+ */
+export function reasonText(e: Evidence): string {
+  const r = e.reason;
+  if (!r) return e.explanation;
+  const p = r.params;
+  if (r.code === 'credit' && p['instrument'])
+    return t('dig.reason.creditInstrument', { ...p, role: roleText(p['role'] ?? '') });
+  if (r.code === 'same_session_player' && p['instrument'])
+    return t('dig.reason.same_session_playerInstrument', p);
+  const key = REASON_TEXT[r.code];
+  if (!key) return e.explanation;
+  return t(key, p['role'] ? { ...p, role: roleText(p['role']) } : p);
+}
+
 /** Verified fact vs declared vs ML estimate are always distinguishable (DIG-018). */
 export function EvidenceLine({ e }: { e: Evidence }) {
   const basis =
@@ -55,7 +111,7 @@ export function EvidenceLine({ e }: { e: Evidence }) {
         : t('dig.evidence.inferred', { percent: Math.round((e.confidence ?? 0) * 100) });
   return (
     <span className="small">
-      {e.explanation} — <em>{basis}</em>
+      {reasonText(e)} — <em>{basis}</em>
       {e.license_status && e.license_status !== 'not_applicable' ? (
         <span className="muted"> · {t('dig.evidence.license', { status: e.license_status })}</span>
       ) : null}
