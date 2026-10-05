@@ -68,6 +68,24 @@ export async function activeGrants(
   return new Map(rows.map((r) => [r.recording_id, { id: r.id, version: r.version }]));
 }
 
+/** All grants of a recording, oldest first, with versions for If-Match (ops console). */
+export async function listGrants(db: DbOrTx, recordingId: string) {
+  const rec = await db
+    .selectFrom('recording')
+    .select('id')
+    .where('id', '=', recordingId)
+    .executeTakeFirst();
+  if (!rec) throw errors.notFound();
+  const rows = await db
+    .selectFrom('rights_grant')
+    .selectAll()
+    .where('recording_id', '=', recordingId)
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  return { items: rows.map(grantView) };
+}
+
 async function emitChanged(db: DbOrTx, g: GrantRow, correlationId: string | null) {
   await emit(db, {
     type: 'RightsGrantChanged',
