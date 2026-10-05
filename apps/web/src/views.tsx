@@ -11,6 +11,7 @@ import {
   type Playlist,
 } from './api';
 import { usePlayer, type QueueEntry } from './player';
+import { entityHref, navigate, searchHref } from './route';
 
 export function Status({ p }: { p: Playability }) {
   // Never colour-only (NFR-A11Y-003): always a text label.
@@ -23,6 +24,20 @@ export function Status({ p }: { p: Playability }) {
 
 export function Ownership({ o }: { o: string | null }) {
   return o ? <span className="badge">{OWNERSHIP_TEXT[o] ?? o}</span> : null;
+}
+
+/** Catalog items link to their detail page; private audio has none. */
+function ItemTitle({
+  refType,
+  refId,
+  title,
+}: {
+  refType: string;
+  refId: string;
+  title: string | null;
+}) {
+  if (title === null) return <>(삭제됨)</>;
+  return refType === 'audio_source' ? <>{title}</> : <a href={entityHref(refId)}>{title}</a>;
 }
 
 function errorText(e: unknown): string {
@@ -187,8 +202,11 @@ export function Archive() {
         {items.map((i) => (
           <li key={i.library_item_id}>
             <div>
-              <strong>{i.title ?? '(삭제됨)'}</strong> <span className="muted">{i.subtitle}</span>{' '}
-              <Ownership o={i.ownership} /> <Status p={i.playability} />
+              <strong>
+                <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
+              </strong>{' '}
+              <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
+              <Status p={i.playability} />
             </div>
             <div className="actions">
               {i.ref_type !== 'release' && i.playability.playable ? (
@@ -317,7 +335,9 @@ export function Playlists() {
             {open.items.map((i, idx) => (
               <li key={i.item_id}>
                 <div>
-                  <strong>{i.title ?? '(삭제됨)'}</strong>{' '}
+                  <strong>
+                    <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
+                  </strong>{' '}
                   <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
                   <Status p={i.playability} />
                 </div>
@@ -368,7 +388,7 @@ export function Playlists() {
   );
 }
 
-export function Search({ onDig }: { onDig: (entityId: string) => void }) {
+export function Search({ query, onDig }: { query: string; onDig: (entityId: string) => void }) {
   const player = usePlayer();
   const [results, setResults] = useState<
     {
@@ -380,6 +400,20 @@ export function Search({ onDig }: { onDig: (entityId: string) => void }) {
       scope: string;
     }[]
   >([]);
+  // The query lives in the URL, so returning from a detail page shows the same results.
+  useEffect(() => {
+    if (!query) {
+      setResults([]);
+      return;
+    }
+    let stale = false;
+    void get<{ items: typeof results }>(`/v1/search?q=${encodeURIComponent(query)}`).then((r) => {
+      if (!stale) setResults(r.items);
+    });
+    return () => {
+      stale = true;
+    };
+  }, [query]);
   return (
     <section aria-labelledby="search-h">
       <h2 id="search-h">Search</h2>
@@ -387,10 +421,8 @@ export function Search({ onDig }: { onDig: (entityId: string) => void }) {
         role="search"
         onSubmit={(e) => {
           e.preventDefault();
-          const q = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value;
-          void get<{ items: typeof results }>(`/v1/search?q=${encodeURIComponent(q)}`).then((r) => {
-            setResults(r.items);
-          });
+          const q = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim();
+          if (q) navigate(searchHref(q));
         }}
       >
         <input
@@ -399,6 +431,8 @@ export function Search({ onDig }: { onDig: (entityId: string) => void }) {
           required
           maxLength={200}
           aria-label="검색어"
+          defaultValue={query}
+          key={query}
         />
         <button type="submit">검색</button>
       </form>
@@ -406,7 +440,10 @@ export function Search({ onDig }: { onDig: (entityId: string) => void }) {
         {results.map((r) => (
           <li key={r.id}>
             <div>
-              <strong>{r.title}</strong> <span className="muted">{r.subtitle}</span>{' '}
+              <strong>
+                {r.scope === 'catalog' ? <a href={entityHref(r.id)}>{r.title}</a> : r.title}
+              </strong>{' '}
+              <span className="muted">{r.subtitle}</span>{' '}
               <span className="badge">{r.scope === 'mine' ? '내 오디오' : r.kind}</span>
             </div>
             <div className="actions">
