@@ -216,11 +216,11 @@ function Users({ reason, valid }: Props) {
           <p className="small muted">{t('ops.users.summary.note')}</p>
           {Object.entries(summary.sections).map(([name, data]) => (
             <section key={name} aria-label={t('ops.users.summary.section', { name })}>
-              <h4>{name}</h4>
+              <h3>{name}</h3>
               <Facts data={data} />
             </section>
           ))}
-          <h4>{t('ops.users.entitlements')}</h4>
+          <h3>{t('ops.users.entitlements')}</h3>
           <ul className="list" aria-label={t('ops.users.entitlements.list')}>
             {ents.map((e) => (
               <li key={e.entitlement_id}>
@@ -697,7 +697,7 @@ function Rights({ reason, valid }: Props) {
               ).then(reload);
             }}
           >
-            <h4>{t('ops.rights.add.heading')}</h4>
+            <h3>{t('ops.rights.add.heading')}</h3>
             <Field label={t('ops.rights.holder')}>
               <input name="holder" required maxLength={200} />
             </Field>
@@ -723,7 +723,7 @@ function Rights({ reason, valid }: Props) {
             </button>
           </form>
           <div className="card danger">
-            <h4>{t('ops.rights.removal.heading')}</h4>
+            <h3>{t('ops.rights.removal.heading')}</h3>
             <p className="small">{t('ops.rights.removal.note')}</p>
             <button
               type="button"

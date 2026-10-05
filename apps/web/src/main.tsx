@@ -76,7 +76,7 @@ function App() {
         <span className="logo" aria-hidden="true">
           ◖
         </span>
-        <strong>Rabit</strong>
+        <h1 className="brand">Rabit</h1>
         <nav aria-label={t('nav.main')}>
           {TABS.map((entry) => (
             <button

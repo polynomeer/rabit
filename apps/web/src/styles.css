@@ -112,6 +112,12 @@ select {
   border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
 }
+/* The site name is the page's level-one heading; screens use h2 below it. */
+.top .brand {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
 .top nav {
   display: flex;
   gap: 6px;
