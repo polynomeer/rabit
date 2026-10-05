@@ -92,6 +92,19 @@
 | CNF-11 | Track 정의 | glossary | 기술 | **decided** 2026-10-04 (Phase 4): Track = ReleaseTrack/Recording의 UI 용어, 별도 aggregate 없음 |
 | CNF-12 | DIG 데이터 모델 통합 | DIG §6 vs AP-05 | 기술 | **decided** 2026-10-04 (Phase 4): MusicEntity registry + 타입별 테이블, MusicRelation(저장 edge) + Credit/Release에서 파생되는 axis |
 
+## 4.2 Score-to-Audio 제안에서 나온 질문 (2026-10-05)
+
+[PRD §7.1](../01-requirements/prd.md) STU-010–016이 의존합니다. 결정 전에는 해당 요구사항을 구현하지 않습니다.
+
+| ID | 질문 | 막는 요구사항 | 담당 | 상태 |
+|---|---|---|---|---|
+| SC-01 | 출판 악보를 촬영해 합성 음원으로 렌더링하는 것이 개인 비공개 재생 범위에서도 허용되는가(복제·2차적 저작물, 국가별 차이, Q01 연동)? 공개·공유를 허용한다면 퍼블릭 도메인·본인 창작을 어떤 근거로 판별하는가(작곡가 보호기간 외에 편곡·판본·출판사 조판의 권리 포함)? | STU-014 | 법무·권리 | open — **Legal Review Required** |
+| SC-02 | 합성 연주를 Passport 창작 방식 enum(TRU-001 `human/AI_assisted/AI_generated/unknown`)의 어디에 두는가? 규칙 기반 합성(ML 아님)과 ML 연주 모델을 구분해야 하는가? CNF-07·Q08과 함께 결정 | STU-015 | Trust·제품 | open |
+| SC-03 | OMR 엔진과 음원(SoundFont·샘플 라이브러리) 라이선스: copyleft(AGPL 등) 엔진의 서버 사용 가능 여부, 샘플의 서버 렌더링·결과물 배포 허용 여부. 서버 처리 vs on-device 처리 선택. 결정 시 ADR 필요 | STU-010 | 기술·법무 | open |
+| SC-04 | 인식·렌더링 작업의 무료/유료 quota와 비용 상한 (Q03·Q12 연동) | STU-010 | 제품·재무 | open |
+| SC-05 | 연주 스타일 프리셋에 실존 연주자·밴드 이름이나 특정 녹음 모방을 허용하는가(퍼블리시티권·오인 위험)? | STU-012 | 제품·법무 | open |
+| SC-06 | 단계와 범위: OMR 정확도·교정 비용 스파이크(폰 촬영 인쇄 악보 기준) 결과로 P2 편입 여부를 정한다. 손글씨 악보·다성부 피아노·자동 편곡을 범위에 넣는가? | STU-010, STU-011, STU-013 | 제품·기술 | open |
+
 ## 5. Playbook §9: 사람이 결정해야 하는 항목 (재확인)
 
 상업 음원 라이선스 조건, 로열티 정산 규칙, CD Digital Upgrade entitlement, UGC 법적 정책, 사용자 콘텐츠 보존·삭제 법적 기간, 결제 환불·소유권 정책, Human Verified 인증 기준, 정확한 위치 저장 정책, 데이터 국외 이전, breaking public API, 비가역 destructive migration, 비용을 크게 늘리는 managed infra, Accepted ADR 번복. 위 Q·CNF 중 해당 항목은 Claude가 임의 결정하지 않습니다.

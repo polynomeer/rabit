@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get, type Connection, type EntitySummary, type Playability } from './api';
 import { AXIS_TEXT, EvidenceLine } from './dig';
+import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
 import { digHref, entityHref } from './route';
 import { Status } from './views';
@@ -54,62 +55,62 @@ interface Passport {
   integrity: { axis: string; value: string; basis: string }[];
 }
 
-const STAGE_TEXT: Record<string, string> = {
-  composition: '작곡',
-  lyrics: '작사',
-  vocals: '보컬',
-  instruments: '연주',
-  mixing: '믹싱',
-  mastering: '마스터링',
-  artwork: '아트워크',
+const STAGE_TEXT: Record<string, MessageKey> = {
+  composition: 'details.stage.composition',
+  lyrics: 'details.stage.lyrics',
+  vocals: 'details.stage.vocals',
+  instruments: 'details.stage.instruments',
+  mixing: 'details.stage.mixing',
+  mastering: 'details.stage.mastering',
+  artwork: 'details.stage.artwork',
 };
-const METHOD_TEXT: Record<string, string> = {
-  human: '사람',
-  ai_assisted: 'AI 보조',
-  ai_generated: 'AI 생성',
-  unknown: '알 수 없음',
+const METHOD_TEXT: Record<string, MessageKey> = {
+  human: 'details.method.human',
+  ai_assisted: 'details.method.ai_assisted',
+  ai_generated: 'details.method.ai_generated',
+  unknown: 'details.method.unknown',
 };
-const VERIFICATION_TEXT: Record<string, string> = {
-  self_declared: '본인 신고',
-  distributor_verified: '유통사 확인',
-  signature_valid: '서명 확인',
-  process_evidence_reviewed: '제작 증거 검토',
-  rights_reviewed: '권리 검토',
+const VERIFICATION_TEXT: Record<string, MessageKey> = {
+  self_declared: 'details.verification.self_declared',
+  distributor_verified: 'details.verification.distributor_verified',
+  signature_valid: 'details.verification.signature_valid',
+  process_evidence_reviewed: 'details.verification.process_evidence_reviewed',
+  rights_reviewed: 'details.verification.rights_reviewed',
 };
-const BASIS_TEXT: Record<string, string> = {
-  verified_fact: '검증된 사실',
-  declared: '신고된 정보',
-  ml_inferred: '추정',
-  automated: '자동 판정',
-  reviewed: '검토됨',
+const BASIS_TEXT: Record<string, MessageKey> = {
+  verified_fact: 'details.basis.verified_fact',
+  declared: 'details.basis.declared',
+  ml_inferred: 'details.basis.ml_inferred',
+  automated: 'details.basis.automated',
+  reviewed: 'details.basis.reviewed',
 };
-const INTEGRITY_TEXT: Record<string, string> = {
-  ai_generation: 'AI 생성 여부',
-  technical_quality: '기술 품질',
-  spam_risk: '스팸 위험',
-  rights_status: '권리 상태',
-  recommendation_eligibility: '추천 대상',
+const INTEGRITY_TEXT: Record<string, MessageKey> = {
+  ai_generation: 'details.integrity.ai_generation',
+  technical_quality: 'details.integrity.technical_quality',
+  spam_risk: 'details.integrity.spam_risk',
+  rights_status: 'details.integrity.rights_status',
+  recommendation_eligibility: 'details.integrity.recommendation_eligibility',
 };
 const REPORT_REASONS = [
-  ['wrong_credit', '크레딧 오류'],
-  ['wrong_relation', '관계 오류'],
-  ['undisclosed_ai', 'AI 사용 미표기'],
-  ['spam', '스팸'],
-  ['impersonation', '사칭'],
-  ['rights_infringement', '권리 침해'],
-  ['other', '기타'],
-] as const;
-const TYPE_TEXT: Record<string, string> = {
-  artist: '아티스트',
-  person: '인물',
-  label: '레이블',
-  album: '앨범',
-  single: '싱글',
-  ep: 'EP',
-  compilation: '컴필레이션',
+  ['wrong_credit', 'details.report.reason.wrong_credit'],
+  ['wrong_relation', 'details.report.reason.wrong_relation'],
+  ['undisclosed_ai', 'details.report.reason.undisclosed_ai'],
+  ['spam', 'details.report.reason.spam'],
+  ['impersonation', 'details.report.reason.impersonation'],
+  ['rights_infringement', 'details.report.reason.rights_infringement'],
+  ['other', 'details.report.reason.other'],
+] as const satisfies readonly (readonly [string, MessageKey])[];
+const TYPE_TEXT: Record<string, MessageKey> = {
+  artist: 'details.type.artist',
+  person: 'details.type.person',
+  label: 'details.type.label',
+  album: 'details.type.album',
+  single: 'details.type.single',
+  ep: 'details.type.ep',
+  compilation: 'details.type.compilation',
 };
 
-const label = (map: Record<string, string>, v: string | null) => (v ? (map[v] ?? v) : '—');
+const label = (map: Record<string, MessageKey>, v: string | null) => (v ? tCode(map, v) : '—');
 
 function duration(ms: number | null): string {
   if (ms === null) return '';
@@ -177,12 +178,12 @@ function Page({
           history.back();
         }}
       >
-        ← 뒤로
+        {t('details.back')}
       </button>
       {missing ? (
-        <p role="status">찾을 수 없습니다.</p>
+        <p role="status">{t('details.notFound')}</p>
       ) : title === null ? (
-        <p role="status">불러오는 중…</p>
+        <p role="status">{t('common.loading')}</p>
       ) : (
         <>
           <p className="badge">{kind}</p>
@@ -203,19 +204,19 @@ function SaveButton({ refType, refId }: { refType: 'recording' | 'release'; refI
         onClick={() => {
           api('POST', '/v1/library', { ref_type: refType, ref_id: refId }).then(
             () => {
-              setMsg('라이브러리에 저장했습니다.');
+              setMsg(t('details.library.saved'));
             },
             (e: unknown) => {
               setMsg(
                 e instanceof ApiError && e.code === 'ALREADY_EXISTS'
-                  ? '이미 라이브러리에 있습니다.'
-                  : '저장하지 못했습니다.',
+                  ? t('details.library.exists')
+                  : t('details.library.failed'),
               );
             },
           );
         }}
       >
-        라이브러리에 저장
+        {t('details.library.save')}
       </button>
       {msg ? <span role="status"> {msg}</span> : null}
     </>
@@ -236,7 +237,7 @@ function ReportForm({ subjectType, subjectId }: { subjectType: string; subjectId
             setOpen(true);
           }}
         >
-          정보가 잘못되었나요? 신고하기
+          {t('details.report.open')}
         </button>
         {msg ? <span role="status"> {msg}</span> : null}
       </p>
@@ -244,7 +245,7 @@ function ReportForm({ subjectType, subjectId }: { subjectType: string; subjectId
   return (
     <form
       className="card"
-      aria-label="신고"
+      aria-label={t('details.report.form')}
       onSubmit={(e) => {
         e.preventDefault();
         const f = e.currentTarget.elements;
@@ -258,41 +259,41 @@ function ReportForm({ subjectType, subjectId }: { subjectType: string; subjectId
         }).then(
           () => {
             setOpen(false);
-            setMsg('신고가 접수되었습니다. 검토 후 처리됩니다.');
+            setMsg(t('details.report.received'));
           },
           (err: unknown) => {
             setMsg(
               err instanceof ApiError && err.status === 429
-                ? '신고가 너무 많습니다. 잠시 후 다시 시도하세요.'
-                : '신고를 보내지 못했습니다.',
+                ? t('details.report.tooMany')
+                : t('details.report.failed'),
             );
           },
         );
       }}
     >
-      <h3>신고</h3>
+      <h3>{t('details.report.heading')}</h3>
       <label>
-        사유{' '}
+        {t('details.report.reason')}{' '}
         <select name="reason" required defaultValue="wrong_credit">
           {REPORT_REASONS.map(([v, l]) => (
             <option key={v} value={v}>
-              {l}
+              {t(l)}
             </option>
           ))}
         </select>
       </label>
       <label>
-        설명 (선택) <textarea name="details" maxLength={2000} rows={3} />
+        {t('details.report.details')} <textarea name="details" maxLength={2000} rows={3} />
       </label>
       <div className="actions">
-        <button type="submit">신고 보내기</button>
+        <button type="submit">{t('details.report.submit')}</button>
         <button
           type="button"
           onClick={() => {
             setOpen(false);
           }}
         >
-          취소
+          {t('common.cancel')}
         </button>
       </div>
       {msg ? <p role="status">{msg}</p> : null}
@@ -308,14 +309,12 @@ function PassportView({ recordingId }: { recordingId: string }) {
     <section aria-labelledby="passport-h" className="card">
       <h3 id="passport-h">Music Passport</h3>
       <table className="passport">
-        <caption className="small muted">
-          단계별 제작 방식. 신고되지 않은 단계는 &lsquo;알 수 없음&rsquo;입니다.
-        </caption>
+        <caption className="small muted">{t('details.passport.caption')}</caption>
         <thead>
           <tr>
-            <th scope="col">단계</th>
-            <th scope="col">방식</th>
-            <th scope="col">근거</th>
+            <th scope="col">{t('details.passport.stage')}</th>
+            <th scope="col">{t('details.passport.method')}</th>
+            <th scope="col">{t('details.passport.basis')}</th>
           </tr>
         </thead>
         <tbody>
@@ -333,7 +332,7 @@ function PassportView({ recordingId }: { recordingId: string }) {
       </table>
       {p.credits.length > 0 ? (
         <>
-          <h4>크레딧</h4>
+          <h4>{t('details.passport.credits')}</h4>
           <ul className="list">
             {p.credits.map((c) => (
               <li key={c.credit_id}>
@@ -356,7 +355,7 @@ function PassportView({ recordingId }: { recordingId: string }) {
       ) : null}
       {p.claims.length > 0 ? (
         <>
-          <h4>권리·출처 주장</h4>
+          <h4>{t('details.passport.claims')}</h4>
           <ul className="list">
             {p.claims.map((c, i) => (
               <li key={`${c.claim_type}:${String(i)}`} className="small">
@@ -367,9 +366,11 @@ function PassportView({ recordingId }: { recordingId: string }) {
           </ul>
         </>
       ) : null}
-      <h4>무결성</h4>
-      <p className="small muted">하나의 점수가 아니라 서로 독립된 축입니다.</p>
-      {p.integrity.length === 0 ? <p className="small">아직 판정된 축이 없습니다.</p> : null}
+      <h4>{t('details.passport.integrity')}</h4>
+      <p className="small muted">{t('details.passport.integrityNote')}</p>
+      {p.integrity.length === 0 ? (
+        <p className="small">{t('details.passport.integrityEmpty')}</p>
+      ) : null}
       <dl className="integrity">
         {p.integrity.map((x) => (
           <div key={x.axis}>
@@ -388,7 +389,7 @@ export function RecordingDetail({ id }: { id: string }) {
   const player = usePlayer();
   const { data: r, missing } = useResource<Recording>(`/v1/recordings/${id}`);
   return (
-    <Page title={r?.title ?? null} kind="곡" missing={missing}>
+    <Page title={r?.title ?? null} kind={t('common.recording')} missing={missing}>
       {r ? (
         <>
           <p>
@@ -400,7 +401,7 @@ export function RecordingDetail({ id }: { id: string }) {
           </p>
           {r.releases.length > 0 ? (
             <p>
-              수록:{' '}
+              {t('details.recording.appearsOn')}{' '}
               {r.releases.map((rel, i) => (
                 <span key={rel.release_id}>
                   {i > 0 ? ', ' : ''}
@@ -427,7 +428,7 @@ export function RecordingDetail({ id }: { id: string }) {
                 ]);
               }}
             >
-              재생
+              {t('common.play')}
             </button>
             <a className="button" href={digHref(r.recording_id)}>
               DIG
@@ -446,11 +447,11 @@ export function ReleaseDetail({ id }: { id: string }) {
   const player = usePlayer();
   const { data: r, missing } = useResource<Release>(`/v1/releases/${id}`);
   const queue: QueueEntry[] =
-    r?.tracks.map((t) => ({
-      key: t.recording_id,
-      title: t.title,
+    r?.tracks.map((track) => ({
+      key: track.recording_id,
+      title: track.title,
       subtitle: r.artists.map((a) => a.name).join(', '),
-      recording_id: t.recording_id,
+      recording_id: track.recording_id,
     })) ?? [];
   return (
     <Page
@@ -476,23 +477,23 @@ export function ReleaseDetail({ id }: { id: string }) {
             </a>
             <SaveButton refType="release" refId={r.release_id} />
           </div>
-          <ol className="list tracks" aria-label="트랙">
-            {r.tracks.map((t, i) => (
-              <li key={`${String(t.disc_no)}-${String(t.position)}`}>
+          <ol className="list tracks" aria-label={t('details.release.tracks')}>
+            {r.tracks.map((track, i) => (
+              <li key={`${String(track.disc_no)}-${String(track.position)}`}>
                 <div>
-                  <a href={entityHref(t.recording_id)}>{t.title}</a>{' '}
-                  <span className="muted small">{duration(t.duration_ms)}</span>{' '}
-                  <Status p={t.playability} />
+                  <a href={entityHref(track.recording_id)}>{track.title}</a>{' '}
+                  <span className="muted small">{duration(track.duration_ms)}</span>{' '}
+                  <Status p={track.playability} />
                 </div>
                 <div className="actions">
                   <button
                     type="button"
-                    disabled={!t.playability.playable}
+                    disabled={!track.playability.playable}
                     onClick={() => {
                       player.play(queue, i);
                     }}
                   >
-                    재생
+                    {t('common.play')}
                   </button>
                 </div>
               </li>
@@ -543,10 +544,10 @@ export function EntityDetail({ id }: { id: string }) {
           {e.subtitle ? <p className="muted">{e.subtitle}</p> : null}
           <div className="actions">
             <a className="button" href={digHref(e.entity_id)}>
-              여기서 DIG 시작
+              {t('details.entity.startDig')}
             </a>
           </div>
-          <div className="axes" role="tablist" aria-label="연결 축">
+          <div className="axes" role="tablist" aria-label={t('details.entity.axes')}>
             {axes.map((a) => (
               <button
                 key={a.axis}
@@ -557,11 +558,11 @@ export function EntityDetail({ id }: { id: string }) {
                   setAxis(a.axis);
                 }}
               >
-                {AXIS_TEXT[a.axis] ?? a.axis} <span className="muted">{a.count}</span>
+                {tCode(AXIS_TEXT, a.axis)} <span className="muted">{a.count}</span>
               </button>
             ))}
           </div>
-          <ul className="list" aria-label="연결">
+          <ul className="list" aria-label={t('common.connections')}>
             {conns.map((c) => (
               <li key={`${c.entity.entity_id}:${c.via.credit_id ?? c.via.relation_id ?? ''}`}>
                 <div>
