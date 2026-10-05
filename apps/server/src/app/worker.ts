@@ -26,10 +26,20 @@ export function buildWorker(ctx: AppContext, modules: Module[]): WorkerProcess {
   const timers: NodeJS.Timeout[] = [];
   let loop: Promise<void> | null = null;
 
+  /** Each step runs and fails on its own: a failing purge must not stop lease reclaim. */
   const housekeeping = async () => {
-    await runner.reclaim();
-    await enqueueDueSchedules(ctx.db, schedules);
-    await purgeRateLimitCounters(ctx.db);
+    const steps: [string, () => Promise<unknown>][] = [
+      ['reclaim leases', () => runner.reclaim()],
+      ['enqueue schedules', () => enqueueDueSchedules(ctx.db, schedules)],
+      ['purge rate-limit counters', () => purgeRateLimitCounters(ctx.db)],
+    ];
+    for (const [step, fn] of steps) {
+      try {
+        await fn();
+      } catch (err) {
+        ctx.log.error({ err, step }, 'worker housekeeping step failed');
+      }
+    }
   };
 
   return {
