@@ -1,0 +1,429 @@
+[
+ {
+  "pred_notes": 199,
+  "gt_span": 199,
+  "pitch_f1": 0.995,
+  "edits_per_100": 0.5,
+  "dur_acc": 0.96,
+  "octave_shift": 0,
+  "piece": "anna-magdalena-05",
+  "cond": "clean",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 199,
+  "gt_span": 199,
+  "pitch_f1": 1.0,
+  "edits_per_100": 0.0,
+  "dur_acc": 1.0,
+  "octave_shift": 0,
+  "piece": "anna-magdalena-05",
+  "cond": "clean",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 199,
+  "gt_span": 199,
+  "pitch_f1": 0.814,
+  "edits_per_100": 18.6,
+  "dur_acc": 0.895,
+  "octave_shift": 0,
+  "piece": "anna-magdalena-05",
+  "cond": "mild",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 199,
+  "gt_span": 199,
+  "pitch_f1": 0.995,
+  "edits_per_100": 0.5,
+  "dur_acc": 1.0,
+  "octave_shift": 0,
+  "piece": "anna-magdalena-05",
+  "cond": "mild",
+  "engine": "homr"
+ },
+ {
+  "error": "no output",
+  "piece": "anna-magdalena-05",
+  "cond": "harsh",
+  "engine": "oemer"
+ },
+ {
+  "error": "no output",
+  "piece": "anna-magdalena-05",
+  "cond": "harsh",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 523,
+  "gt_span": 514,
+  "pitch_f1": 0.955,
+  "edits_per_100": 6.0,
+  "dur_acc": 0.79,
+  "octave_shift": 0,
+  "piece": "bach-bwv1041-part-violin-solo",
+  "cond": "clean",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 520,
+  "gt_span": 514,
+  "pitch_f1": 0.983,
+  "edits_per_100": 3.5,
+  "dur_acc": 0.902,
+  "octave_shift": 0,
+  "piece": "bach-bwv1041-part-violin-solo",
+  "cond": "clean",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 523,
+  "gt_span": 514,
+  "pitch_f1": 0.974,
+  "edits_per_100": 4.1,
+  "dur_acc": 0.877,
+  "octave_shift": 0,
+  "piece": "bach-bwv1041-part-violin-solo",
+  "cond": "mild",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 521,
+  "gt_span": 514,
+  "pitch_f1": 0.984,
+  "edits_per_100": 3.3,
+  "dur_acc": 0.9,
+  "octave_shift": 0,
+  "piece": "bach-bwv1041-part-violin-solo",
+  "cond": "mild",
+  "engine": "homr"
+ },
+ {
+  "error": "no output",
+  "piece": "bach-bwv1041-part-violin-solo",
+  "cond": "harsh",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 383,
+  "gt_span": 384,
+  "pitch_f1": 0.764,
+  "edits_per_100": 31.0,
+  "dur_acc": 0.846,
+  "octave_shift": 0,
+  "piece": "bach-bwv1041-part-violin-solo",
+  "cond": "harsh",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 228,
+  "gt_span": 228,
+  "pitch_f1": 0.987,
+  "edits_per_100": 1.3,
+  "dur_acc": 0.858,
+  "octave_shift": 0,
+  "piece": "bwv-259",
+  "cond": "clean",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 228,
+  "gt_span": 228,
+  "pitch_f1": 1.0,
+  "edits_per_100": 0.0,
+  "dur_acc": 0.996,
+  "octave_shift": 0,
+  "piece": "bwv-259",
+  "cond": "clean",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 228,
+  "gt_span": 228,
+  "pitch_f1": 0.991,
+  "edits_per_100": 0.9,
+  "dur_acc": 0.814,
+  "octave_shift": 0,
+  "piece": "bwv-259",
+  "cond": "mild",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 228,
+  "gt_span": 228,
+  "pitch_f1": 1.0,
+  "edits_per_100": 0.0,
+  "dur_acc": 0.996,
+  "octave_shift": 0,
+  "piece": "bwv-259",
+  "cond": "mild",
+  "engine": "homr"
+ },
+ {
+  "error": "no output",
+  "piece": "bwv-259",
+  "cond": "harsh",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 228,
+  "gt_span": 228,
+  "pitch_f1": 1.0,
+  "edits_per_100": 0.0,
+  "dur_acc": 0.996,
+  "octave_shift": 0,
+  "piece": "bwv-259",
+  "cond": "harsh",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 273,
+  "gt_span": 271,
+  "pitch_f1": 0.735,
+  "edits_per_100": 45.4,
+  "dur_acc": 0.785,
+  "octave_shift": 0,
+  "piece": "fleebird",
+  "cond": "clean",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 280,
+  "gt_span": 277,
+  "pitch_f1": 0.797,
+  "edits_per_100": 30.7,
+  "dur_acc": 0.901,
+  "octave_shift": 0,
+  "piece": "fleebird",
+  "cond": "clean",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 270,
+  "gt_span": 271,
+  "pitch_f1": 0.706,
+  "edits_per_100": 48.3,
+  "dur_acc": 0.738,
+  "octave_shift": 0,
+  "piece": "fleebird",
+  "cond": "mild",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 280,
+  "gt_span": 277,
+  "pitch_f1": 0.797,
+  "edits_per_100": 30.7,
+  "dur_acc": 0.901,
+  "octave_shift": 0,
+  "piece": "fleebird",
+  "cond": "mild",
+  "engine": "homr"
+ },
+ {
+  "error": "no output",
+  "piece": "fleebird",
+  "cond": "harsh",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 239,
+  "gt_span": 268,
+  "pitch_f1": 0.694,
+  "edits_per_100": 43.3,
+  "dur_acc": 0.898,
+  "octave_shift": 0,
+  "piece": "fleebird",
+  "cond": "harsh",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 170,
+  "gt_span": 177,
+  "pitch_f1": 0.945,
+  "edits_per_100": 8.5,
+  "dur_acc": 0.671,
+  "octave_shift": -12,
+  "piece": "guitar-skole-no-22",
+  "cond": "clean",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 169,
+  "gt_span": 177,
+  "pitch_f1": 0.971,
+  "edits_per_100": 5.6,
+  "dur_acc": 0.881,
+  "octave_shift": -12,
+  "piece": "guitar-skole-no-22",
+  "cond": "clean",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 171,
+  "gt_span": 177,
+  "pitch_f1": 0.805,
+  "edits_per_100": 22.6,
+  "dur_acc": 0.786,
+  "octave_shift": -12,
+  "piece": "guitar-skole-no-22",
+  "cond": "mild",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 169,
+  "gt_span": 177,
+  "pitch_f1": 0.971,
+  "edits_per_100": 5.6,
+  "dur_acc": 0.893,
+  "octave_shift": -12,
+  "piece": "guitar-skole-no-22",
+  "cond": "mild",
+  "engine": "homr"
+ },
+ {
+  "error": "no notes",
+  "piece": "guitar-skole-no-22",
+  "cond": "harsh",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 170,
+  "gt_span": 177,
+  "pitch_f1": 0.963,
+  "edits_per_100": 6.8,
+  "dur_acc": 0.922,
+  "octave_shift": -12,
+  "piece": "guitar-skole-no-22",
+  "cond": "harsh",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 196,
+  "gt_span": 195,
+  "pitch_f1": 0.537,
+  "edits_per_100": 47.7,
+  "dur_acc": 0.21,
+  "octave_shift": 0,
+  "piece": "moonlight",
+  "cond": "clean",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 200,
+  "gt_span": 199,
+  "pitch_f1": 0.992,
+  "edits_per_100": 1.0,
+  "dur_acc": 0.293,
+  "octave_shift": 0,
+  "piece": "moonlight",
+  "cond": "clean",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 193,
+  "gt_span": 195,
+  "pitch_f1": 0.696,
+  "edits_per_100": 32.3,
+  "dur_acc": 0.163,
+  "octave_shift": 0,
+  "piece": "moonlight",
+  "cond": "mild",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 200,
+  "gt_span": 199,
+  "pitch_f1": 0.997,
+  "edits_per_100": 0.5,
+  "dur_acc": 0.307,
+  "octave_shift": 0,
+  "piece": "moonlight",
+  "cond": "mild",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 155,
+  "gt_span": 65,
+  "pitch_f1": 0.173,
+  "edits_per_100": 209.2,
+  "dur_acc": 0.053,
+  "octave_shift": 12,
+  "piece": "moonlight",
+  "cond": "harsh",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 202,
+  "gt_span": 199,
+  "pitch_f1": 0.978,
+  "edits_per_100": 3.0,
+  "dur_acc": 0.281,
+  "octave_shift": 0,
+  "piece": "moonlight",
+  "cond": "harsh",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 277,
+  "gt_span": 277,
+  "pitch_f1": 0.964,
+  "edits_per_100": 4.3,
+  "dur_acc": 0.843,
+  "octave_shift": 0,
+  "piece": "schumann-op68-03-chanson-fredonnee",
+  "cond": "clean",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 277,
+  "gt_span": 277,
+  "pitch_f1": 0.964,
+  "edits_per_100": 3.6,
+  "dur_acc": 1.0,
+  "octave_shift": 0,
+  "piece": "schumann-op68-03-chanson-fredonnee",
+  "cond": "clean",
+  "engine": "homr"
+ },
+ {
+  "pred_notes": 283,
+  "gt_span": 277,
+  "pitch_f1": 0.936,
+  "edits_per_100": 7.6,
+  "dur_acc": 0.924,
+  "octave_shift": 0,
+  "piece": "schumann-op68-03-chanson-fredonnee",
+  "cond": "mild",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 277,
+  "gt_span": 277,
+  "pitch_f1": 0.986,
+  "edits_per_100": 1.4,
+  "dur_acc": 0.993,
+  "octave_shift": 0,
+  "piece": "schumann-op68-03-chanson-fredonnee",
+  "cond": "mild",
+  "engine": "homr"
+ },
+ {
+  "error": "no output",
+  "piece": "schumann-op68-03-chanson-fredonnee",
+  "cond": "harsh",
+  "engine": "oemer"
+ },
+ {
+  "pred_notes": 278,
+  "gt_span": 277,
+  "pitch_f1": 0.969,
+  "edits_per_100": 3.2,
+  "dur_acc": 0.978,
+  "octave_shift": 0,
+  "piece": "schumann-op68-03-chanson-fredonnee",
+  "cond": "harsh",
+  "engine": "homr"
+ }
+]
