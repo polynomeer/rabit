@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
+import { createServer, type Server, type Socket } from 'node:net';
 import { afterAll, describe, expect, it } from 'vitest';
 import { ulid } from '../../src/platform/ids.js';
 import { BUCKETS } from '../../src/platform/storage/blob-store.js';
+import { S3BlobStore } from '../../src/platform/storage/s3-blob-store.js';
 import { testContext } from '../helpers/context.js';
 
 const ctx = testContext();
@@ -82,5 +84,48 @@ describe('S3 blob store', () => {
   it('returns null for missing objects', async () => {
     expect(await ctx.blobs.head(BUCKETS.quarantine, `missing/${ulid()}`)).toBeNull();
     expect(await ctx.blobs.getStream(BUCKETS.quarantine, `missing/${ulid()}`)).toBeNull();
+  });
+});
+
+describe('S3 blob store timeouts', () => {
+  // A storage endpoint that accepts connections but never answers, like the
+  // SeaweedFS state that left processing jobs hanging for their whole lease.
+  let server: Server;
+  let endpoint: string;
+  const sockets: Socket[] = [];
+  afterAll(async () => {
+    for (const s of sockets) s.destroy();
+    await new Promise<void>((resolve) =>
+      server.close(() => {
+        resolve();
+      }),
+    );
+  });
+
+  it('fails an unanswered storage request instead of waiting forever', async () => {
+    server = createServer((socket) => {
+      sockets.push(socket); // read nothing, answer nothing
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', () => {
+        resolve();
+      }),
+    );
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('no address');
+    endpoint = `http://127.0.0.1:${String(address.port)}`;
+    const store = new S3BlobStore(
+      { ...ctx.config.s3, endpoint, publicEndpoint: endpoint },
+      { connectionTimeoutMs: 500, idleTimeoutMs: 500, maxAttempts: 1 },
+    );
+    const started = Date.now();
+    await expect(
+      store.copy(
+        { bucket: BUCKETS.quarantine, key: 'a' },
+        { bucket: BUCKETS.privateOriginals, key: 'b' },
+      ),
+    ).rejects.toThrow();
+    await expect(store.head(BUCKETS.quarantine, 'a')).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(5_000);
   });
 });

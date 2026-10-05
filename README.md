@@ -69,6 +69,11 @@ Local authentication uses the **development issuer** (ADR-0009), enabled only wh
 curl -s -X POST localhost:8080/dev/token -H 'content-type: application/json' -d '{"subject":"alice"}'
 ```
 
+## Troubleshooting (local)
+
+- **Uploads stay "처리 중" / processing jobs time out:** if Docker ran out of memory, SeaweedFS may have been OOM-killed. It can come back with server-side copies hanging (`FILER LOCK ... no lock server found` in `docker logs rabit-s3-1`). Restart it with `docker compose restart s3`. Storage calls now fail after 30 s of silence instead of hanging, so stuck jobs retry and then reach the DLQ.
+- **E2E ports in use:** set `E2E_API_PORT`, `E2E_MEDIA_PORT`, `E2E_WEB_PORT`, `E2E_METRICS_PORT`.
+
 ## Quality gates
 
 | Command | What it checks |

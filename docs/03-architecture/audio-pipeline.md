@@ -38,6 +38,7 @@ Fingerprinting is a no-op step reserved for ADR-0019.
 
 - Job `audio.process` dedupe key: `audio.process:<audio_source_id>`. A retry re-runs from the start. Object keys are deterministic per source: `<storage_prefix>/original`, `<storage_prefix>/hls/…`, `<storage_prefix>/waveform.json`, where `storage_prefix = <asr id>/<random>` is chosen once when the source is created. Retries overwrite instead of duplicating, and asset rows are upserted on `(audio_source_id, kind)`.
 - Retry policy: max 5 attempts, exponential backoff (2^n × 5 s, jitter). Validation failures (`UNSUPPORTED_MEDIA`, `CORRUPT_MEDIA`, `DURATION_EXCEEDED`, `CHECKSUM_MISMATCH`) are **permanent**: no retry; source `failed`, quota reservation released, quarantine object deleted.
+- Storage calls fail instead of hanging: 5 s to connect, 30 s of silence on a connection (an idle limit, so long transfers are not cut off), 3 SDK attempts. Before this, a storage endpoint that accepted connections but never answered held a processing job for its whole 30-minute lease.
 - Transient failures (storage/network/timeouts) retry; after the last attempt the job is `dead` (DLQ), source `failed` with `PROCESSING_FAILED`, operator can retry via ops API (which resets source to `processing`).
 - If deletion was requested while processing: every write step checks the tombstone; on detection the job deletes anything it wrote and exits successfully; the deletion job also sweeps the source prefix (double coverage).
 
