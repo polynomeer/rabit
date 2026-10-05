@@ -12,6 +12,7 @@ export {
   mediaBucket,
   sourceView,
   requestSourceDeletion,
+  markDeleting,
   type SourceRow,
 } from './sources.js';
 export { storageUsage } from './uploads.js';

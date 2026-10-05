@@ -586,6 +586,37 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/Error' }
 
+  /v1/ops/recordings/{recording_id}/audio-removal:
+    parameters: [ { name: recording_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [ops]
+      operationId: opsRemoveCatalogAudio
+      description: >-
+        Final takedown/contract-end step (R10): removes the recording's licensed audio. Refused
+        (409 INVALID_STATE) while any rights grant for the recording is in force or suspended, or
+        when there is no audio. Playback ends immediately; originals and derivatives are deleted
+        asynchronously. Metadata, credits and library/playlist references remain (`no_audio`).
+        Audited with the mandatory reason.
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKeyRequired' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [reason], properties: { reason: { $ref: '#/components/schemas/Reason' } } } } }
+      responses:
+        '202':
+          description: Access ended; audio files are being deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recording_id, audio_source_id, status]
+                properties:
+                  recording_id: { $ref: '#/components/schemas/Id' }
+                  audio_source_id: { $ref: '#/components/schemas/Id' }
+                  status: { type: string, enum: [deleting] }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /v1/ops/rights-grants:
     post:
       tags: [ops]

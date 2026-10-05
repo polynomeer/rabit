@@ -8,6 +8,7 @@ import { resolveRef, resolveRefs, type RefType } from '../src/modules/library/re
 import type { Principal } from '../src/platform/http/principal.js';
 import { newId, type Id } from '../src/platform/ids.js';
 import { enqueue } from '../src/platform/jobs/queue.js';
+import { BUCKETS } from '../src/platform/storage/blob-store.js';
 import { fixtures } from './helpers/audio-fixtures.js';
 import { countQueries } from './helpers/query-count.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
@@ -160,6 +161,121 @@ describe('release detail cost (review #6 follow-up)', () => {
     expect(
       rel.tracks.map((t: { playability: { reason: string | null } }) => t.playability.reason),
     ).toEqual([null, null, null, 'no_audio']);
+  });
+});
+
+describe('catalog audio removal (R10)', () => {
+  let own: Awaited<ReturnType<typeof seedCatalog>>;
+  beforeAll(async () => {
+    own = await seedCatalog(h); // removed audio must not affect the shared fixture
+  });
+
+  const remove = (
+    recordingId: string,
+    key: string,
+    headers = ops.op.headers,
+    reason = 'contract ended',
+  ) =>
+    h.api.inject({
+      method: 'POST',
+      url: `/v1/ops/recordings/${recordingId}/audio-removal`,
+      headers: { ...headers, 'idempotency-key': key },
+      payload: { reason },
+    });
+
+  async function setGrants(recordingId: string, status: 'suspended' | 'revoked') {
+    const grants = await h.ctx.db
+      .selectFrom('rights_grant')
+      .select(['id', 'version'])
+      .where('recording_id', '=', recordingId)
+      .execute();
+    for (const g of grants) {
+      const r = await h.api.inject({
+        method: 'POST',
+        url: `/v1/ops/rights-grants/${g.id}/status`,
+        headers: { ...ops.op.headers, 'if-match': `"${String(g.version)}"` },
+        payload: { status, reason: 'takedown decision' },
+      });
+      expect(r.statusCode).toBe(200);
+    }
+  }
+
+  it('is an operator action, and refused while a grant is in force or suspended', async () => {
+    const rec = own.ids['r1']!;
+    const user = await listener();
+    expect((await remove(rec, `rm-user-${rec}`, user.headers)).statusCode).toBe(403);
+    expect((await remove(rec, `rm-noreason-${rec}`, ops.op.headers, '')).statusCode).toBe(400);
+    const active = await remove(rec, `rm-active-${rec}`);
+    expect(active.statusCode).toBe(409);
+    expect(active.json().error.code).toBe('INVALID_STATE');
+    await setGrants(rec, 'suspended');
+    expect((await remove(rec, `rm-suspended-${rec}`)).statusCode).toBe(409);
+  });
+
+  it('blocks playback at once, then deletes the audio files and keeps the metadata', async () => {
+    const rec = own.ids['r2']!;
+    const sourceId = own.sources['r2']!;
+    const u = await listener({ country: 'KR', subscribe: true });
+    const session = (await playRecording(u, rec)).json();
+    expect(session.session_id).toBeTruthy();
+    const { storage_prefix: prefix } = await h.ctx.db
+      .selectFrom('audio_source')
+      .select('storage_prefix')
+      .where('id', '=', sourceId)
+      .executeTakeFirstOrThrow();
+    expect(
+      (await h.ctx.blobs.listPrefix(BUCKETS.catalogMedia, `${prefix}/`)).length,
+    ).toBeGreaterThan(0);
+
+    await setGrants(rec, 'revoked');
+    const removed = await remove(rec, `rm-${rec}`);
+    expect(removed.statusCode).toBe(202);
+    expect(removed.json()).toEqual({
+      recording_id: rec,
+      audio_source_id: sourceId,
+      status: 'deleting',
+    });
+
+    // Immediately: the media gateway refuses the open session, playback cannot start,
+    // and the recording reports that it has no audio.
+    expect((await h.media.inject({ url: mediaPath(session.manifest_url) })).statusCode).toBe(403);
+    expect((await playRecording(u, rec)).statusCode).toBe(404);
+    const detail = (
+      await h.api.inject({ url: `/v1/recordings/${rec}`, headers: u.headers })
+    ).json();
+    expect(detail.playability).toEqual({ playable: false, reason: 'no_audio' });
+    expect(detail.title).toBeTruthy();
+
+    // Same key replays the answer; a new request finds nothing left to remove.
+    expect((await remove(rec, `rm-${rec}`)).statusCode).toBe(202);
+    expect((await remove(rec, `rm-again-${rec}`)).statusCode).toBe(409);
+
+    await h.worker.drain();
+    expect(await h.ctx.blobs.listPrefix(BUCKETS.catalogMedia, `${prefix}/`)).toEqual([]);
+    expect(await h.ctx.blobs.listPrefix(BUCKETS.catalogOriginals, `${prefix}/`)).toEqual([]);
+    const src = await h.ctx.db
+      .selectFrom('audio_source')
+      .select('status')
+      .where('id', '=', sourceId)
+      .executeTakeFirstOrThrow();
+    expect(src.status).toBe('deleted');
+    const log = await h.ctx.db
+      .selectFrom('audit_log')
+      .select(['actor_id', 'reason'])
+      .where('subject_id', '=', rec)
+      .where('action', '=', 'recording.audio_removed')
+      .executeTakeFirstOrThrow();
+    expect(log).toEqual({ actor_id: ops.op.userId, reason: 'contract ended' });
+  });
+
+  it('allows removal once every grant has reached its end date (contract ended)', async () => {
+    const rec = own.ids['r3']!;
+    await h.ctx.db
+      .updateTable('rights_grant')
+      .set({ valid_to: new Date(Date.now() - 1000) })
+      .where('recording_id', '=', rec)
+      .execute();
+    expect((await remove(rec, `rm-ended-${rec}`)).statusCode).toBe(202);
   });
 });
 

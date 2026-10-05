@@ -19,6 +19,7 @@ import {
 import { ANY_ID_PATTERN } from '../../platform/ids.js';
 import { errors } from '../../platform/errors.js';
 import { entitySummary, getRecording, getRelease } from './entities.js';
+import { removeCatalogAudio } from './removal.js';
 import { changeGrantStatus, createGrant } from './rights.js';
 
 export interface Playability {
@@ -72,6 +73,27 @@ export const catalogRoutes =
         .safeParse(req.params);
       if (!params.success) throw errors.notFound();
       return entitySummary(ctx.db, params.data.entity_id);
+    });
+
+    app.post('/v1/ops/recordings/:recording_id/audio-removal', async (req, reply) => {
+      const op = requireOperator(req.principal);
+      const { recording_id } = parse(z.object({ recording_id: idOf('recording') }), req.params);
+      const body = parse(z.strictObject({ reason }), req.body);
+      const key = idempotencyKeyFrom(req.headers, true);
+      const r = await withIdempotency(
+        ctx.db,
+        {
+          userId: op.userId,
+          operation: 'ops.recording.audio_removal',
+          key,
+          request: { recording_id, ...body },
+        },
+        async () => ({
+          status: 202,
+          body: await removeCatalogAudio(ctx.db, op, recording_id, body.reason, req.id),
+        }),
+      );
+      return reply.status(r.status).send(r.body);
     });
 
     app.post('/v1/ops/rights-grants', async (req, reply) => {
