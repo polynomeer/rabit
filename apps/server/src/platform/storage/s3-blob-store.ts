@@ -30,12 +30,31 @@ function isMissing(err: unknown): boolean {
   return e.name === 'NotFound' || e.name === 'NoSuchKey' || e.$metadata?.httpStatusCode === 404;
 }
 
+/**
+ * Network limits for storage calls. Without them a storage endpoint that accepts a
+ * connection but never answers holds the caller until its job lease or the client
+ * gives up — 30 minutes for audio processing. `idleTimeoutMs` bounds silence on a
+ * socket, not the total time, so large transfers are not cut off; a failed call
+ * follows the normal retry/DLQ path of its job.
+ */
+export interface StorageNetworkOptions {
+  connectionTimeoutMs: number;
+  idleTimeoutMs: number;
+  maxAttempts: number;
+}
+
+const DEFAULT_NETWORK: StorageNetworkOptions = {
+  connectionTimeoutMs: 5_000,
+  idleTimeoutMs: 30_000,
+  maxAttempts: 3,
+};
+
 export class S3BlobStore implements BlobStore {
   private readonly client: S3Client;
   /** Separate client for presigning with the endpoint that clients can reach. */
   private readonly publicClient: S3Client;
 
-  constructor(cfg: Config['s3']) {
+  constructor(cfg: Config['s3'], network: StorageNetworkOptions = DEFAULT_NETWORK) {
     const base = {
       region: cfg.region,
       credentials: { accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey },
@@ -44,6 +63,11 @@ export class S3BlobStore implements BlobStore {
       // carry an explicit SHA-256 that the client must match.
       requestChecksumCalculation: 'WHEN_REQUIRED' as const,
       responseChecksumValidation: 'WHEN_REQUIRED' as const,
+      maxAttempts: network.maxAttempts,
+      requestHandler: {
+        connectionTimeout: network.connectionTimeoutMs,
+        socketTimeout: network.idleTimeoutMs,
+      },
     };
     this.client = new S3Client({ ...base, ...(cfg.endpoint ? { endpoint: cfg.endpoint } : {}) });
     this.publicClient = new S3Client({
