@@ -318,3 +318,31 @@ form[aria-label='신고'] label {
   display: block;
   margin: 8px 0;
 }
+
+/* Archive: Audio Log details. */
+.log-meta {
+  margin: 2px 0 0;
+}
+.log-note {
+  overflow-wrap: anywhere;
+}
+/* An inline editor opens below its list item, across the full width. */
+.list li > form {
+  flex-basis: 100%;
+}
+form[aria-label='Audio Log 편집'] label {
+  display: block;
+  margin: 8px 0;
+}
+/* Player waveform (private audio). */
+.player .waveform {
+  flex: 1 1 160px;
+  min-width: 120px;
+  height: 40px;
+}
+.player .waveform rect {
+  fill: var(--line);
+}
+.player .waveform rect.played {
+  fill: var(--accent);
+}

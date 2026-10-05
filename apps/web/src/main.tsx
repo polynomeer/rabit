@@ -5,7 +5,8 @@ import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { Dig } from './dig';
 import { PlayerProvider } from './player';
 import { digHref, navigate, tabHref, TABS, useRoute } from './route';
-import { Account, Archive, Playlists, Search } from './views';
+import { Archive } from './archive';
+import { Account, Playlists, Search } from './views';
 import './styles.css';
 
 function SignIn({ onDone }: { onDone: () => void }) {
