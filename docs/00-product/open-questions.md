@@ -9,7 +9,7 @@
 
 | ID | 질문 | 담당 역할 | 필요 시점 | 막는 요구사항 | 상태 |
 |---|---|---|---|---|---|
-| Q01 | 첫 국가·법인·언어·미성년자 정책은? | 제품·법무 | M0 설계, M1 출시 전 | ACC-010, CAT-001, NFR-PRV 전반 | open |
+| Q01 | 첫 국가·법인·언어·미성년자 정책은? | 제품·법무 | M0 설계, M1 출시 전 | ACC-010, CAT-001, NFR-PRV 전반 | 일부 decided — **첫 국가: 한국** (2026-10-05, 소유자 결정, [ADR-0012](../adr/ADR-0012-deployment.md)). 법인·언어·미성년자 정책은 open |
 | Q02 | 확보한 카탈로그와 streaming/download/preview/analysis 권리는? | 권리 | M1 계약 전 | CAT-001, PLY-009, COM-011 | open |
 | Q03 | 무료 용량·길이·프로젝트·분석 예산·초과 유예는? | 제품·재무 | M0 | ACC-004, ACC-006 | open |
 | Q04 | Listen/Studio/Archive 가격·세금·결제·수수료는? | 재무·제품 | M1 결제 전 | COM-008, COM-017 | open |
@@ -21,7 +21,7 @@
 | Q10 | Legends·Decades의 적법한 과거 자료 출처는? | 콘텐츠·권리 | M2 공개 전 | ATL-006, ATL-017 | open |
 | Q11 | CD 리핑·matching·판본·Upgrade 계약 조건은? | 법무·권리 | 해당 기능 전 | COL-005, COL-006 | open |
 | Q12 | MG·선급·무료 비용·GPU·CAC·현금 runway 승인 상한은? | 경영·재무 | 상업 계약 전 | NFR-COST 전반 | open |
-| Q13 | 전사·LLM·국외 이전·데이터 삭제 및 보존 기간은? | 개인정보·기술 | 분석 opt-in 전 | LOG-006, SRC-004, NFR-PRV-008 | open |
+| Q13 | 전사·LLM·국외 이전·데이터 삭제 및 보존 기간은? | 개인정보·기술 | 분석 opt-in 전 | LOG-006, SRC-004, NFR-PRV-008 | open — 저장 위치는 서울 리전으로 결정 (ADR-0012, 국외 이전 없음). 전사·LLM·삭제·보존 기간은 open |
 | Q14 | 상업 음원 DSP·stems·변형·분석을 어디까지 허용? | 권리·오디오 | M3 실험 전 | ADV-001–005, DIG-014 | open |
 | Q15 | Creator commerce에 팬 멤버십·후원·실물·티켓 중 무엇을 포함? | 제품·법무 | M2 범위 확정 | COM-014 | open |
 | Q16 | curator 유료 홍보·팔로우 공개·알림·분쟁 정책은? | 제품·Trust | 해당 기능 전 | DSC-001, TRU-010 | open |

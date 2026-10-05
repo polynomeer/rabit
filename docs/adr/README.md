@@ -16,15 +16,15 @@
 | [0001](ADR-0001-modular-monolith.md) | Modular monolith with separate worker and media gateway | Accepted | ADR-01 |
 | [0002](ADR-0002-backend-language-framework.md) | Backend: TypeScript, Node.js, Fastify | Accepted | — |
 | [0003](ADR-0003-relational-database.md) | PostgreSQL as system of record, Kysely, reversible migrations | Accepted | ADR-18 (part) |
-| [0004](ADR-0004-object-storage.md) | S3-compatible object storage with namespace separation | Accepted (abstraction) / Proposed (provider) | ADR-15 (part) |
+| [0004](ADR-0004-object-storage.md) | S3-compatible object storage with namespace separation | Accepted (provider: Amazon S3 Seoul) | ADR-15 (part) |
 | [0005](ADR-0005-jobs-and-events.md) | Postgres job queue and transactional outbox | Accepted | ADR-18 |
 | [0006](ADR-0006-search-graph-vector.md) | Postgres full-text + trigram search, relational graph, no graph/vector DB | Accepted | ADR-08 |
-| [0007](ADR-0007-transcoding.md) | ffmpeg/ffprobe transcoding in an isolated worker | Accepted (tooling) / Proposed (sandbox infra) | ADR-04 (part) |
-| [0008](ADR-0008-streaming-delivery.md) | HLS delivery via short-lived playback sessions and a media gateway | Accepted (protocol, access model) / Proposed (codec ladder, CDN, DRM) | ADR-04, ADR-05 |
+| [0007](ADR-0007-transcoding.md) | ffmpeg/ffprobe transcoding in an isolated worker | Accepted (tooling, Fargate isolation) | ADR-04 (part) |
+| [0008](ADR-0008-streaming-delivery.md) | HLS delivery via short-lived playback sessions and a media gateway | Accepted (protocol, access model, CloudFront) / Proposed (codec ladder, DRM) | ADR-04, ADR-05 |
 | [0009](ADR-0009-authentication.md) | External OIDC; JWT verification via JWKS | Accepted (approach) / Proposed (provider) | ADR-02 |
 | [0010](ADR-0010-api-style.md) | REST JSON `/v1`, contract-first OpenAPI 3.1 | Accepted | — |
 | [0011](ADR-0011-client-strategy.md) | Web reference client for MVP; native platforms pending Q06 | Accepted (web reference) / Proposed (platforms) | — (Q06) |
-| [0012](ADR-0012-deployment.md) | Containers; cloud provider and IaC pending | Proposed | — |
+| [0012](ADR-0012-deployment.md) | Containers on AWS Seoul, IaC in OpenTofu | Accepted | — |
 | [0013](ADR-0013-observability.md) | Structured logs, correlation IDs, OpenTelemetry, Prometheus metrics | Accepted | — |
 | [0014](ADR-0014-audio-identity-and-dedup.md) | Source-scoped access, no cross-account dedup | Accepted | ADR-03 |
 | [0015](ADR-0015-identifiers.md) | Prefixed opaque IDs and branded types | Accepted | — |
@@ -33,6 +33,7 @@
 | [0018](ADR-0018-payments-and-ledger.md) | Payments, ledger and settlement | Proposed (Commercial Gate) | ADR-06 |
 | [0019](ADR-0019-fingerprinting.md) | Audio fingerprinting and edition identification | Proposed | ADR-10 |
 | [0020](ADR-0020-shared-rate-limits.md) | Rate-limit counters shared in Postgres | Accepted | R13 |
+| [0021](ADR-0021-workspace-key-scope.md) | Per-workspace encryption scope through envelope encryption | Proposed | NFR-SEC-004 |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 
