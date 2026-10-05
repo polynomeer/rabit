@@ -22,6 +22,8 @@
 
 All are within the proposed SLOs (p95 ≤ 500 ms; playback session p95 ≤ 300 ms) at this concurrency.
 
+Media gateway (R16): the script also loads `GET` on the HLS manifest and on one segment through the media role (token check, session check and object read per request). A first run on SeaweedFS (2026-10-05) returned only 2xx under 20 concurrent connections, but the machine was saturated by other workloads (load average ≈ 40 on 10 cores; every API number was 5–7× worse than the table above), so its latencies are **not recorded**. Re-measure all rows, including media, on an idle machine or on staging.
+
 Single-request scaling of playlist reads (median of 10): 10 items 6.9 ms, 50 items 17.6 ms, 100 items 30.2 ms → ~0.3 ms per item, linear.
 
 ## 3. Processing and storage
