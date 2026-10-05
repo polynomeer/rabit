@@ -2,6 +2,8 @@
 
 - Status: Phase 20 (2026-10-04). Operator API requires the operator role with MFA; every action takes a `reason` and is audited. First principle for incidents: **stop new access/processing, preserve evidence, then repair** (AP-12).
 
+Rehearse locally with `pnpm gameday` (after `pnpm build`): it breaks storage, the database and the worker on isolated containers and checks the behaviour described below.
+
 ## api-errors
 1. Check `/readyz` on api instances: `database` or `storage` down?
 2. Database down: writes fail closed (no fallback); new playback sessions are refused — this is intended (NFR-REL-009). Restore DB; no data repair needed for idempotent jobs.
