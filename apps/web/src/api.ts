@@ -17,10 +17,36 @@ export class ApiError extends Error {
 
 let token: string | null = sessionStorage.getItem('rabit.token');
 
+/** Stores the access token; signing out (null) also drops the refresh token. */
 export function setToken(value: string | null): void {
   token = value;
   if (value) sessionStorage.setItem('rabit.token', value);
-  else sessionStorage.removeItem('rabit.token');
+  else {
+    sessionStorage.removeItem('rabit.token');
+    sessionStorage.removeItem(REFRESH_KEY);
+  }
+}
+
+/** Refresh token from the OIDC provider, when it issues one (per tab, like the access token). */
+export const REFRESH_KEY = 'rabit.refresh';
+
+let refresher: (() => Promise<boolean>) | null = null;
+let refreshing: Promise<boolean> | null = null;
+
+/** Installed by the OIDC module: renews the access token, true on success. */
+export function setTokenRefresher(fn: (() => Promise<boolean>) | null): void {
+  refresher = fn;
+}
+
+/** One renewal at a time: concurrent 401s wait for the same attempt. */
+function refreshOnce(): Promise<boolean> {
+  if (!refresher) return Promise.resolve(false);
+  refreshing ??= refresher()
+    .catch(() => false)
+    .finally(() => {
+      refreshing = null;
+    });
+  return refreshing;
 }
 
 /** Window event fired when the API rejects the token (expired or revoked). */
@@ -38,15 +64,19 @@ export async function api<T>(
   body?: unknown,
   headers: Record<string, string> = {},
 ): Promise<{ data: T; etag: string | null }> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...headers,
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
+  const send = () =>
+    fetch(`${API_BASE}${path}`, {
+      method,
+      headers: {
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...headers,
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+  let res = await send();
+  // A 401 is answered before the request is processed, so one retry is safe.
+  if (res.status === 401 && token && (await refreshOnce())) res = await send();
   if (res.status === 401 && token) {
     setToken(null);
     window.dispatchEvent(new Event(SIGNED_OUT));

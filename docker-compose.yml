@@ -69,6 +69,8 @@ services:
       JSON_CONFIG: >-
         {"interactiveLogin":true,"httpServer":"NettyWrapper","tokenCallbacks":[{"issuerId":"rabit","tokenExpiry":3600,
         "requestMappings":[{"requestParam":"grant_type","match":"authorization_code",
+        "claims":{"aud":["rabit-api","rabit-web"],"azp":"rabit-web","email_verified":true}},
+        {"requestParam":"grant_type","match":"refresh_token",
         "claims":{"aud":["rabit-api","rabit-web"],"azp":"rabit-web","email_verified":true}}]}]}
 
 volumes:

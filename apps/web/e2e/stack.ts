@@ -89,17 +89,15 @@ const OIDC_CONFIG = JSON.stringify({
     {
       issuerId: 'rabit',
       tokenExpiry: 3600,
-      requestMappings: [
-        {
-          requestParam: 'grant_type',
-          match: 'authorization_code',
-          claims: {
-            aud: ['rabit-api', E2E.oidcClientId],
-            azp: E2E.oidcClientId,
-            email_verified: true,
-          },
+      requestMappings: ['authorization_code', 'refresh_token'].map((grant) => ({
+        requestParam: 'grant_type',
+        match: grant,
+        claims: {
+          aud: ['rabit-api', E2E.oidcClientId],
+          azp: E2E.oidcClientId,
+          email_verified: true,
         },
-      ],
+      })),
     },
   ],
 });

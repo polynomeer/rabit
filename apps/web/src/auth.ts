@@ -9,7 +9,7 @@
  * audience parameter). Without them the app shows the development sign-in.
  */
 import * as oauth from 'oauth4webapi';
-import { setToken } from './api';
+import { REFRESH_KEY, setToken, setTokenRefresher } from './api';
 
 const env = import.meta.env as Record<string, string | undefined>;
 const issuer = env['VITE_OIDC_ISSUER'];
@@ -113,5 +113,33 @@ export async function completeSignIn(): Promise<boolean> {
     requireIdToken: true,
   });
   setToken(result.access_token);
+  storeRefreshToken(result.refresh_token);
   return true;
 }
+
+function storeRefreshToken(value: string | undefined): void {
+  if (value) sessionStorage.setItem(REFRESH_KEY, value);
+}
+
+/**
+ * Renews the access token with the refresh token, if the provider issued one.
+ * Providers that rotate refresh tokens return a new one, which replaces the old.
+ */
+async function refreshSession(): Promise<boolean> {
+  const refreshToken = sessionStorage.getItem(REFRESH_KEY);
+  if (!oidcEnabled || !refreshToken) return false;
+  const as = await authorizationServer();
+  const res = await oauth.refreshTokenGrantRequest(
+    as,
+    client(),
+    oauth.None(),
+    refreshToken,
+    httpOptions(issuerUrl()),
+  );
+  const result = await oauth.processRefreshTokenResponse(as, client(), res);
+  setToken(result.access_token);
+  storeRefreshToken(result.refresh_token);
+  return true;
+}
+
+if (oidcEnabled) setTokenRefresher(refreshSession);
