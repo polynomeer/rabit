@@ -37,7 +37,7 @@
   "devDependencies": {
     "@aws-sdk/client-kms": "^3.1146.0",
     "@types/autocannon": "^7.12.7",
-    "@types/node": "^24.19.1",
+    "@types/node": "^26.6.4",
     "@types/pg": "^8.23.1",
     "@types/yazl": "^3.3.1",
     "ajv": "^8.20.0",
