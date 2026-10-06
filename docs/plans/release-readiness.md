@@ -10,7 +10,7 @@
 
 | Target | Verdict |
 |---|---|
-| A. Internal alpha | **Not yet release-ready.** Code-level gates pass (141 tests, lint, typecheck, contract, audit), but hosting, backup/restore drill and the Phase 24 findings must be closed first (see A-blockers). |
+| A. Internal alpha | **Not yet release-ready.** Code-level gates pass (141 tests, lint, typecheck, contract, audit), but hosting, backup/restore drill and the Phase 24 findings must be closed first (see A-blockers). **Update 2026-10-07:** engineering for the alpha is complete and verified without an AWS account. Phase 24 findings are closed; hosting is decided (AWS Seoul) and written as tested infrastructure code. CI covers 202 server tests, 22 browser scenarios, mocked-provider `tofu test`, LocalStack SSE-KMS, promtool, and an image smoke test under production restrictions. What remains needs owner actions ([owner-actions](owner-actions.md) §1–2): AWS account, domain, login provider, then the first apply and deploy, the hosted restore drill and game day, and alert recipients. |
 | B. External launch | **Not release-ready.** Blocked by human decisions (catalog contracts, legal review, payments, privacy notice, retention, staffing) in addition to everything in A. |
 
 ## Findings
