@@ -61,3 +61,10 @@ jobs:
           pnpm --filter @rabit/web build
           aws s3 sync apps/web/dist "s3://${{ vars.WEB_BUCKET }}" --delete
           aws cloudfront create-invalidation --distribution-id "${{ vars.WEB_DISTRIBUTION_ID }}" --paths '/*'
+      - name: Post-deploy checks
+        env:
+          API_URL: ${{ vars.API_BASE_URL }}
+          APP_URL: ${{ vars.APP_URL }}
+          MEDIA_URL: ${{ vars.MEDIA_URL }}
+          MEDIA_ORIGIN_URL: ${{ vars.MEDIA_ORIGIN_URL }}
+        run: infra/aws/scripts/smoke.sh
