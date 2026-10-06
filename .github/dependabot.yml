@@ -10,3 +10,7 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+  # OpenTofu providers (infra/aws/.terraform.lock.hcl); CI re-runs tofu init/validate/test.
+  - package-ecosystem: terraform
+    directory: /infra/aws
+    schedule: { interval: weekly }
