@@ -59,9 +59,17 @@ The services start with zero tasks because no image exists yet. Then:
    - `AWS_REGION` (`ap-northeast-2`), `AWS_DEPLOY_ROLE_ARN`, `ECR_REPOSITORY_URL`;
    - `OPS_SUBNETS` (comma-separated), `OPS_SECURITY_GROUP`;
    - `WEB_BUCKET`, `WEB_DISTRIBUTION_ID`, `API_BASE_URL` (`https://api.<domain>`);
-   - `OIDC_ISSUER`, `OIDC_CLIENT_ID` and, if the provider needs it, `OIDC_AUDIENCE` (the web client's sign-in, ADR-0009).
+   - `OIDC_ISSUER`, `OIDC_CLIENT_ID` and, if the provider needs it, `OIDC_AUDIENCE` (the web client's sign-in, ADR-0009);
+   - `APP_URL`, `MEDIA_URL`, `MEDIA_ORIGIN_URL` (`https://app.`, `https://media.`, `https://media-origin.` under the domain) for the post-deploy checks.
 2. Run the **deploy** workflow for `staging`. It builds the ARM64 image, runs migrations as the `ops` task, rolls out the services and publishes the web client.
 3. Apply again without the zero counts: `tofu apply -var-file=environments/staging.tfvars`.
+
+The workflow ends with `scripts/smoke.sh`, which checks the public addresses:
+- the api is ready and requires a token, and no development issuer is reachable (T03);
+- the web client sends the CSP, HSTS and frame denial;
+- media works through CloudFront, and the media origin refuses requests that bypass it.
+
+The same script runs in the E2E suite against production-like instances.
 
 Later deploys only run the workflow. OpenTofu ignores the services' task definition revisions, so infrastructure changes and code deploys do not fight.
 
