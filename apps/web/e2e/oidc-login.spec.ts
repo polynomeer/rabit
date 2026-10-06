@@ -32,12 +32,31 @@ test('signs in through the provider and returns to the requested screen', async 
   await page.reload();
   await expect(page.getByRole('navigation', { name: '주 메뉴' })).toBeVisible();
 
-  // A token the API no longer accepts signs the user out instead of failing every call.
+  // An access token the API no longer accepts is renewed with the refresh token.
+  expect(await page.evaluate(() => sessionStorage.getItem('rabit.refresh'))).toBeTruthy();
   await page.evaluate(() => {
     sessionStorage.setItem('rabit.token', 'expired.or.revoked');
   });
+  const refreshed = page.waitForResponse(
+    (r) =>
+      r.url().endsWith('/token') &&
+      r.request().postData()?.includes('grant_type=refresh_token') === true,
+  );
+  await page.reload();
+  expect((await refreshed).status()).toBe(200);
+  await expect(page.getByRole('navigation', { name: '주 메뉴' })).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem('rabit.token'))).not.toBe(
+    'expired.or.revoked',
+  );
+
+  // Without a usable refresh token the user is signed out instead of failing every call.
+  await page.evaluate(() => {
+    sessionStorage.setItem('rabit.token', 'expired.or.revoked');
+    sessionStorage.setItem('rabit.refresh', 'revoked');
+  });
   await page.reload();
   await expect(page.getByRole('button', { name: '로그인' })).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem('rabit.refresh'))).toBeNull();
 });
 
 test('the operator console needs the role and MFA from the provider', async ({ page }) => {
