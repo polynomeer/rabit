@@ -16,7 +16,7 @@ expect() {
   shift 2
   if "$@"; then echo "PASS  $name $detail"; else echo "FAIL  $name $detail"; FAILED=1; fi
 }
-# shellcheck disable=SC2329 # called through expect
+# shellcheck disable=SC2317,SC2329 # called through expect
 contains() { case "$1" in *"$2"*) return 0 ;; *) return 1 ;; esac; }
 code() { curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$@"; }
 header() { # header <url> <name>: the header's value, lowercase name match
