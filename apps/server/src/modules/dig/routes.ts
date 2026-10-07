@@ -28,6 +28,7 @@ import {
   updateSession,
   type DigDeps,
 } from './service.js';
+import { labelTimeline } from './labels.js';
 
 const axis = z.enum(Object.keys(AXIS_GROUP) as [DigAxis, ...DigAxis[]]);
 const entityParams = z.object({ entity_id: z.string().regex(ANY_ID_PATTERN) });
@@ -61,6 +62,13 @@ export const digRoutes =
         req.query,
       );
       return explore(ctx, deps, principal, p.data.entity_id, q);
+    });
+
+    app.get('/v1/dig/labels/:label_id/timeline', async (req) => {
+      requirePrincipal(req.principal);
+      const p = z.object({ label_id: idOf('label') }).safeParse(req.params);
+      if (!p.success) throw errors.notFound();
+      return labelTimeline(ctx.db, deps, p.data.label_id);
     });
 
     app.get('/v1/dig-sessions', async (req) => {

@@ -495,6 +495,18 @@ paths:
       responses:
         '200': { description: Available exploration axes with counts, content: { application/json: { schema: { $ref: '#/components/schemas/DigAxes' } } } }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/dig/labels/{label_id}/timeline:
+    parameters: [ { name: label_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [dig]
+      operationId: getLabelTimeline
+      description: >-
+        Label Digging, basic (DIG-011): the label's releases grouped by release year (undated last)
+        and each artist's span on the label. Up to 1000 releases (`truncated` when more). Entities
+        excluded by a reviewed integrity decision are omitted.
+      responses:
+        '200': { description: Timeline, content: { application/json: { schema: { $ref: '#/components/schemas/LabelTimeline' } } } }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/dig/entities/{entity_id}/connections:
     parameters: [ { $ref: '#/components/parameters/EntityId' } ]
     get:
@@ -1563,6 +1575,40 @@ components:
               properties:
                 code: { type: string }
                 params: { type: object, additionalProperties: { type: string } }
+    LabelTimeline:
+      type: object
+      required: [label, years, artists, truncated]
+      properties:
+        label: { $ref: '#/components/schemas/EntitySummary' }
+        years:
+          type: array
+          items:
+            type: object
+            required: [year, releases]
+            properties:
+              year: { type: [integer, 'null'], description: 'null for undated releases' }
+              releases:
+                type: array
+                items:
+                  type: object
+                  required: [release_id, title, release_type, release_date, artists]
+                  properties:
+                    release_id: { $ref: '#/components/schemas/Id' }
+                    title: { type: string }
+                    release_type: { type: string, enum: [album, single, ep, compilation] }
+                    release_date: { type: [string, 'null'], format: date }
+                    artists: { type: array, items: { $ref: '#/components/schemas/EntitySummary' } }
+        artists:
+          type: array
+          items:
+            type: object
+            required: [artist, first_year, last_year, releases]
+            properties:
+              artist: { $ref: '#/components/schemas/EntitySummary' }
+              first_year: { type: [integer, 'null'] }
+              last_year: { type: [integer, 'null'] }
+              releases: { type: integer }
+        truncated: { type: boolean }
     DigAxes:
       type: object
       required: [entity, axes]

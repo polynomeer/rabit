@@ -66,3 +66,14 @@ Thresholds are proposals; they are versioned in `policy_version` and revisited w
 ## 6. Open items
 
 OQ-DIG-01 (graph storage — relational tables chosen, ADR-0006), OQ-DIG-06 (supplier data licensing for credits/samples — Legal), OQ-DIG-07 (public trails), OQ-DIG-08 (Dig Session Summary stage: summary fields implemented in the session view; persisted Archive summary P1).
+
+## Label Digging, basic (DIG-011, V1)
+
+`GET /v1/dig/labels/{label_id}/timeline` lays a label's releases on a time axis:
+- releases are grouped by year, with undated releases last;
+- each artist gets a span on the label: first and last year, and number of releases.
+
+It uses only stored catalog data (`release.label_id`, `release_date`, `release_artist`), returns up to 1000 releases (`truncated` beyond that), and hides entities excluded by a reviewed integrity decision, as every DIG read does. The web client shows it on label pages.
+
+Not included, for lack of data: genre change over time, sub-labels, scenes (DIG-012, OQ-DIG-04).
+

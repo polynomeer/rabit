@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get, type Connection, type EntitySummary, type Playability } from './api';
 import { AddToCollection } from './collection';
+import { LabelTimelineView } from './labels';
 import { AXIS_TEXT, EvidenceLine, roleText } from './dig';
 import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
@@ -553,6 +554,7 @@ export function EntityDetail({ id }: { id: string }) {
               {t('details.entity.startDig')}
             </a>
           </div>
+          {e.entity_type === 'label' ? <LabelTimelineView labelId={e.entity_id} /> : null}
           <div className="axes" role="tablist" aria-label={t('details.entity.axes')}>
             {axes.map((a) => (
               <button
