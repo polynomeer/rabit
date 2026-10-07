@@ -29,6 +29,8 @@ export const ID_PREFIX = {
   export: 'exp',
   digSession: 'dgs',
   digNode: 'dgn',
+  blindDig: 'bld',
+  blindDigItem: 'bli',
   provenanceClaim: 'prc',
   integritySignal: 'isg',
   report: 'rpt',

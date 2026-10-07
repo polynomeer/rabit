@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../app/context.js';
 import { errors } from '../../platform/errors.js';
+import { routeLimit } from '../../platform/http/app.js';
 import { withIdempotency } from '../../platform/http/idempotency.js';
 import { requirePrincipal } from '../../platform/http/principal.js';
 import {
@@ -29,6 +30,7 @@ import {
   type DigDeps,
 } from './service.js';
 import { labelTimeline } from './labels.js';
+import { decideBlindItem, getBlindDig, startBlindDig } from './blind.js';
 
 const axis = z.enum(Object.keys(AXIS_GROUP) as [DigAxis, ...DigAxis[]]);
 const entityParams = z.object({ entity_id: z.string().regex(ANY_ID_PATTERN) });
@@ -69,6 +71,35 @@ export const digRoutes =
       const p = z.object({ label_id: idOf('label') }).safeParse(req.params);
       if (!p.success) throw errors.notFound();
       return labelTimeline(ctx.db, deps, p.data.label_id);
+    });
+
+    const blindParams = z.object({ blind_dig_id: idOf('blindDig') });
+    app.post('/v1/blind-digs', routeLimit(60, '1 hour'), async (req, reply) => {
+      const p = requirePrincipal(req.principal);
+      const body = parse(
+        z.strictObject({
+          start_entity_id: z.string().regex(ANY_ID_PATTERN).optional(),
+          popularity: z.enum(['any', 'below_top_50', 'deep_cuts', 'obscure']).default('any'),
+        }),
+        req.body ?? {},
+      );
+      return reply.status(201).send(await startBlindDig(ctx, deps, p, body));
+    });
+
+    app.get('/v1/blind-digs/:blind_dig_id', async (req) => {
+      const p = requirePrincipal(req.principal);
+      const { blind_dig_id } = parse(blindParams, req.params);
+      return getBlindDig(ctx.db, p, blind_dig_id);
+    });
+
+    app.post('/v1/blind-digs/:blind_dig_id/items/:item_id/decision', async (req) => {
+      const p = requirePrincipal(req.principal);
+      const { blind_dig_id, item_id } = parse(
+        blindParams.extend({ item_id: idOf('blindDigItem') }),
+        req.params,
+      );
+      const { decision } = parse(z.strictObject({ decision: z.enum(['keep', 'pass']) }), req.body);
+      return decideBlindItem(ctx, deps, p, blind_dig_id, item_id, decision);
     });
 
     app.get('/v1/dig-sessions', async (req) => {

@@ -8,6 +8,7 @@ import {
   type Evidence,
 } from './api';
 import { formatDate, t, tCode, type MessageKey } from './i18n';
+import { BlindDigPanel } from './blind';
 import { usePlayer } from './player';
 import { digSessionHref, entityHref, replaceRoute, tabHref } from './route';
 import { Status } from './views';
@@ -38,7 +39,7 @@ const GROUP_TEXT: Record<string, MessageKey> = {
   sound: 'dig.group.sound',
   place: 'dig.group.place',
 };
-const POPULARITY = [
+export const POPULARITY = [
   ['any', 'dig.popularity.any'],
   ['below_top_50', 'dig.popularity.below_top_50'],
   ['deep_cuts', 'dig.popularity.deep_cuts'],
@@ -535,6 +536,7 @@ export function DigHome() {
     <section aria-labelledby="dig-home-h">
       <h2 id="dig-home-h">DIG</h2>
       <p className="muted">{t('dig.home.hint')}</p>
+      <BlindDigPanel />
       <label>
         <input
           type="checkbox"

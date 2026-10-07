@@ -551,6 +551,24 @@ export interface PhysicalItemTable {
   updated_at: UpdatedAt;
 }
 
+/** Blind Digging (DIG-010): recordings heard without metadata, revealed after a decision. */
+export interface BlindDigTable {
+  id: string;
+  user_id: string;
+  start_entity_id: string | null;
+  popularity: 'any' | 'below_top_50' | 'deep_cuts' | 'obscure';
+  created_at: CreatedAt;
+}
+
+export interface BlindDigItemTable {
+  id: string;
+  blind_dig_id: string;
+  recording_id: string;
+  position: number;
+  decision: 'keep' | 'pass' | null;
+  decided_at: Date | null;
+}
+
 export interface Database {
   rate_limit_counter: RateLimitCounterTable;
   provenance_claim: ProvenanceClaimTable;
@@ -574,6 +592,8 @@ export interface Database {
   entitlement: EntitlementTable;
   library_item: LibraryItemTable;
   physical_item: PhysicalItemTable;
+  blind_dig: BlindDigTable;
+  blind_dig_item: BlindDigItemTable;
   playlist: PlaylistTable;
   playlist_item: PlaylistItemTable;
   export_request: ExportRequestTable;

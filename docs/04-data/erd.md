@@ -2,7 +2,7 @@
 
 - Status: Phase 5 (2026-10-04). Domain: [domain-model](domain-model.md). Database: PostgreSQL 16 (ADR-0003).
 - Migrations live in `apps/server/src/platform/db/migrations/` and are authoritative; this document must be updated in the same commit as any migration.
-- Implemented so far: `0001_platform` (job, outbox_event, audit_log, idempotency_record), `0002_identity`, `0003_audio`, `0004_playback`, `0005_audio_log`, `0006_catalog_entitlement`, `0007_library`, `0008_dig`, `0009_search`, `0010_integrity`, `0011_rate_limit`, `0012_physical_collection`.
+- Implemented so far: `0001_platform` (job, outbox_event, audit_log, idempotency_record), `0002_identity`, `0003_audio`, `0004_playback`, `0005_audio_log`, `0006_catalog_entitlement`, `0007_library`, `0008_dig`, `0009_search`, `0010_integrity`, `0011_rate_limit`, `0012_physical_collection`, `0013_blind_dig`.
 
 ## 1. Conventions
 
@@ -224,6 +224,10 @@ search_document(id text PK  -- = subject id, doc_kind CHECK(recording|release|ar
 | created_at, updated_at | timestamptz | index `(user_id, created_at DESC, id DESC)` |
 
 No foreign key, trigger or code path connects `physical_item` to entitlement data (COL-003); `collection.test.ts` asserts the constraint and trigger set and that the module never imports entitlement or playback code.
+
+### blind_dig, blind_dig_item (`0013_blind_dig`, DIG-010)
+- `blind_dig`: `bld_…`, user_id FK app_user, start_entity_id FK music_entity (`ON DELETE SET NULL`), popularity filter, created_at; index `(user_id, created_at DESC)`.
+- `blind_dig_item`: `bli_…`, blind_dig_id FK (`ON DELETE CASCADE`), recording_id FK recording, position, decision `keep|pass` NULL, decided_at; `decision` and `decided_at` are set together; unique per round on position and on recording.
 
 ## 3. Storage and authorization boundary
 
