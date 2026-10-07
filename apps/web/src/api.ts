@@ -24,6 +24,7 @@ export function setToken(value: string | null): void {
   else {
     sessionStorage.removeItem('rabit.token');
     sessionStorage.removeItem(REFRESH_KEY);
+    sessionStorage.removeItem('rabit.oidc.realm');
   }
 }
 

@@ -78,27 +78,28 @@ function start(name: string, cmd: string, args: string[], cwd: string, extra = {
 
 const OIDC_CONTAINER = 'rabit-e2e-oidc';
 /**
- * Mock OIDC provider (navikt/mock-oauth2-server): an interactive sign-in page where
- * the test types a subject and optional claims. Every token carries the API
- * audience and a verified email; the web client is the authorized party.
+ * Mock OIDC provider (navikt/mock-oauth2-server) shaped like Amazon Cognito
+ * (ADR-0009): issuer `rabit` for users and `rabit-ops` for operators, an
+ * interactive sign-in page where the test types a subject and optional claims,
+ * and tokens that name the app client in `client_id` with `token_use=access`.
+ * (`aud` is set too, because the mock gives ID and access tokens the same claims
+ * and the ID token needs it; the api in Cognito mode does not read it.)
  */
+const cognitoLike = (issuerId: string, clientId: string) => ({
+  issuerId,
+  tokenExpiry: 3600,
+  requestMappings: ['authorization_code', 'refresh_token'].map((grant) => ({
+    requestParam: 'grant_type',
+    match: grant,
+    claims: { aud: [clientId], azp: clientId, client_id: clientId, token_use: 'access' },
+  })),
+});
 const OIDC_CONFIG = JSON.stringify({
   interactiveLogin: true,
   httpServer: 'NettyWrapper',
   tokenCallbacks: [
-    {
-      issuerId: 'rabit',
-      tokenExpiry: 3600,
-      requestMappings: ['authorization_code', 'refresh_token'].map((grant) => ({
-        requestParam: 'grant_type',
-        match: grant,
-        claims: {
-          aud: ['rabit-api', E2E.oidcClientId],
-          azp: E2E.oidcClientId,
-          email_verified: true,
-        },
-      })),
-    },
+    cognitoLike('rabit', E2E.oidcClientId),
+    cognitoLike('rabit-ops', E2E.oidcOperatorClientId),
   ],
 });
 
@@ -205,6 +206,11 @@ try {
     CORS_ALLOWED_ORIGINS: E2E.oidcWebUrl,
     AUTH_ISSUER: E2E.oidcIssuer,
     AUTH_JWKS_URL: `${E2E.oidcIssuer}/jwks`,
+    AUTH_AUDIENCE: E2E.oidcClientId,
+    AUTH_PROFILE: 'cognito',
+    AUTH_OPERATOR_ISSUER: E2E.oidcOperatorIssuer,
+    AUTH_OPERATOR_JWKS_URL: `${E2E.oidcOperatorIssuer}/jwks`,
+    AUTH_OPERATOR_AUDIENCE: E2E.oidcOperatorClientId,
     AUTH_DEV_ISSUER_ENABLED: 'false',
   });
 
@@ -252,6 +258,8 @@ try {
       VITE_API_BASE: E2E.oidcApiUrl,
       VITE_OIDC_ISSUER: E2E.oidcIssuer,
       VITE_OIDC_CLIENT_ID: E2E.oidcClientId,
+      VITE_OIDC_OPERATOR_ISSUER: E2E.oidcOperatorIssuer,
+      VITE_OIDC_OPERATOR_CLIENT_ID: E2E.oidcOperatorClientId,
     },
   );
   // Production build under the production CSP (infra/web/csp.json).

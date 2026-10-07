@@ -1,27 +1,41 @@
 /**
  * Sign-in with the OIDC provider (ADR-0009): Authorization Code flow with PKCE for a
  * public browser client — no client secret, the code is useless without the
- * verifier kept in this tab. Provider-neutral: the issuer is discovered from
+ * verifier kept in this tab. Provider-neutral: each issuer is discovered from
  * `${issuer}/.well-known/openid-configuration`.
  *
- * Configured at build time with VITE_OIDC_ISSUER and VITE_OIDC_CLIENT_ID (and
- * optionally VITE_OIDC_SCOPE, VITE_OIDC_AUDIENCE for providers that need an API
- * audience parameter). Without them the app shows the development sign-in.
+ * Two realms: users (VITE_OIDC_ISSUER, VITE_OIDC_CLIENT_ID) and, optionally,
+ * operators (VITE_OIDC_OPERATOR_ISSUER, VITE_OIDC_OPERATOR_CLIENT_ID), whose
+ * provider enforces MFA (on Cognito: a separate user pool). VITE_OIDC_SCOPE and
+ * VITE_OIDC_AUDIENCE are optional. Without a user realm the app shows the
+ * development sign-in.
  */
 import * as oauth from 'oauth4webapi';
 import { REFRESH_KEY, setToken, setTokenRefresher } from './api';
 
+export type Realm = 'user' | 'operator';
+
 const env = import.meta.env as Record<string, string | undefined>;
-const issuer = env['VITE_OIDC_ISSUER'];
-const clientId = env['VITE_OIDC_CLIENT_ID'];
+const realms: Record<Realm, { issuer?: string | undefined; clientId?: string | undefined }> = {
+  user: { issuer: env['VITE_OIDC_ISSUER'], clientId: env['VITE_OIDC_CLIENT_ID'] },
+  operator: {
+    issuer: env['VITE_OIDC_OPERATOR_ISSUER'],
+    clientId: env['VITE_OIDC_OPERATOR_CLIENT_ID'],
+  },
+};
 const scope = env['VITE_OIDC_SCOPE'] ?? 'openid email';
 const audience = env['VITE_OIDC_AUDIENCE'];
 
-export const oidcEnabled = Boolean(issuer && clientId);
+const configured = (r: Realm) => Boolean(realms[r].issuer && realms[r].clientId);
+export const oidcEnabled = configured('user');
+export const operatorSignInEnabled = oidcEnabled && configured('operator');
 
 const PENDING = 'rabit.oidc.pending';
+/** Which realm issued the stored tokens (refresh goes back to the same one). */
+export const REALM_KEY = 'rabit.oidc.realm';
 
 interface Pending {
+  realm: Realm;
   verifier: string;
   state: string;
   nonce: string;
@@ -32,8 +46,9 @@ interface Pending {
 /** The redirect URI is the app's own address without query or hash (hash routes). */
 const redirectUri = () => `${location.origin}${location.pathname}`;
 
-function issuerUrl(): URL {
-  if (!issuer || !clientId) throw new Error('OIDC is not configured');
+function issuerUrl(r: Realm): URL {
+  const issuer = realms[r].issuer;
+  if (!issuer || !realms[r].clientId) throw new Error('OIDC is not configured');
   return new URL(issuer);
 }
 
@@ -49,19 +64,20 @@ function httpOptions(url: URL): { [oauth.allowInsecureRequests]?: true } {
 }
 /* eslint-enable @typescript-eslint/no-deprecated */
 
-async function authorizationServer(): Promise<oauth.AuthorizationServer> {
-  const url = issuerUrl();
+async function authorizationServer(r: Realm): Promise<oauth.AuthorizationServer> {
+  const url = issuerUrl(r);
   const res = await oauth.discoveryRequest(url, { algorithm: 'oidc', ...httpOptions(url) });
   return oauth.processDiscoveryResponse(url, res);
 }
 
-const client = (): oauth.Client => ({ client_id: clientId ?? '' });
+const client = (r: Realm): oauth.Client => ({ client_id: realms[r].clientId ?? '' });
 
 /** Sends the browser to the provider's sign-in page. */
-export async function startSignIn(): Promise<void> {
-  const as = await authorizationServer();
+export async function startSignIn(realm: Realm = 'user'): Promise<void> {
+  const as = await authorizationServer(realm);
   if (!as.authorization_endpoint) throw new Error('provider has no authorization endpoint');
   const pending: Pending = {
+    realm,
     verifier: oauth.generateRandomCodeVerifier(),
     state: oauth.generateRandomState(),
     nonce: oauth.generateRandomNonce(),
@@ -69,7 +85,7 @@ export async function startSignIn(): Promise<void> {
   };
   sessionStorage.setItem(PENDING, JSON.stringify(pending));
   const url = new URL(as.authorization_endpoint);
-  url.searchParams.set('client_id', client().client_id);
+  url.searchParams.set('client_id', client(realm).client_id);
   url.searchParams.set('redirect_uri', redirectUri());
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', scope);
@@ -77,7 +93,7 @@ export async function startSignIn(): Promise<void> {
   url.searchParams.set('nonce', pending.nonce);
   url.searchParams.set('code_challenge', await oauth.calculatePKCECodeChallenge(pending.verifier));
   url.searchParams.set('code_challenge_method', 'S256');
-  if (audience) url.searchParams.set('audience', audience);
+  if (audience && realm === 'user') url.searchParams.set('audience', audience);
   location.assign(url.toString());
 }
 
@@ -97,22 +113,24 @@ export async function completeSignIn(): Promise<boolean> {
   history.replaceState(null, '', `${redirectUri()}${pending?.returnTo ?? ''}`);
   if (!pending) throw new Error('sign-in was not started in this tab');
 
-  const as = await authorizationServer();
-  const params = oauth.validateAuthResponse(as, client(), current, pending.state);
+  const realm = pending.realm;
+  const as = await authorizationServer(realm);
+  const params = oauth.validateAuthResponse(as, client(realm), current, pending.state);
   const res = await oauth.authorizationCodeGrantRequest(
     as,
-    client(),
+    client(realm),
     oauth.None(),
     params,
     redirectUri(),
     pending.verifier,
-    httpOptions(issuerUrl()),
+    httpOptions(issuerUrl(realm)),
   );
-  const result = await oauth.processAuthorizationCodeResponse(as, client(), res, {
+  const result = await oauth.processAuthorizationCodeResponse(as, client(realm), res, {
     expectedNonce: pending.nonce,
     requireIdToken: true,
   });
   setToken(result.access_token);
+  sessionStorage.setItem(REALM_KEY, realm);
   storeRefreshToken(result.refresh_token);
   return true;
 }
@@ -122,21 +140,23 @@ function storeRefreshToken(value: string | undefined): void {
 }
 
 /**
- * Renews the access token with the refresh token, if the provider issued one.
- * Providers that rotate refresh tokens return a new one, which replaces the old.
+ * Renews the access token with the refresh token, if the provider issued one, at
+ * the realm that issued it. Providers that rotate refresh tokens return a new
+ * one, which replaces the old.
  */
 async function refreshSession(): Promise<boolean> {
   const refreshToken = sessionStorage.getItem(REFRESH_KEY);
-  if (!oidcEnabled || !refreshToken) return false;
-  const as = await authorizationServer();
+  const realm: Realm = sessionStorage.getItem(REALM_KEY) === 'operator' ? 'operator' : 'user';
+  if (!configured(realm) || !refreshToken) return false;
+  const as = await authorizationServer(realm);
   const res = await oauth.refreshTokenGrantRequest(
     as,
-    client(),
+    client(realm),
     oauth.None(),
     refreshToken,
-    httpOptions(issuerUrl()),
+    httpOptions(issuerUrl(realm)),
   );
-  const result = await oauth.processRefreshTokenResponse(as, client(), res);
+  const result = await oauth.processRefreshTokenResponse(as, client(realm), res);
   setToken(result.access_token);
   storeRefreshToken(result.refresh_token);
   return true;

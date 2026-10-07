@@ -77,8 +77,8 @@ docker compose --profile oidc up -d oidc
 
 It listens on port 8090 (`RABIT_OIDC_PORT` to change); the URLs below assume the default.
 
-- api: `AUTH_DEV_ISSUER_ENABLED=false`, `AUTH_ISSUER=http://localhost:8090/rabit`, `AUTH_JWKS_URL=http://localhost:8090/rabit/jwks`.
-- web: `VITE_OIDC_ISSUER=http://localhost:8090/rabit VITE_OIDC_CLIENT_ID=rabit-web pnpm --filter @rabit/web dev`.
+- api: `AUTH_DEV_ISSUER_ENABLED=false`, `AUTH_PROFILE=cognito`, `AUTH_ISSUER=http://localhost:8090/rabit`, `AUTH_JWKS_URL=http://localhost:8090/rabit/jwks`, `AUTH_AUDIENCE=rabit-web`, `AUTH_OPERATOR_ISSUER=http://localhost:8090/rabit-ops`, `AUTH_OPERATOR_JWKS_URL=http://localhost:8090/rabit-ops/jwks`, `AUTH_OPERATOR_AUDIENCE=rabit-ops-web`.
+- web: `VITE_OIDC_ISSUER=http://localhost:8090/rabit VITE_OIDC_CLIENT_ID=rabit-web VITE_OIDC_OPERATOR_ISSUER=http://localhost:8090/rabit-ops VITE_OIDC_OPERATOR_CLIENT_ID=rabit-ops-web pnpm --filter @rabit/web dev`.
 
 ## Troubleshooting (local)
 

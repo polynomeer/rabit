@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SIGNED_OUT, devSignIn, get, hasToken, setToken } from './api';
-import { completeSignIn, oidcEnabled, startSignIn } from './auth';
+import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from './auth';
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
 import { OpsConsole } from './ops';
@@ -29,6 +29,19 @@ function SignIn({ onDone, error }: { onDone: () => void; error: string | null })
         >
           {t('signin.submit')}
         </button>
+        {operatorSignInEnabled ? (
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              startSignIn('operator').catch((x: unknown) => {
+                setErr((x as Error).message);
+              });
+            }}
+          >
+            {t('signin.operatorSubmit')}
+          </button>
+        ) : null}
         {err ? <p className="warn">{t('signin.failed', { reason: err })}</p> : null}
       </main>
     );
