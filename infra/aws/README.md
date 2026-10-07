@@ -50,6 +50,8 @@ These need an AWS account, a domain and decisions; Claude does not create accoun
 
 ## First deploy
 
+**Guided:** `bash infra/aws/scripts/first-deploy.sh` walks through every step below in 13 stages: tools, AWS sign-in, domain, names and recipients, state bucket, config files, plan, apply, GitHub variables, deploy, starting the services, the first operator, and alert subscriptions. It asks before every change, remembers answers in a gitignored file, and can be re-run. The manual steps follow for reference.
+
 ```bash
 cd infra/aws
 cp environments/staging.tfvars.example environments/staging.tfvars          # fill in

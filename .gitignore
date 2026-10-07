@@ -25,3 +25,5 @@ infra/aws/.terraform/
 infra/aws/*.tfstate*
 infra/aws/environments/*.tfvars
 infra/aws/environments/*.backend.hcl
+infra/aws/environments/*.wizard.env
+infra/aws/*.plan

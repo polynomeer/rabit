@@ -1,6 +1,7 @@
 # Owner Actions
 
 - Status: living checklist, started 2026-10-06. Engineering keeps it current; the owner ticks items off.
+- Guided path for §1: `bash infra/aws/scripts/first-deploy.sh` (O-01..O-07, O-03 operator, O-13 subscriptions).
 - Scope: everything that needs an account, a payment method, credentials, a signature or a business/legal decision. Claude does not create accounts, enter credentials or make these decisions. Where engineering needed a stand-in to keep going, the table says which one is used.
 - Product and legal questions themselves live in [open questions](../00-product/open-questions.md); this page orders them by what they unblock.
 
