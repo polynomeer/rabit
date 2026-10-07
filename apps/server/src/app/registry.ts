@@ -17,6 +17,12 @@ import {
   entitlementSupportSection,
   subscriptionState,
 } from '../modules/entitlement/index.js';
+import {
+  collectionExportSection,
+  collectionModule,
+  collectionSupportSection,
+  deleteAccountCollection,
+} from '../modules/collection/index.js';
 import { getUser, identityModule, identitySupportSection } from '../modules/identity/index.js';
 import { deleteAccountDig, digExportSection, digModule } from '../modules/dig/index.js';
 import {
@@ -85,6 +91,7 @@ export function allModules(): Module[] {
         deleteAccountSearch,
         deleteAccountPlayback,
         deleteAccountDig,
+        deleteAccountCollection,
         deleteAccountAudio,
         deleteAccountLibrary,
         deleteAccountEntitlements,
@@ -104,7 +111,11 @@ export function allModules(): Module[] {
     }),
     entitlementModule(),
     playbackModule({ catalogAccess, resolveRecordingSource: recordingSource }),
-    libraryModule({ catalogAccess, exportSections: () => [digExportSection] }),
+    libraryModule({
+      catalogAccess,
+      exportSections: () => [digExportSection, collectionExportSection],
+    }),
+    collectionModule(),
     searchModule(),
     integrityModule(),
     opsModule({
@@ -114,6 +125,7 @@ export function allModules(): Module[] {
         audioSupportSection,
         playbackSupportSection,
         librarySupportSection,
+        collectionSupportSection,
         integritySupportSection,
       ],
     }),

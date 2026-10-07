@@ -11,6 +11,7 @@ import * as m0008 from './migrations/0008_dig.js';
 import * as m0009 from './migrations/0009_search.js';
 import * as m0010 from './migrations/0010_integrity.js';
 import * as m0011 from './migrations/0011_rate_limit.js';
+import * as m0012 from './migrations/0012_physical_collection.js';
 
 // Migrations operate on the raw schema, independent of the current table types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,6 +33,7 @@ export const migrations: Record<string, Migration> = {
   '0009_search': m0009,
   '0010_integrity': m0010,
   '0011_rate_limit': m0011,
+  '0012_physical_collection': m0012,
 };
 
 export function createMigrator(db: AnyDb): Migrator {

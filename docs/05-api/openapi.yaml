@@ -21,6 +21,8 @@ tags:
   - name: catalog
   - name: library
   - name: playlists
+  - name: collection
+    description: Physical Collection, manual registration (COL-001/002/007). A record of ownership, never a playback right (COL-003).
   - name: exports
   - name: entitlements
   - name: dig
@@ -280,6 +282,53 @@ paths:
       operationId: removeLibraryItem
       responses:
         '204': { description: Removed (never revokes entitlements) }
+        '404': { $ref: '#/components/responses/Error' }
+
+  /v1/physical-items:
+    get:
+      tags: [collection]
+      operationId: listPhysicalItems
+      parameters: [ { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/Cursor' } ]
+      responses:
+        '200': { description: "The caller's physical items, newest first", content: { application/json: { schema: { $ref: '#/components/schemas/PhysicalItemPage' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [collection]
+      operationId: createPhysicalItem
+      description: >-
+        Records that the caller owns a CD, LP, cassette or other physical copy. The item is
+        `self_declared`; it is not proof of copyright and never creates an entitlement (COL-003).
+        Rate limited (120 per hour).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreatePhysicalItemRequest' } } }
+      responses:
+        '201': { description: Recorded, content: { application/json: { schema: { $ref: '#/components/schemas/PhysicalItem' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+  /v1/physical-items/{physical_item_id}:
+    parameters: [ { name: physical_item_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [collection]
+      operationId: getPhysicalItem
+      responses:
+        '200': { description: The item, content: { application/json: { schema: { $ref: '#/components/schemas/PhysicalItem' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      tags: [collection]
+      operationId: updatePhysicalItem
+      description: Changes the given fields; `null` clears an optional field. The verification state is not writable.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdatePhysicalItemRequest' } } }
+      responses:
+        '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/PhysicalItem' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [collection]
+      operationId: deletePhysicalItem
+      responses:
+        '204': { description: Removed }
         '404': { $ref: '#/components/responses/Error' }
 
   /v1/playlists:
@@ -1285,6 +1334,64 @@ components:
         saved_at: { $ref: '#/components/schemas/Timestamp' }
         ownership: { type: string, enum: [private, audio_log, streaming, purchased, granted], description: Ownership/source status label (BRD Ownership Visible) }
         playability: { $ref: '#/components/schemas/Playability' }
+    PhysicalFormat:
+      type: string
+      enum: [cd, vinyl, cassette, other]
+    PhysicalItem:
+      type: object
+      required: [physical_item_id, format, title, artist_name, barcode, catalog_number, release, notes, verification_state, created_at, updated_at]
+      properties:
+        physical_item_id: { $ref: '#/components/schemas/Id' }
+        format: { $ref: '#/components/schemas/PhysicalFormat' }
+        title: { type: string, maxLength: 300 }
+        artist_name: { type: [string, 'null'], maxLength: 300 }
+        barcode: { type: [string, 'null'], pattern: '^[0-9]{8,14}$', description: 'EAN/UPC with a valid check digit' }
+        catalog_number: { type: [string, 'null'], maxLength: 100 }
+        release:
+          description: The edition the owner says this copy is (user-declared, not an identification).
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [release_id, title]
+              properties:
+                release_id: { $ref: '#/components/schemas/Id' }
+                title: { type: string }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        verification_state:
+          type: string
+          enum: [self_declared, evidence_reviewed]
+          description: '`self_declared` until an operator reviews evidence; a record of ownership, not of rights (COL-002).'
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PhysicalItemPage:
+      type: object
+      required: [items, next_cursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/PhysicalItem' } }
+        next_cursor: { $ref: '#/components/schemas/NextCursor' }
+    CreatePhysicalItemRequest:
+      type: object
+      additionalProperties: false
+      required: [format, title]
+      properties:
+        format: { $ref: '#/components/schemas/PhysicalFormat' }
+        title: { type: string, minLength: 1, maxLength: 300 }
+        artist_name: { type: [string, 'null'], maxLength: 300 }
+        barcode: { type: [string, 'null'], description: 'EAN-8, UPC-A, EAN-13 or GTIN-14 with a valid check digit' }
+        catalog_number: { type: [string, 'null'], maxLength: 100 }
+        release_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+    UpdatePhysicalItemRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        format: { $ref: '#/components/schemas/PhysicalFormat' }
+        title: { type: string, minLength: 1, maxLength: 300 }
+        artist_name: { type: [string, 'null'], maxLength: 300 }
+        barcode: { type: [string, 'null'] }
+        catalog_number: { type: [string, 'null'], maxLength: 100 }
+        release_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        notes: { type: [string, 'null'], maxLength: 2000 }
     LibraryPage:
       type: object
       required: [items, next_cursor]

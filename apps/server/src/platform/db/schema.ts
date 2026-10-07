@@ -535,6 +535,22 @@ export interface RateLimitCounterTable {
   window_ends_at: Date;
 }
 
+/** Physical Collection (COL-001/002): a record of ownership, never an entitlement (COL-003). */
+export interface PhysicalItemTable {
+  id: string;
+  user_id: string;
+  format: 'cd' | 'vinyl' | 'cassette' | 'other';
+  title: string;
+  artist_name: string | null;
+  barcode: string | null;
+  catalog_number: string | null;
+  release_id: string | null;
+  notes: string | null;
+  verification_state: Generated<'self_declared' | 'evidence_reviewed'>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
 export interface Database {
   rate_limit_counter: RateLimitCounterTable;
   provenance_claim: ProvenanceClaimTable;
@@ -557,6 +573,7 @@ export interface Database {
   subscription: SubscriptionTable;
   entitlement: EntitlementTable;
   library_item: LibraryItemTable;
+  physical_item: PhysicalItemTable;
   playlist: PlaylistTable;
   playlist_item: PlaylistItemTable;
   export_request: ExportRequestTable;

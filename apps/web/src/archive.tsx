@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { api, get, sha256Hex, type LibraryItem } from './api';
 import { formatDateTime, t, type MessageKey } from './i18n';
+import { PhysicalCollection } from './collection';
 import { usePlayer } from './player';
 import { errorText, ItemTitle, Ownership, Status, toEntry } from './views';
 
@@ -284,91 +285,94 @@ export function Archive() {
   const playable = items.filter((i) => i.ref_type !== 'release');
 
   return (
-    <section aria-labelledby="archive-h">
-      <h2 id="archive-h">Archive</h2>
-      <Upload onDone={load} />
-      {error ? <p className="warn">{error}</p> : null}
-      <ul className="list">
-        {items.map((i) => {
-          const log = i.ref_type === 'audio_source' ? logs.get(i.ref_id) : undefined;
-          return (
-            <li key={i.library_item_id}>
-              <div>
-                <strong>
-                  <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
-                </strong>{' '}
-                <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
-                <Status p={i.playability} />
-                {log ? (
-                  <p className="small muted log-meta">
-                    {formatDateTime(log.recorded_at)} ({log.recorded_tz})
-                    {log.tags.length > 0 ? ` · #${log.tags.join(' #')}` : ''}
-                    {log.note ? <span className="log-note"> · {log.note}</span> : null}
-                  </p>
-                ) : null}
-              </div>
-              <div className="actions">
-                {i.ref_type !== 'release' && i.playability.playable ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      player.play(playable.map(toEntry), playable.indexOf(i));
-                    }}
-                  >
-                    {t('common.play')}
-                  </button>
-                ) : null}
-                {log ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditing(editing === log.audio_log_id ? null : log.audio_log_id);
-                    }}
-                  >
-                    {t('archive.item.edit')}
-                  </button>
-                ) : null}
-                {i.ref_type === 'audio_source' ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm(t('archive.item.deleteConfirm'))) {
-                        void api('DELETE', `/v1/audio-sources/${i.ref_id}`).then(load);
+    <>
+      <section aria-labelledby="archive-h">
+        <h2 id="archive-h">Archive</h2>
+        <Upload onDone={load} />
+        {error ? <p className="warn">{error}</p> : null}
+        <ul className="list">
+          {items.map((i) => {
+            const log = i.ref_type === 'audio_source' ? logs.get(i.ref_id) : undefined;
+            return (
+              <li key={i.library_item_id}>
+                <div>
+                  <strong>
+                    <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
+                  </strong>{' '}
+                  <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
+                  <Status p={i.playability} />
+                  {log ? (
+                    <p className="small muted log-meta">
+                      {formatDateTime(log.recorded_at)} ({log.recorded_tz})
+                      {log.tags.length > 0 ? ` · #${log.tags.join(' #')}` : ''}
+                      {log.note ? <span className="log-note"> · {log.note}</span> : null}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="actions">
+                  {i.ref_type !== 'release' && i.playability.playable ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        player.play(playable.map(toEntry), playable.indexOf(i));
+                      }}
+                    >
+                      {t('common.play')}
+                    </button>
+                  ) : null}
+                  {log ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(editing === log.audio_log_id ? null : log.audio_log_id);
+                      }}
+                    >
+                      {t('archive.item.edit')}
+                    </button>
+                  ) : null}
+                  {i.ref_type === 'audio_source' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(t('archive.item.deleteConfirm'))) {
+                          void api('DELETE', `/v1/audio-sources/${i.ref_id}`).then(load);
+                        }
+                      }}
+                    >
+                      {t('archive.item.delete')}
+                    </button>
+                  ) : null}
+                  {i.origin === 'saved' ? (
+                    // Removing a saved item never revokes an entitlement (domain-model §1).
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void api('DELETE', `/v1/library/${i.library_item_id}`).then(load)
                       }
+                    >
+                      {t('archive.item.removeFromLibrary')}
+                    </button>
+                  ) : null}
+                </div>
+                {log && editing === log.audio_log_id ? (
+                  <AudioLogEditor
+                    log={log}
+                    onSaved={() => {
+                      setEditing(null);
+                      load();
                     }}
-                  >
-                    {t('archive.item.delete')}
-                  </button>
+                    onCancel={() => {
+                      setEditing(null);
+                    }}
+                  />
                 ) : null}
-                {i.origin === 'saved' ? (
-                  // Removing a saved item never revokes an entitlement (domain-model §1).
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void api('DELETE', `/v1/library/${i.library_item_id}`).then(load)
-                    }
-                  >
-                    {t('archive.item.removeFromLibrary')}
-                  </button>
-                ) : null}
-              </div>
-              {log && editing === log.audio_log_id ? (
-                <AudioLogEditor
-                  log={log}
-                  onSaved={() => {
-                    setEditing(null);
-                    load();
-                  }}
-                  onCancel={() => {
-                    setEditing(null);
-                  }}
-                />
-              ) : null}
-            </li>
-          );
-        })}
-        {items.length === 0 ? <li className="muted">{t('archive.empty')}</li> : null}
-      </ul>
-    </section>
+              </li>
+            );
+          })}
+          {items.length === 0 ? <li className="muted">{t('archive.empty')}</li> : null}
+        </ul>
+      </section>
+      <PhysicalCollection />
+    </>
   );
 }

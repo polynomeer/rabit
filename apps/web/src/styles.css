@@ -425,3 +425,20 @@ form[aria-label='Audio Log 편집'] label {
 .card.danger {
   border-color: var(--warn);
 }
+
+/* Visible to screen readers only. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+form.inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
