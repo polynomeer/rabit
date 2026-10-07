@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | O-01 | Create the AWS account(s): an Organization with `staging` and `production` accounts, IAM Identity Center sign-in, MFA on every root user, billing alerts to a team address | Nothing can be provisioned | [infra/aws/README](../../infra/aws/README.md) "What only the owner can do" | Local Docker stack (`pnpm infra:up`), `pnpm gameday`, `drill:restore`; AWS behaviour checked with mocked providers (`tofu test`) and LocalStack S3 + KMS (CI `storage-kms`) |
 | O-02 | Register the domain and create its Route 53 hosted zone | Certificates and the `api.`/`media.`/`app.` hosts | `domain`, `hosted_zone_id` in `staging.tfvars` | `localhost` ports |
-| O-03 | ~~Choose the login (OIDC) provider~~ **Decided 2026-10-07: Amazon Cognito** (ADR-0009). After the first apply, create the first operator in the operator pool and enroll their authenticator app; users sign up themselves | Production refuses the development issuer (T03); the web client needs a real sign-in | [ADR-0009](../adr/ADR-0009-authentication.md) lists candidates and what each needs in claim mapping; the server and web client speak standard OIDC (Authorization Code + PKCE) | Containerised mock OIDC server (`docker compose --profile oidc`, also in E2E: sign-in, token renewal, operator MFA) and the built-in dev issuer |
+| O-03 | ~~Choose the login provider~~ **Decided 2026-10-07: Amazon Cognito** (ADR-0009). Pools, hosted sign-in and clients are created by `tofu apply`. After it: create the first operator in the operator pool (`admin-create-user`, command in infra/aws/README); they enroll an authenticator app at first sign-in | Operators cannot sign up themselves (MFA pool, admin-only) | `infra/aws/cognito.tf`; server `AUTH_PROFILE=cognito` with a separate operator issuer; web operator sign-in | Cognito-shaped mock provider with user and operator issuers (compose `oidc` profile, E2E) |
 | O-04 | Create the OpenTofu state bucket (once per account) | `tofu init` | Commands in infra/aws/README | `tofu validate` and mock-provider tests in CI |
 | O-05 | Run the first `tofu apply` for staging, then set the GitHub `staging` environment variables from `tofu output` | Deploy workflow needs the role and resource names | infra/aws/README "First deploy"; the workflow ends with `smoke.sh` post-deploy checks | `smoke.sh` is exercised in E2E against production-like instances |
 | O-06 | Add protection rules to the GitHub `production` environment (required reviewers) | A production deploy must not run unreviewed | GitHub → Settings → Environments | — |
@@ -40,6 +40,7 @@
 | O-28 | Budget ceilings (free usage, minimum guarantees, runway) | Q12 | Cost model in the hosting comparison and ADR-0012 |
 | O-29 | Brand and visual design | — | Web client uses a neutral provisional style |
 | O-30 | Production settings: `db_multi_az = true`, `single_nat_gateway = false`, `interface_endpoint_az_count = 2` (cost increase) | NFR-REL-008 | infra/aws variables |
+| O-31 | Sign-up and recovery email from our own domain through Amazon SES (Cognito's default sender is limited to a few dozen emails a day) | Sign-ups beyond the alpha | Domain verification (DKIM/SPF) in Route 53, then point both pools at SES |
 
 ## 4. Scheduled engineering items (no owner action, listed for visibility)
 
