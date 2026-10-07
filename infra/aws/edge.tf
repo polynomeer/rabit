@@ -134,7 +134,7 @@ locals {
   csp_origins = {
     "{api}"    = "https://${local.hosts.api}"
     "{media}"  = "https://${local.hosts.media}"
-    "{oidc}"   = regex("^https?://[^/]+", var.auth_issuer)
+    "{oidc}"   = local.cognito_origins
     "{upload}" = "https://${local.buckets.quarantine}.s3.${var.region}.amazonaws.com"
   }
   content_security_policy = join("; ", [

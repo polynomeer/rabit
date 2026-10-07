@@ -128,6 +128,9 @@ mock_provider "aws" {
       prometheus_endpoint = "https://aps-workspaces.ap-northeast-2.amazonaws.com/workspaces/ws-mock/"
     }
   }
+  mock_resource "aws_cognito_user_pool" {
+    defaults = { endpoint = "cognito-idp.ap-northeast-2.amazonaws.com/ap-northeast-2_mock" }
+  }
   mock_resource "aws_sns_topic" {
     defaults = { arn = "arn:aws:sns:ap-northeast-2:111122223333:mock-alerts" }
   }
@@ -155,8 +158,6 @@ variables {
   domain              = "rabit.example"
   hosted_zone_id      = "Z0000000000000000000"
   bucket_prefix       = "rabit-stg-test"
-  auth_issuer         = "https://idp.example/"
-  auth_jwks_url       = "https://idp.example/jwks"
   budget_alert_emails = ["ops@example.com"]
   alert_emails        = ["oncall@example.com"]
 }
@@ -297,7 +298,9 @@ run "edge_uses_tls" {
       strcontains(local.content_security_policy, "frame-ancestors 'none'"),
       strcontains(local.content_security_policy, "https://api.rabit.example"),
       strcontains(local.content_security_policy, "https://rabit-stg-test-quarantine.s3.ap-northeast-2.amazonaws.com"),
-      strcontains(local.content_security_policy, "https://idp.example"),
+      strcontains(local.content_security_policy, "https://cognito-idp.ap-northeast-2.amazonaws.com"),
+      strcontains(local.content_security_policy, "https://rabit-stg-test-login.auth.ap-northeast-2.amazoncognito.com"),
+      strcontains(local.content_security_policy, "https://rabit-stg-test-ops-login.auth.ap-northeast-2.amazoncognito.com"),
       !strcontains(local.content_security_policy, "unsafe-inline"),
       !strcontains(local.content_security_policy, "{"),
     ])
@@ -337,6 +340,42 @@ run "alerts_are_deployed" {
   assert {
     condition     = strcontains(aws_prometheus_alert_manager_definition.main.definition, aws_sns_topic.alerts.arn)
     error_message = "Alertmanager sends to the alerts topic."
+  }
+}
+
+run "sign_in_is_cognito_with_an_mfa_operator_pool" {
+  command = apply
+
+  assert {
+    condition     = aws_cognito_user_pool.operators.mfa_configuration == "ON"
+    error_message = "Every operator sign-in needs MFA (NFR-SEC-007, ADR-0009)."
+  }
+  assert {
+    condition     = aws_cognito_user_pool.operators.admin_create_user_config[0].allow_admin_create_user_only
+    error_message = "Nobody can sign up as an operator."
+  }
+  assert {
+    condition     = contains(aws_cognito_user_pool.users.auto_verified_attributes, "email")
+    error_message = "Users verify their email before they can sign in (ACC-002)."
+  }
+  assert {
+    condition = alltrue([
+      for c in aws_cognito_user_pool_client.web :
+      c.generate_secret == false && toset(c.allowed_oauth_flows) == toset(["code"]) && toset(c.callback_urls) == toset(["https://app.rabit.example/"])
+    ])
+    error_message = "Browser clients use the code flow without a secret and return only to the app."
+  }
+  assert {
+    condition = alltrue([
+      for td in aws_ecs_task_definition.role : alltrue([
+        for c in jsondecode(td.container_definitions) :
+        c.name == "metrics" || (
+          contains([for e in c.environment : "${e.name}=${e.value}"], "AUTH_PROFILE=cognito") &&
+          length([for e in c.environment : e if e.name == "AUTH_OPERATOR_ISSUER"]) == 1
+        )
+      ])
+    ])
+    error_message = "The api trusts the user pool in Cognito mode and the operator pool for operators."
   }
 }
 

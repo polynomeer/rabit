@@ -19,12 +19,16 @@ export function contentSecurityPolicy(origins: CspOrigins): string {
   return Object.entries(policy)
     .filter((entry): entry is [string, string[]] => Array.isArray(entry[1]))
     .map(([directive, sources]) => {
-      const values = sources.map((s) =>
-        s.replace(
-          /^\{(\w+)\}$/,
-          (_, name: string) => new URL(origins[name as keyof CspOrigins]).origin,
-        ),
-      );
+      // A placeholder may stand for several space-separated origins (e.g. a login
+      // provider's discovery host and its hosted sign-in domains).
+      const values = sources.flatMap((s) => {
+        const m = /^\{(\w+)\}$/.exec(s);
+        if (!m) return [s];
+        return origins[m[1] as keyof CspOrigins]
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((o) => new URL(o).origin);
+      });
       return `${directive} ${[...new Set(values)].join(' ')}`;
     })
     .join('; ');

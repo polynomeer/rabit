@@ -55,6 +55,8 @@ jobs:
           VITE_API_BASE: ${{ vars.API_BASE_URL }}
           VITE_OIDC_ISSUER: ${{ vars.OIDC_ISSUER }}
           VITE_OIDC_CLIENT_ID: ${{ vars.OIDC_CLIENT_ID }}
+          VITE_OIDC_OPERATOR_ISSUER: ${{ vars.OIDC_OPERATOR_ISSUER }}
+          VITE_OIDC_OPERATOR_CLIENT_ID: ${{ vars.OIDC_OPERATOR_CLIENT_ID }}
           VITE_OIDC_AUDIENCE: ${{ vars.OIDC_AUDIENCE }}
         run: |
           pnpm install --frozen-lockfile --filter @rabit/web...
