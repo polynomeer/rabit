@@ -2,6 +2,7 @@ import {
   SignJWT,
   createLocalJWKSet,
   createRemoteJWKSet,
+  decodeJwt,
   exportJWK,
   generateKeyPair,
   jwtVerify,
@@ -29,14 +30,46 @@ export interface TokenVerifier {
   verify(token: string): Promise<VerifiedToken | null>;
 }
 
-function toVerified(payload: JWTPayload, issuer: string): VerifiedToken | null {
+/**
+ * One trusted issuer (ADR-0009). `profile` says where the provider puts the
+ * audience and the email state; `operators` marks an issuer whose provider
+ * enforces MFA on every sign-in and whose users are all operators.
+ */
+export interface TrustedIssuer {
+  issuer: string;
+  audience: string;
+  keys: JWTVerifyGetKey;
+  profile: 'standard' | 'cognito';
+  operators: boolean;
+}
+
+function claimsOf(payload: JWTPayload, t: TrustedIssuer): VerifiedToken | null {
   if (typeof payload.sub !== 'string' || payload.sub.length === 0 || payload.sub.length > 255) {
     return null;
+  }
+  if (t.profile === 'cognito') {
+    // Cognito access tokens name the app client in `client_id` and have no `aud`;
+    // ID tokens (token_use=id) are never accepted as API credentials.
+    if (payload['token_use'] !== 'access' || payload['client_id'] !== t.audience) return null;
+  }
+  if (t.operators) {
+    return {
+      issuer: t.issuer,
+      subject: payload.sub,
+      emailVerified: true,
+      roles: [OPERATOR_ROLE],
+      mfa: true,
+    };
+  }
+  if (t.profile === 'cognito') {
+    // The user pool lets users sign in only after verifying their email, and roles
+    // never come from this issuer: operators use their own MFA-enforcing pool.
+    return { issuer: t.issuer, subject: payload.sub, emailVerified: true, roles: [], mfa: false };
   }
   const rolesClaim = payload['rabit_roles'];
   const amr = payload['amr'];
   return {
-    issuer,
+    issuer: t.issuer,
     subject: payload.sub,
     emailVerified: payload['email_verified'] === true,
     roles: Array.isArray(rolesClaim)
@@ -46,18 +79,23 @@ function toVerified(payload: JWTPayload, issuer: string): VerifiedToken | null {
   };
 }
 
-export function createVerifier(cfg: Config['auth'], keys: JWTVerifyGetKey): TokenVerifier {
+/** Accepts tokens only from the listed issuers, each checked with its own keys and rules. */
+export function createVerifier(issuers: TrustedIssuer[]): TokenVerifier {
   return {
     async verify(token: string) {
       try {
-        const { payload } = await jwtVerify(token, keys, {
-          issuer: cfg.issuer,
-          audience: cfg.audience,
+        // The unverified `iss` only selects which keys to check the signature with.
+        const iss = decodeJwt(token).iss;
+        const t = issuers.find((i) => i.issuer === iss);
+        if (!t) return null;
+        const { payload } = await jwtVerify(token, t.keys, {
+          issuer: t.issuer,
+          ...(t.profile === 'standard' ? { audience: t.audience } : {}),
           algorithms: ALLOWED_ALGS,
           clockTolerance: 60,
           requiredClaims: ['sub', 'exp'],
         });
-        return toVerified(payload, cfg.issuer);
+        return claimsOf(payload, t);
       } catch {
         return null;
       }
