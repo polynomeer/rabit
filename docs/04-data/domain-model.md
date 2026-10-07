@@ -15,7 +15,7 @@
 | RightsClaim vs Provenance | RightsGrant = licensed uses/territories/period from a rights holder. ProvenanceClaim = who made what and how, with evidence. A provenance relation (e.g. "samples X") says nothing about license (DIG-018 `license_status` is a separate field). |
 | Verified fact vs ML inference | Every relation, credit and claim has `basis ∈ {verified_fact, declared, ml_inferred}`. `ml_inferred` is never displayed as fact. |
 | Purchase vs LibraryItem | Purchase (P1) creates an Entitlement; LibraryItem is the user's organizational record. Removing a library item never revokes an entitlement; revoking an entitlement never deletes the library item (it becomes unavailable). |
-| Physical ownership vs Digital entitlement | No physical model in MVP; when added (P1), no code path may derive an Entitlement from a PhysicalItem (COL-003). |
+| Physical ownership vs Digital entitlement | `PhysicalItem` (P1, manual registration, `self_declared`) records what the user owns; no code path derives an Entitlement from it (COL-003, tested). |
 | Artist identity vs uploader account | Artist/Person are catalog MusicEntities. A user account/workspace is never an artist identity; claiming an artist identity is a future verified process (P1, impersonation risk). |
 
 ## 2. Shared value objects

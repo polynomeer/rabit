@@ -2,7 +2,7 @@
 
 - Status: Phase 5 (2026-10-04). Domain: [domain-model](domain-model.md). Database: PostgreSQL 16 (ADR-0003).
 - Migrations live in `apps/server/src/platform/db/migrations/` and are authoritative; this document must be updated in the same commit as any migration.
-- Implemented so far: `0001_platform` (job, outbox_event, audit_log, idempotency_record), `0002_identity`, `0003_audio`, `0004_playback`, `0005_audio_log`, `0006_catalog_entitlement`, `0007_library`, `0008_dig`, `0009_search`, `0010_integrity`.
+- Implemented so far: `0001_platform` (job, outbox_event, audit_log, idempotency_record), `0002_identity`, `0003_audio`, `0004_playback`, `0005_audio_log`, `0006_catalog_entitlement`, `0007_library`, `0008_dig`, `0009_search`, `0010_integrity`, `0011_rate_limit`, `0012_physical_collection`.
 
 ## 1. Conventions
 
@@ -209,6 +209,22 @@ search_document(id text PK  -- = subject id, doc_kind CHECK(recording|release|ar
 - `audit_log` is append-only: a `BEFORE UPDATE OR DELETE` trigger raises an exception (works regardless of which role the application uses).
 - `idempotency_record(user_id, operation, idempotency_key) PK, request_hash, response_status, response_body jsonb, created_at` stores Idempotency-Key results (api-guidelines §5).
 
+### physical_item (`0012_physical_collection`, P1, COL-001/002/007)
+| Column | Type | Notes |
+|---|---|---|
+| id | `phy_…` | |
+| user_id | FK app_user | owner; every query is scoped to it (404 for others) |
+| format | `cd \| vinyl \| cassette \| other` | |
+| title, artist_name | text ≤ 300 | user-entered |
+| barcode | text `^[0-9]{8,14}$` | API also checks the GTIN check digit |
+| catalog_number | text ≤ 100 | |
+| release_id | FK release, `ON DELETE SET NULL` | the edition the owner says this copy is; not an identification (COL-004 is M2) |
+| notes | text ≤ 2000 | personal data |
+| verification_state | `self_declared \| evidence_reviewed` | owner cannot write it; evidence review is M2 (COL-008) |
+| created_at, updated_at | timestamptz | index `(user_id, created_at DESC, id DESC)` |
+
+No foreign key, trigger or code path connects `physical_item` to entitlement data (COL-003); `collection.test.ts` asserts the constraint and trigger set and that the module never imports entitlement or playback code.
+
 ## 3. Storage and authorization boundary
 
 | Data | Where | Who can read | Path |
@@ -249,7 +265,7 @@ Object keys: `<asr id>/<random>/<asset kind>…` (`audio_source.storage_prefix`,
 |---|---|
 | AudioObject, AudioAsset, Entitlement, RightsGrant, Visibility, Provenance are separate tables/columns with no implicit coupling | ✅ |
 | Private vs catalog namespace enforced (CHECK origin↔visibility, bucket prefix check, repository rule) | ✅ (cross-table part in code + test) |
-| No FK/trigger path from any physical/collection data to entitlement | ✅ (no physical tables in MVP) |
+| No FK/trigger path from any physical/collection data to entitlement | ✅ `physical_item` references only `app_user` and `release`; no triggers (tested) |
 | Client-controlled ownership impossible (owner columns set only from principal) | ✅ (API layer; tested) |
 | Idempotency: `job.dedupe_key`, `listening_event(session_id, client_event_id)`, upload finalize key | ✅ |
 | Playlist ordering under concurrency: version + deferred unique rank | ✅ |

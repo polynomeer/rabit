@@ -11,6 +11,7 @@
 | License country | Rights territory | `app_user.license_country` (operator/policy-set) | account lifetime | — |
 | Private audio + derivatives | User's archive | private buckets | until deleted | delete, export |
 | Audio Log title/note/tags/recorded_at/tz | User's archive | `audio_log` | until deleted | edit, delete, export |
+| Physical Collection (format, title, artist, barcode, catalog no., edition, notes) | Record of what the user owns (COL-001) | `physical_item` | until deleted or account deletion | edit, delete, export; support sees counts by format/state only |
 | Upload declared filename | Default title | `audio_source.title` only | until deleted | edit |
 | Playback sessions | Access control | `playback_session` | until their listening events are purged (90 days), then deleted | revoked on account deletion |
 | Listening events | Popularity (Deep Cut), future settlement | `listening_event` | 90 days raw | deleted with the account; included in export (P1) |

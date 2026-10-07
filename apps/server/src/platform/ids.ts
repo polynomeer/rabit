@@ -23,6 +23,7 @@ export const ID_PREFIX = {
   playbackSession: 'pbs',
   listeningEvent: 'lev',
   libraryItem: 'lib',
+  physicalItem: 'phy',
   playlist: 'pls',
   playlistItem: 'pli',
   export: 'exp',

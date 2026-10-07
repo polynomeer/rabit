@@ -1,6 +1,6 @@
 # CD Import Risk
 
-- Status: Phase 8 (2026-10-04). Gate G-CD (Q11). **No CD features in MVP.**
+- Status: Phase 8 (2026-10-04). Gate G-CD (Q11). **No CD features in MVP.** Update 2026-10-07: the *physical record* row is implemented (manual registration, `self_declared`, no evidence images yet); every other row is unchanged.
 
 ## 1. Feature split (must stay separate)
 
@@ -14,7 +14,7 @@
 
 ## 2. Invariants (already enforced)
 - `cd_rip` origin exists in the domain vocabulary but cannot be created (no API, DB CHECK excludes it from MVP).
-- No entitlement can be created from physical data (no physical tables; future FK/trigger forbidden by review rule).
+- No entitlement can be created from physical data: `physical_item` has no FK, trigger or code path to entitlement data, and registering a release does not change its playability (`collection.test.ts`).
 - Fingerprint equality with catalog never grants catalog playback.
 
 ## 3. Checklist carried from AP-09 (all open)
