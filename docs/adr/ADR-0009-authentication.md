@@ -1,6 +1,6 @@
 # ADR-0009: External OIDC; JWT verification via JWKS
 
-- Status: Accepted (approach) / **Proposed (identity provider)**
+- Status: Accepted (approach; identity provider Amazon Cognito since 2026-10-07)
 - Date: 2026-10-04
 - Source topic: AP ADR-02 (계정·tenant·key)
 - Related: ACC-002, NFR-SEC-002, NFR-SEC-007, NFR-SEC-013, PB §10 (no custom auth)
@@ -32,6 +32,15 @@ Custom authentication is explicitly out (PB §10). The provider choice affects c
 | Auth0 / Zitadel Cloud | Standard `aud` via the `audience` parameter (`VITE_OIDC_AUDIENCE`), Actions for custom claims | Data outside Korea; per-MAU pricing |
 
 The choice remains with the owner ([owner actions](../plans/owner-actions.md) O-03).
+
+## Decision 2026-10-07: Amazon Cognito (Seoul), two user pools
+Owner decision after the comparison above: Cognito, in the same account and region as ADR-0012.
+
+- **Users:** a user pool where sign-in requires a verified email; MFA optional. Its access tokens carry `client_id` (no `aud`), `token_use=access`, and no `email_verified`/`amr`. The server's `AUTH_PROFILE=cognito` checks `client_id` against `AUTH_AUDIENCE` and refuses ID tokens. It treats tokens from this pool as email-verified, because the pool won't sign in an unverified user, and **never** derives roles from them — neither `rabit_roles` nor `cognito:groups`.
+- **Operators:** a separate pool with **MFA required** for every sign-in and no self sign-up (`AUTH_OPERATOR_ISSUER`, `AUTH_OPERATOR_JWKS_URL`, `AUTH_OPERATOR_AUDIENCE`). Tokens from it, checked with its own keys and client id, are operators with MFA (NFR-SEC-007). This replaces the `amr` check, which Cognito cannot provide (pre-token-generation triggers cannot add `amr` or `aud`).
+- No Lambda trigger is needed, so the pools can use the Lite tier.
+- The `standard` profile (aud, `email_verified`, `rabit_roles` + `amr`) stays for the development issuer and the mock provider, and for any later provider.
+- Tests: `auth.test.ts`. A user-pool token with forged role, group and `amr` claims gets no role; ID tokens and other clients are refused; only the operator pool makes operators; a user-pool key cannot mint a token for the operator issuer.
 
 ## Revisit trigger
 Provider selection; requirement for first-party session cookies on web (BFF pattern).

@@ -52,6 +52,21 @@ const envSchema = z
     AUTH_AUDIENCE: z.string().min(1),
     AUTH_JWKS_URL: z.union([z.url(), z.literal('')]).optional(),
     AUTH_DEV_ISSUER_ENABLED: bool.default(false),
+    /**
+     * How the provider's access tokens carry the audience and email state (ADR-0009):
+     * `standard` checks `aud` and `email_verified`; `cognito` checks `client_id` and
+     * `token_use=access`, and relies on the user pool allowing sign-in only after
+     * email verification.
+     */
+    AUTH_PROFILE: z.enum(['standard', 'cognito']).default('standard'),
+    /**
+     * Separate issuer for operators whose provider enforces MFA for every sign-in
+     * (e.g. a Cognito user pool with MFA required). Its tokens are operators with
+     * MFA; tokens from AUTH_ISSUER never are when the profile is `cognito`.
+     */
+    AUTH_OPERATOR_ISSUER: z.url().optional(),
+    AUTH_OPERATOR_JWKS_URL: z.url().optional(),
+    AUTH_OPERATOR_AUDIENCE: z.string().min(1).optional(),
 
     MEDIA_TOKEN_SECRET: secret,
     CURSOR_SECRET: secret,
@@ -118,6 +133,26 @@ const envSchema = z
         message: 'must be aws:kms when NODE_ENV=production (customer-managed key, NFR-SEC-004)',
       });
     }
+    const operatorSet = [
+      c.AUTH_OPERATOR_ISSUER,
+      c.AUTH_OPERATOR_JWKS_URL,
+      c.AUTH_OPERATOR_AUDIENCE,
+    ];
+    if (operatorSet.some((v) => v !== undefined) && operatorSet.some((v) => v === undefined)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTH_OPERATOR_ISSUER'],
+        message:
+          'set AUTH_OPERATOR_ISSUER, AUTH_OPERATOR_JWKS_URL and AUTH_OPERATOR_AUDIENCE together',
+      });
+    }
+    if (c.AUTH_OPERATOR_ISSUER && c.AUTH_OPERATOR_ISSUER === c.AUTH_ISSUER) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AUTH_OPERATOR_ISSUER'],
+        message: 'must differ from AUTH_ISSUER',
+      });
+    }
     if (!c.AUTH_DEV_ISSUER_ENABLED && !c.AUTH_JWKS_URL) {
       ctx.addIssue({
         code: 'custom',
@@ -156,6 +191,8 @@ export interface Config {
     audience: string;
     jwksUrl: string | undefined;
     devIssuerEnabled: boolean;
+    profile: 'standard' | 'cognito';
+    operator: { issuer: string; jwksUrl: string; audience: string } | undefined;
   };
   secrets: { mediaToken: string; cursor: string };
   rateLimit: { enabled: boolean; store: 'postgres' | 'memory' };
@@ -221,6 +258,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       audience: e.AUTH_AUDIENCE,
       jwksUrl: e.AUTH_JWKS_URL === '' ? undefined : e.AUTH_JWKS_URL,
       devIssuerEnabled: e.AUTH_DEV_ISSUER_ENABLED,
+      profile: e.AUTH_PROFILE,
+      operator:
+        e.AUTH_OPERATOR_ISSUER && e.AUTH_OPERATOR_JWKS_URL && e.AUTH_OPERATOR_AUDIENCE
+          ? {
+              issuer: e.AUTH_OPERATOR_ISSUER,
+              jwksUrl: e.AUTH_OPERATOR_JWKS_URL,
+              audience: e.AUTH_OPERATOR_AUDIENCE,
+            }
+          : undefined,
     },
     secrets: { mediaToken: e.MEDIA_TOKEN_SECRET, cursor: e.CURSOR_SECRET },
     rateLimit: { enabled: e.RATE_LIMIT_ENABLED, store: e.RATE_LIMIT_STORE },

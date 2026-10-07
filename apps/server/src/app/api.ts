@@ -4,6 +4,7 @@ import {
   createVerifier,
   DevIssuer,
   remoteKeys,
+  type TrustedIssuer,
   type VerifiedToken,
 } from '../platform/http/auth.js';
 import { createHttpApp, installApiAuth } from '../platform/http/app.js';
@@ -31,6 +32,7 @@ export async function buildApiApp(
 
   let devIssuer: DevIssuer | null = null;
   let keys;
+  const auth = ctx.config.auth;
   if (ctx.config.auth.devIssuerEnabled) {
     devIssuer = await DevIssuer.create(ctx.config.auth, ctx.config.env);
     keys = devIssuer.keys();
@@ -50,8 +52,28 @@ export async function buildApiApp(
     keys = remoteKeys(ctx.config.auth.jwksUrl);
   }
 
+  const issuers: TrustedIssuer[] = [
+    {
+      issuer: auth.issuer,
+      audience: auth.audience,
+      keys,
+      // The development issuer always mints standard tokens.
+      profile: devIssuer ? 'standard' : auth.profile,
+      operators: false,
+    },
+  ];
+  if (auth.operator) {
+    issuers.push({
+      issuer: auth.operator.issuer,
+      audience: auth.operator.audience,
+      keys: remoteKeys(auth.operator.jwksUrl),
+      profile: auth.profile,
+      operators: true,
+    });
+  }
+
   await installApiAuth(app, ctx.config, {
-    verifier: createVerifier(ctx.config.auth, keys),
+    verifier: createVerifier(issuers),
     resolvePrincipal,
     db: ctx.db,
   });
