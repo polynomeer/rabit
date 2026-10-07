@@ -507,6 +507,51 @@ paths:
       responses:
         '200': { description: Timeline, content: { application/json: { schema: { $ref: '#/components/schemas/LabelTimeline' } } } }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/blind-digs:
+    post:
+      tags: [dig]
+      operationId: startBlindDig
+      description: >-
+        Blind Digging (DIG-010): deals up to 10 recordings the caller can play — from the start entity's
+        connections, or from the whole catalog — in random order, without artist, release, year or
+        popularity. Each item reveals its recording after a decision. Rate limited (60 per hour).
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/StartBlindDigRequest' } } }
+      responses:
+        '201': { description: The round (may be empty when nothing is playable), content: { application/json: { schema: { $ref: '#/components/schemas/BlindDig' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/blind-digs/{blind_dig_id}:
+    parameters: [ { name: blind_dig_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [dig]
+      operationId: getBlindDig
+      responses:
+        '200': { description: The round, content: { application/json: { schema: { $ref: '#/components/schemas/BlindDig' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/blind-digs/{blind_dig_id}/items/{item_id}/decision:
+    parameters:
+      - { name: blind_dig_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+      - { name: item_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } }
+    post:
+      tags: [dig]
+      operationId: decideBlindDigItem
+      description: Keep (saves the recording to the library) or Pass. Final; repeating the same decision is accepted, changing it is 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [keep, pass] }
+      responses:
+        '200': { description: The round with the item revealed, content: { application/json: { schema: { $ref: '#/components/schemas/BlindDig' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /v1/dig/entities/{entity_id}/connections:
     parameters: [ { $ref: '#/components/parameters/EntityId' } ]
     get:
@@ -1609,6 +1654,47 @@ components:
               last_year: { type: [integer, 'null'] }
               releases: { type: integer }
         truncated: { type: boolean }
+    StartBlindDigRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        start_entity_id: { $ref: '#/components/schemas/Id' }
+        popularity: { $ref: '#/components/schemas/PopularityFilter' }
+    BlindDig:
+      type: object
+      required: [blind_dig_id, popularity, created_at, items]
+      properties:
+        blind_dig_id: { $ref: '#/components/schemas/Id' }
+        popularity: { $ref: '#/components/schemas/PopularityFilter' }
+        created_at: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            required: [item_id, position, recording_id, decision, reveal]
+            properties:
+              item_id: { $ref: '#/components/schemas/Id' }
+              position: { type: integer }
+              recording_id: { $ref: '#/components/schemas/Id' }
+              decision: { type: [string, 'null'], enum: [keep, pass, null] }
+              reveal:
+                description: Null until decided.
+                oneOf:
+                  - type: 'null'
+                  - type: object
+                    required: [recording, release, popularity_tier]
+                    properties:
+                      recording: { $ref: '#/components/schemas/EntitySummary' }
+                      release:
+                        oneOf:
+                          - type: 'null'
+                          - type: object
+                            required: [release_id, title, release_date]
+                            properties:
+                              release_id: { $ref: '#/components/schemas/Id' }
+                              title: { type: string }
+                              release_date: { type: [string, 'null'], format: date }
+                      popularity_tier: { type: string }
     DigAxes:
       type: object
       required: [entity, axes]

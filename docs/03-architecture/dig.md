@@ -77,3 +77,18 @@ It uses only stored catalog data (`release.label_id`, `release_date`, `release_a
 
 Not included, for lack of data: genre change over time, sub-labels, scenes (DIG-012, OQ-DIG-04).
 
+## Blind Digging (DIG-010, V1)
+
+`POST /v1/blind-digs` deals up to 10 recordings in random order. They come from the start entity's connections on every axis, or from the whole catalog when no start entity is given, and each one must be:
+- playable by the caller (rights and entitlement at deal time);
+- not excluded by integrity;
+- within the popularity ceiling (unknown popularity passes).
+
+Before a decision, an item carries only its id, position and recording id, so the normal playback path, with all its checks, can play it. Artist, release, year and popularity stay hidden.
+
+`POST /v1/blind-digs/{id}/items/{item_id}/decision` with `keep` or `pass` reveals the recording, its first release and its popularity tier. Keep also saves it to the library. A decision is final: repeating it is accepted, changing it is 409.
+
+Hiding is a choice the user makes for their own discovery, not a secret kept from them: a determined user could look up the recording id. The player also shows a masked title.
+
+Rounds are private, deleted with the account and exported with the DIG history (`blind_digs`).
+

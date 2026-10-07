@@ -24,7 +24,12 @@ import {
   deleteAccountCollection,
 } from '../modules/collection/index.js';
 import { getUser, identityModule, identitySupportSection } from '../modules/identity/index.js';
-import { deleteAccountDig, digExportSection, digModule } from '../modules/dig/index.js';
+import {
+  blindDigExportSection,
+  deleteAccountDig,
+  digExportSection,
+  digModule,
+} from '../modules/dig/index.js';
 import {
   deleteAccountLibrary,
   libraryModule,
@@ -113,7 +118,7 @@ export function allModules(): Module[] {
     playbackModule({ catalogAccess, resolveRecordingSource: recordingSource }),
     libraryModule({
       catalogAccess,
-      exportSections: () => [digExportSection, collectionExportSection],
+      exportSections: () => [digExportSection, blindDigExportSection, collectionExportSection],
     }),
     collectionModule(),
     searchModule(),

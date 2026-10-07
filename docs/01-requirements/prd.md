@@ -254,7 +254,7 @@
 | DIG-007 | Deep Cut Mode: Any / Below Top 50% / Deep Cuts / Obscure 인지도 구간. 절대 재생량과 상대 인지도를 분리해 신인이 불리하지 않게 한다 | DIG §3.11 | — | DIG-MVP | Proposed |
 | DIG-008 | Dig Session Summary: 출발/도착점, 관계 수, 새 아티스트/앨범, 건넌 국가·시대·장르, 저장/구매를 Archive에 남긴다 | DIG §3.13 | REQ-19 | 미지정 | Open (OQ-DIG-08) |
 | DIG-009 | Crate Digging: Location·Era·Genre·Popularity 조건의 제한된 앨범 Crate, 공개 Crate 탐험 | DIG §3.12 | — | V1 | Deferred |
-| DIG-010 | Blind Digging: 아티스트·앨범아트·발매연도·인기를 숨기고 Keep/Pass 후 공개 | DIG §3.10, BRD §8 | — | V1 | Deferred |
+| DIG-010 | Blind Digging: 아티스트·앨범아트·발매연도·인기를 숨기고 Keep/Pass 후 공개 | DIG §3.10, BRD §8 | — | V1 | 구현 (2026-10-07, dig.md §Blind Digging) |
 | DIG-011 | Label Digging (기본): 시대별 작품·장르 변화·아티스트·서브레이블·Scene을 시간축으로 | DIG §3.4 | — | V1 | 일부 구현 (2026-10-07: 연도별 작품·아티스트 활동 기간. 장르·서브레이블·Scene은 데이터 없음) |
 | DIG-012 | Scene Digging (기본): Scene = 지역 + 시대 + 장르/문화 + 참여 아티스트, Atlas와 연결 | DIG §3.5 | REQ-15 | V1 | Deferred (OQ-DIG-04) |
 | DIG-013 | Sound Digging: 구간 선택 → segment-level embedding 유사 음악 | DIG §3.7 | REQ-08 | V2 | Deferred (OQ-DIG-02/03) |

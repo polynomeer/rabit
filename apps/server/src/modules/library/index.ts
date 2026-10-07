@@ -14,6 +14,7 @@ import { libraryRoutes } from './routes.js';
 import type { SupportSection } from '../../platform/support.js';
 
 export { createPlaylist, playlistView } from './playlists.js';
+export { addLibraryItem } from './library.js';
 export { resolveRef, type Ownership, type ResolvedRef } from './resolve.js';
 export type { ExportSection } from './export.js';
 
