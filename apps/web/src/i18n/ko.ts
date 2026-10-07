@@ -137,6 +137,12 @@ export const ko = {
   'archive.item.delete': '삭제',
   'archive.item.deleteConfirm': '이 오디오를 삭제할까요? 되돌릴 수 없습니다.',
   'archive.item.removeFromLibrary': '라이브러리에서 빼기',
+  'labels.timeline': '레이블 타임라인',
+  'labels.years': '연도별 발매작',
+  'labels.artists': '이 레이블의 아티스트',
+  'labels.undated': '발매일 미상',
+  'labels.releaseCount': '발매작 {count}개',
+  'labels.truncated': '발매작이 많아 처음 1000개만 보여 줍니다.',
   'collection.title': '실물 컬렉션',
   'collection.note':
     '내가 가진 CD·LP·카세트의 소장 기록입니다(본인 신고). 디지털 재생권과는 별개이며, 실물을 등록해도 재생 권한이 생기지 않습니다.',

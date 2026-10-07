@@ -255,7 +255,7 @@
 | DIG-008 | Dig Session Summary: 출발/도착점, 관계 수, 새 아티스트/앨범, 건넌 국가·시대·장르, 저장/구매를 Archive에 남긴다 | DIG §3.13 | REQ-19 | 미지정 | Open (OQ-DIG-08) |
 | DIG-009 | Crate Digging: Location·Era·Genre·Popularity 조건의 제한된 앨범 Crate, 공개 Crate 탐험 | DIG §3.12 | — | V1 | Deferred |
 | DIG-010 | Blind Digging: 아티스트·앨범아트·발매연도·인기를 숨기고 Keep/Pass 후 공개 | DIG §3.10, BRD §8 | — | V1 | Deferred |
-| DIG-011 | Label Digging (기본): 시대별 작품·장르 변화·아티스트·서브레이블·Scene을 시간축으로 | DIG §3.4 | — | V1 | Deferred |
+| DIG-011 | Label Digging (기본): 시대별 작품·장르 변화·아티스트·서브레이블·Scene을 시간축으로 | DIG §3.4 | — | V1 | 일부 구현 (2026-10-07: 연도별 작품·아티스트 활동 기간. 장르·서브레이블·Scene은 데이터 없음) |
 | DIG-012 | Scene Digging (기본): Scene = 지역 + 시대 + 장르/문화 + 참여 아티스트, Atlas와 연결 | DIG §3.5 | REQ-15 | V1 | Deferred (OQ-DIG-04) |
 | DIG-013 | Sound Digging: 구간 선택 → segment-level embedding 유사 음악 | DIG §3.7 | REQ-08 | V2 | Deferred (OQ-DIG-02/03) |
 | DIG-014 | Instrument Digging: 재생 시점 보컬/악기 표시, 악기·음색 기준 탐험 (stem 활용은 권리 게이트) | DIG §3.8 | REQ-08/14 | V2 | Deferred + Legal (CNF-19) |
