@@ -6,9 +6,16 @@ import { subjectFor } from './support.ts';
  * Sign-in through an OIDC provider (ADR-0009): Authorization Code + PKCE against a
  * mock provider, with an api that trusts only that provider (no dev issuer).
  */
-async function signInWithProvider(page: Page, subject: string, claims?: object) {
-  await page.getByRole('button', { name: '로그인' }).click();
-  await page.waitForURL((url) => url.href.startsWith(E2E.oidcIssuer));
+async function signInWithProvider(
+  page: Page,
+  subject: string,
+  claims?: object,
+  realm: 'user' | 'operator' = 'user',
+) {
+  const button = realm === 'user' ? '로그인' : '운영자 로그인 (MFA)';
+  await page.getByRole('button', { name: button, exact: true }).click();
+  const issuer = realm === 'user' ? E2E.oidcIssuer : E2E.oidcOperatorIssuer;
+  await page.waitForURL((url) => url.href.startsWith(`${issuer}/`));
   await page.locator('input[name="username"]').fill(subject);
   if (claims) await page.locator('textarea[name="claims"]').fill(JSON.stringify(claims));
   await page.getByRole('button', { name: 'Sign-in' }).click();
@@ -55,26 +62,29 @@ test('signs in through the provider and returns to the requested screen', async 
     sessionStorage.setItem('rabit.refresh', 'revoked');
   });
   await page.reload();
-  await expect(page.getByRole('button', { name: '로그인' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '로그인', exact: true })).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem('rabit.refresh'))).toBeNull();
 });
 
-test('the operator console needs the role and MFA from the provider', async ({ page }) => {
+test('only the MFA operator pool opens the operator console, never user-pool claims', async ({
+  page,
+}) => {
   const menu = page.getByRole('navigation', { name: '주 메뉴' });
   await page.goto(E2E.oidcWebUrl);
-  await signInWithProvider(page, subjectFor('oidc-op-nomfa'), {
+  // A user-pool token with forged role, group and MFA claims stays a user (ADR-0009).
+  await signInWithProvider(page, subjectFor('oidc-forged'), {
     rabit_roles: ['rabit:operator'],
-    amr: ['pwd'],
+    'cognito:groups': ['rabit-operators'],
+    amr: ['pwd', 'mfa'],
   });
   await expect(menu).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Ops' })).toHaveCount(0);
   await page.getByRole('button', { name: '로그아웃' }).click();
 
-  await signInWithProvider(page, subjectFor('oidc-op'), {
-    rabit_roles: ['rabit:operator'],
-    amr: ['pwd', 'mfa'],
-  });
+  await signInWithProvider(page, subjectFor('oidc-op'), undefined, 'operator');
   await expect(menu.getByRole('button', { name: 'Ops' })).toBeVisible();
+  await menu.getByRole('button', { name: 'Ops' }).click();
+  await expect(page.getByRole('heading', { level: 2, name: '운영' })).toBeVisible();
 });
 
 test('a callback that this tab did not start is refused', async ({ page }) => {

@@ -32,6 +32,9 @@ export const E2E = {
   oidcApiUrl: `http://localhost:${String(oidcApiPort)}`,
   oidcWebUrl: `http://localhost:${String(oidcWebPort)}`,
   oidcClientId: 'rabit-web',
+  /** The operators' issuer (on Cognito: a separate user pool with MFA required). */
+  oidcOperatorIssuer: `http://localhost:${String(oidcPort)}/rabit-ops`,
+  oidcOperatorClientId: 'rabit-ops-web',
   cspWebPort,
   cspWebUrl: `http://localhost:${String(cspWebPort)}`,
   s3PublicUrl: process.env['S3_PUBLIC_ENDPOINT'] ?? 'http://127.0.0.1:59000',
