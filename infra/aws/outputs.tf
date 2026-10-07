@@ -44,3 +44,18 @@ output "alerts_topic_arn" {
   description = "Each address in alert_emails must confirm its subscription."
   value       = aws_sns_topic.alerts.arn
 }
+
+output "oidc" {
+  description = "Set as OIDC_* in the GitHub environment (web client sign-in, ADR-0009)."
+  value = {
+    OIDC_ISSUER             = local.cognito_issuer.users
+    OIDC_CLIENT_ID          = aws_cognito_user_pool_client.web["users"].id
+    OIDC_OPERATOR_ISSUER    = local.cognito_issuer.operators
+    OIDC_OPERATOR_CLIENT_ID = aws_cognito_user_pool_client.web["operators"].id
+  }
+}
+
+output "operator_pool_id" {
+  description = "Create operators here (owner-actions O-03)."
+  value       = aws_cognito_user_pool.operators.id
+}

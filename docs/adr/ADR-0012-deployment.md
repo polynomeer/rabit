@@ -31,6 +31,7 @@ First launch is in Korea (Q01, country only) and runs on **AWS `ap-northeast-2` 
 | Encryption keys | KMS customer-managed key with rotation; S3 SSE-KMS with bucket keys (ADR-0021 for per-workspace scope) |
 | Media delivery | CloudFront in front of the media role (ADR-0008); web client from S3 behind CloudFront |
 | Secrets | Secrets Manager, injected as task environment (R14) |
+| Sign-in | Amazon Cognito: user pool and MFA-required operator pool (ADR-0009) |
 | Images | ECR, image scanning on push |
 | Logs, metrics | CloudWatch Logs; Prometheus metrics scraped by Amazon Managed Prometheus or the ADOT collector (decided at deploy time) |
 | IaC | **OpenTofu** (MPL-licensed fork of Terraform) in `infra/aws` |

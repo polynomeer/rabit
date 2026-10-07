@@ -118,21 +118,6 @@ variable "worker_concurrency" {
   default = 2
 }
 
-variable "auth_issuer" {
-  description = "OIDC issuer URL of the production identity provider (ADR-0009; provider still to be chosen)."
-  type        = string
-}
-
-variable "auth_audience" {
-  type    = string
-  default = "rabit-api"
-}
-
-variable "auth_jwks_url" {
-  description = "JWKS URL of the identity provider."
-  type        = string
-}
-
 variable "github_repository" {
   description = "owner/name allowed to deploy through GitHub OIDC."
   type        = string
