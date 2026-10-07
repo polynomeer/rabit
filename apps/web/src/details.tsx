@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get, type Connection, type EntitySummary, type Playability } from './api';
+import { AddToCollection } from './collection';
 import { AXIS_TEXT, EvidenceLine, roleText } from './dig';
 import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
@@ -476,6 +477,11 @@ export function ReleaseDetail({ id }: { id: string }) {
               DIG
             </a>
             <SaveButton refType="release" refId={r.release_id} />
+            <AddToCollection
+              releaseId={r.release_id}
+              title={r.title}
+              artist={r.artists.map((x) => x.name).join(', ')}
+            />
           </div>
           <ol className="list tracks" aria-label={t('details.release.tracks')}>
             {r.tracks.map((track, i) => (
