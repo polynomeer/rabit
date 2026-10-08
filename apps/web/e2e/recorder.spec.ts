@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectPlaying, provision, signIn, subjectFor } from './support.ts';
+import { expectPlaying, openTab, provision, signIn, subjectFor } from './support.ts';
 
 /**
  * Audio Log from the microphone (LOG-004): record → stop → preview → private save.
@@ -20,6 +20,7 @@ test('records an Audio Log with the microphone and keeps it private', async ({ p
   const subject = subjectFor('recorder');
   await provision(subject);
   await signIn(page, subject);
+  await openTab(page, 'Studio');
   const upload = page.getByRole('form', { name: '오디오 업로드' });
   await upload.getByRole('radio', { name: 'Audio Log' }).check();
   const title = `Voice memo ${Date.now().toString(36)}`;
@@ -36,6 +37,7 @@ test('records an Audio Log with the microphone and keeps it private', async ({ p
 
   await upload.getByRole('button', { name: '업로드' }).click();
   await expect(upload.getByRole('status')).toBeHidden({ timeout: 60_000 });
+  await openTab(page, 'Archive');
   const item = page.getByRole('region', { name: 'Archive' }).getByRole('listitem').filter({
     hasText: title,
   });
@@ -52,6 +54,7 @@ test('explains a refused microphone and leaves file upload available', async ({ 
   const subject = subjectFor('recorder-denied');
   await provision(subject);
   await signIn(page, subject);
+  await openTab(page, 'Studio');
   const upload = page.getByRole('form', { name: '오디오 업로드' });
   await upload.getByRole('radio', { name: 'Audio Log' }).check();
   await upload.getByRole('button', { name: '마이크로 녹음' }).click();

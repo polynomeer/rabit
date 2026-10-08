@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { apiAs, expectPlaying, provision, signIn, subjectFor, wavTone } from './support.ts';
+import {
+  apiAs,
+  expectPlaying,
+  openTab,
+  provision,
+  signIn,
+  subjectFor,
+  wavTone,
+} from './support.ts';
 
 test('uploads private audio, plays it, keeps it private, and deletes it', async ({ page }) => {
   const owner = subjectFor('owner');
@@ -11,12 +19,14 @@ test('uploads private audio, plays it, keeps it private, and deletes it', async 
   const file = `${name}.wav`;
 
   await signIn(page, owner);
+  await openTab(page, 'Studio');
   const upload = page.getByRole('form', { name: '오디오 업로드' });
   await upload
     .getByLabel('오디오 파일')
     .setInputFiles({ name: file, mimeType: 'audio/wav', buffer: wavTone(3) });
   await upload.getByRole('button', { name: '업로드' }).click();
   await expect(upload.getByRole('status')).toBeHidden({ timeout: 60_000 });
+  await openTab(page, 'Archive');
 
   const item = page.getByRole('region', { name: 'Archive' }).getByRole('listitem').filter({
     hasText: name,

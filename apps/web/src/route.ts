@@ -3,13 +3,24 @@ import { useEffect, useState } from 'react';
 /**
  * Hash routes, so every screen has a shareable link and the browser's back
  * button works without a server-side router:
- *   #/archive  #/playlists  #/search  #/search/<query>  #/account
+ *   #/home  #/studio  #/archive  #/playlists  #/search  #/search/<query>  #/account
  *   #/dig  #/dig/<entity id> (starts a session)  #/dig-session/<session id>
  *   #/recording/<id>  #/release/<id>  #/entity/<id>
  *   #/ops/<users|reports|jobs|rights|sales> (operators)
  */
-export const TABS = ['Archive', 'Playlists', 'Search', 'DIG', 'Account'] as const;
+export const TABS = ['Home', 'Search', 'DIG', 'Archive', 'Studio', 'Playlists', 'Account'] as const;
 export type Tab = (typeof TABS)[number];
+
+/** The main menu (ADR-0020): bottom bar on phones, header on wide screens. */
+export const PRIMARY_TABS = [
+  'Home',
+  'Search',
+  'DIG',
+  'Archive',
+  'Studio',
+] as const satisfies readonly Tab[];
+/** Library and account pages, reached from the header's secondary menu. */
+export const SECONDARY_TABS = ['Playlists', 'Account'] as const satisfies readonly Tab[];
 
 export type Route =
   | { kind: 'tab'; tab: Tab; digStart: string | null; query: string }
@@ -35,7 +46,7 @@ export function parseHash(hash: string): Route {
     const section = OPS_SECTIONS.find((s) => s === second) ?? 'users';
     return { kind: 'ops', section };
   }
-  const tab = TABS.find((t) => t.toLowerCase() === first.toLowerCase()) ?? 'Archive';
+  const tab = TABS.find((t) => t.toLowerCase() === first.toLowerCase()) ?? 'Home';
   let query = '';
   if (tab === 'Search') {
     try {

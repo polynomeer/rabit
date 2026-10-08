@@ -1,18 +1,33 @@
-/* Brand working tokens (BRD §3; HEX values pending WCAG/OLED validation, OQ-BRD-03). */
+/*
+ * Visual design C (ADR-0020). Brand working tokens (BRD §3) — HEX values stay
+ * working until the WCAG/OLED review (OQ-BRD-03). Dark is the default; a light
+ * Canvas scheme follows the OS setting.
+ */
 :root {
   --ink: #111111;
   --canvas: #f4f1ec;
   --purple: #7865c8;
   --orange: #eb7b4c;
   --sage: #59615b;
-  --bg: var(--ink);
-  --fg: #ece9e4;
-  --muted: #a9a49d;
-  --surface: #1c1c1c;
-  --line: #2e2e2e;
-  --accent: #9a8ae0; /* lighter purple for AA contrast on dark */
+  --bg: #0e0e10;
+  --fg: #f4f1ec;
+  --muted: #a9a4ae;
+  --surface: #1a191e;
+  --surface-2: #232229;
+  --line: #2a2830;
+  /* Accent for text and outlines (AA on the surfaces); fills use --purple with white text. */
+  --accent: #a898ee;
+  --accent-soft: rgba(120, 101, 200, 0.18);
+  --area-dig: #3e3570;
+  --area-archive: #4a524c;
+  --area-studio: #8a4527;
+  --glow: rgba(120, 101, 200, 0.32);
   --ok: #8fd19e;
   --warn: #f0a57c;
+  --radius: 20px;
+  --tabbar-h: 64px;
+  --font:
+    system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) {
@@ -21,8 +36,14 @@
     --fg: var(--ink);
     --muted: #5b5852;
     --surface: #ffffff;
+    --surface-2: #ebe7e0;
     --line: #dcd7cf;
     --accent: #5a48aa;
+    --accent-soft: rgba(120, 101, 200, 0.14);
+    --area-dig: #4b3f8f;
+    --area-archive: #4a524c;
+    --area-studio: #9a3f12;
+    --glow: rgba(120, 101, 200, 0.16);
     --ok: #1f6b33;
     --warn: #9a3f12;
     color-scheme: light;
@@ -35,34 +56,31 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family:
-    system-ui,
-    -apple-system,
-    'Noto Sans KR',
-    'Noto Sans',
-    sans-serif;
+  font-family: var(--font);
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 main {
-  max-width: 960px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 16px 16px 140px;
-}
-/* The player wraps onto three rows on phones; keep the last content above it. */
-@media (max-width: 600px) {
-  main {
-    padding-bottom: 220px;
-  }
-}
-a {
-  color: var(--accent);
+  /* Room for the fixed player (and the bottom menu on phones). */
+  padding: 24px 20px calc(200px + env(safe-area-inset-bottom));
 }
 h1,
 h2,
 h3 {
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+h2 {
+  font-size: 1.75rem;
+  margin: 8px 0 16px;
+}
+a {
+  color: var(--accent);
+  text-underline-offset: 3px;
 }
 button,
 input,
@@ -71,13 +89,23 @@ select {
   color: inherit;
 }
 button {
+  min-height: 40px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 12px;
+  border-radius: 999px;
+  padding: 6px 16px;
   cursor: pointer;
 }
 button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+button[type='submit'] {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #ffffff;
+  font-weight: 600;
+}
+button[type='submit']:hover:not(:disabled) {
   border-color: var(--accent);
 }
 button:disabled {
@@ -85,66 +113,164 @@ button:disabled {
   cursor: default;
 }
 button.link {
+  min-height: 0;
   background: none;
   border: none;
   color: var(--accent);
   text-decoration: underline;
+  text-underline-offset: 3px;
   padding: 0;
 }
 input,
 select {
+  min-height: 40px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 12px;
+  padding: 6px 12px;
   /* File inputs have a wide intrinsic size; never wider than their container. */
   max-width: 100%;
+}
+input[type='checkbox'],
+input[type='radio'] {
+  min-height: 0;
+  accent-color: var(--purple);
 }
 :focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ——— App shell: header, menu, bottom bar ——— */
 .top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 10px 16px;
+  padding: 10px 20px;
+  /* Opaque, no backdrop-filter: a filter would trap the fixed bottom menu inside the header. */
+  background: var(--bg);
   border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
 }
 /* The site name is the page's level-one heading; screens use h2 below it. */
 .top .brand {
-  font-size: 1rem;
-  font-weight: 700;
   margin: 0;
+  font-size: 1.3rem;
 }
-.top nav {
-  display: flex;
-  gap: 6px;
-  flex: 1;
-  flex-wrap: wrap;
+.top .brand a,
+.signin h1 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg);
+  text-decoration: none;
 }
-.top nav [aria-current='page'],
-.trail .current,
-[aria-selected='true'] {
-  border-color: var(--accent);
+.wordmark {
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.symbol {
   color: var(--accent);
+  flex-shrink: 0;
 }
-.logo {
-  color: var(--purple);
-  font-size: 1.4rem;
+.menu {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
 }
+.menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 4px;
+}
+.menu button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  padding: 6px 12px;
+}
+.menu button:hover:not(:disabled) {
+  color: var(--fg);
+}
+.menu [aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--fg);
+  font-weight: 600;
+}
+.logout {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+/* Narrow desktops: secondary entries keep their icons only. */
+@media (max-width: 1199px) {
+  .menu .tabs-secondary .tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+/* Phones: the primary list is a bottom bar; secondary entries are icon buttons. */
+@media (max-width: 899px) {
+  .menu {
+    justify-content: flex-end;
+  }
+  .menu .tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+  }
+  .menu .tabs button {
+    width: 100%;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 52px;
+    padding: 4px 0;
+    border-radius: 16px;
+    font-size: 0.7rem;
+  }
+  .menu .tabs-secondary button {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+/* ——— Shared building blocks ——— */
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px 16px;
+  border-radius: var(--radius);
+  padding: 16px 18px;
   margin: 12px 0;
 }
 fieldset {
   border: none;
   padding: 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 .list {
@@ -155,7 +281,7 @@ fieldset {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
 }
@@ -164,22 +290,60 @@ ol.list {
 }
 .actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: start;
 }
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-size: 0.75rem;
+  font-weight: 500;
   border: 1px solid var(--line);
+  background: var(--surface-2);
   border-radius: 999px;
-  padding: 0 8px;
-  color: var(--muted);
+  padding: 1px 9px;
+  color: var(--fg);
+}
+/* Ownership is labelled in text; the tint only echoes it (never colour-only). */
+.badge.own-purchased {
+  background: var(--accent-soft);
+  border-color: var(--purple);
+}
+.badge.own-audio_log {
+  border-color: var(--orange);
 }
 .muted {
   color: var(--muted);
 }
 .small {
   font-size: 0.85rem;
+}
+.eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 28px 0 4px;
+}
+.lede {
+  white-space: pre-line;
+  font-size: 1.6rem;
+  font-weight: 400;
+  line-height: 1.3;
+  margin: 0 0 20px;
+}
+.note {
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 .ok {
   color: var(--ok);
@@ -193,31 +357,151 @@ ol.list {
 .warn::before {
   content: '▲ ';
 }
+
+/* ——— Home ——— */
+.home {
+  position: relative;
+}
+.home::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  /* Kept inside the content width: anything wider would scroll a phone sideways. */
+  top: -160px;
+  right: 0;
+  width: min(460px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
+  pointer-events: none;
+}
+.home .greeting {
+  white-space: pre-line;
+  font-size: 2rem;
+  font-weight: 400;
+  margin: 16px 0 24px;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 18px;
+  border-radius: 26px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  max-width: 560px;
+}
+.search-field:focus-within {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--fg);
+}
+.areas {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.area {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 132px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  text-decoration: none;
+}
+.area:hover {
+  border-color: var(--accent);
+}
+.area-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: auto;
+  border-radius: 18px;
+  background: var(--purple);
+  color: #ffffff;
+}
+.area-dig .area-icon {
+  background: var(--area-dig);
+}
+.area-archive .area-icon {
+  background: var(--area-archive);
+}
+.area-studio .area-icon {
+  background: var(--area-studio);
+}
+.area-name {
+  padding-top: 16px;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.area-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* ——— Player: a floating bar above the bottom menu ——— */
 .player {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: min(1040px, calc(100% - 24px));
   display: flex;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
   background: var(--surface);
-  border-top: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
   flex-wrap: wrap;
 }
+@media (max-width: 899px) {
+  .player {
+    bottom: calc(var(--tabbar-h) + 8px + env(safe-area-inset-bottom));
+  }
+}
 .player .now {
-  flex: 1;
-  min-width: 200px;
+  flex: 1 1 200px;
+  min-width: 0;
 }
 .player audio {
+  flex: 1 1 180px;
+  min-width: 0;
   max-width: 100%;
 }
+
+/* ——— DIG ——— */
 .trail {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 12px;
+}
+.trail .current,
+[aria-selected='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .axes {
   display: grid;
@@ -231,8 +515,8 @@ ol.list {
   align-items: center;
 }
 .group {
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
   color: var(--muted);
   width: 80px;
 }
@@ -246,9 +530,15 @@ ol.list {
   font-size: 1.1rem;
   margin: 8px 0;
 }
+
+/* ——— Sign-in ——— */
 .signin {
   max-width: 420px;
   padding-top: 15vh;
+}
+.signin h1 {
+  font-size: 2.6rem;
+  margin: 0 0 4px;
 }
 .signin form {
   display: grid;
@@ -263,11 +553,13 @@ ol.list {
 
 /* Detail pages (recording, release, entity) and Music Passport. */
 a.button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 12px;
+  border-radius: 999px;
+  padding: 6px 16px;
   color: inherit;
   text-decoration: none;
 }
@@ -317,8 +609,8 @@ textarea {
   box-sizing: border-box;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 12px;
+  padding: 8px 12px;
 }
 form[aria-label='신고'] label {
   display: block;

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { provision, signIn, subjectFor, wavTone } from './support.ts';
+import { openTab, provision, signIn, subjectFor, wavTone } from './support.ts';
 
 /** LOG-003: an Audio Log can be linked to the catalog track it is about, and unlinked. */
 test('links an Audio Log to a catalog track and unlinks it', async ({ page }) => {
@@ -8,6 +8,7 @@ test('links an Audio Log to a catalog track and unlinks it', async ({ page }) =>
   await signIn(page, subject);
 
   const name = `e2e-practice-${Date.now().toString(36)}`;
+  await openTab(page, 'Studio');
   const upload = page.getByRole('form', { name: '오디오 업로드' });
   await upload.getByRole('radio', { name: 'Audio Log' }).check();
   await upload.getByLabel('제목').fill(name);
@@ -16,6 +17,7 @@ test('links an Audio Log to a catalog track and unlinks it', async ({ page }) =>
     .setInputFiles({ name: `${name}.wav`, mimeType: 'audio/wav', buffer: wavTone(2) });
   await upload.getByRole('button', { name: '업로드' }).click();
   await expect(upload.getByRole('status')).toBeHidden({ timeout: 60_000 });
+  await openTab(page, 'Archive');
 
   const archive = page.getByRole('region', { name: 'Archive' });
   const item = archive.getByRole('listitem').filter({ hasText: name });

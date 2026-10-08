@@ -37,8 +37,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.getByLabel(/운영자/).check();
     await page.getByRole('button', { name: '로그인' }).click();
     await expect(page.getByRole('navigation', { name: '주 메뉴' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: '둘러보기' })).toBeVisible();
+    found.push(...(await scan(page, 'home')));
 
-    // Archive with an Audio Log and its editor open.
+    // Studio's upload form, then the Archive with the Audio Log and its editor open.
+    await openTab(page, 'Studio');
+    found.push(...(await scan(page, 'studio')));
     const upload = page.getByRole('form', { name: '오디오 업로드' });
     await upload.getByLabel('Audio Log').check();
     await upload.getByLabel('제목').fill('A11y memo');
@@ -47,6 +51,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       .setInputFiles({ name: 'a.wav', mimeType: 'audio/wav', buffer: wavTone(2) });
     await upload.getByRole('button', { name: '업로드', exact: true }).click();
     await expect(upload.getByRole('status')).toBeHidden({ timeout: 60_000 });
+    await openTab(page, 'Archive');
     const item = page.getByRole('region', { name: 'Archive' }).getByRole('listitem').filter({
       hasText: 'A11y memo',
     });

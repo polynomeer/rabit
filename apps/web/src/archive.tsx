@@ -4,12 +4,12 @@ import { formatDateTime, t, type MessageKey } from './i18n';
 import { PhysicalCollection } from './collection';
 import { AddToPlaylist } from './playlist-add';
 import { Recorder } from './recorder';
-import { entityHref } from './route';
+import { entityHref, tabHref } from './route';
 import { usePlayer } from './player';
 import { errorText, ItemTitle, Ownership, Status, toEntry } from './views';
 
-/** Upload → presigned PUT → finalize → poll (audio-pipeline §2). */
-function Upload({ onDone }: { onDone: () => void }) {
+/** Upload → presigned PUT → finalize → poll (audio-pipeline §2). Shown in Studio. */
+export function Upload({ onDone }: { onDone: () => void }) {
   // `settled` marks a final outcome (failed or cancelled): the form may be submitted again.
   const [busy, setBusy] = useState<{ text: string; settled: boolean } | null>(null);
   const working = (key: MessageKey) => {
@@ -417,7 +417,9 @@ export function Archive() {
     <>
       <section aria-labelledby="archive-h">
         <h2 id="archive-h">Archive</h2>
-        <Upload onDone={load} />
+        <p className="muted">
+          <a href={tabHref('Studio')}>{t('archive.uploadInStudio')}</a>
+        </p>
         {error ? <p className="warn">{error}</p> : null}
         <fieldset className="views">
           <legend>{t('archive.view.label')}</legend>
