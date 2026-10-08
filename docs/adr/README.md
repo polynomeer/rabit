@@ -34,6 +34,7 @@
 | [0019](ADR-0019-fingerprinting.md) | Audio fingerprinting and edition identification | Proposed | ADR-10 |
 | [0020](ADR-0020-shared-rate-limits.md) | Rate-limit counters shared in Postgres | Accepted | R13 |
 | [0021](ADR-0021-workspace-key-scope.md) | Per-workspace encryption scope through envelope encryption | Proposed | NFR-SEC-004 |
+| [0022](ADR-0022-web-visual-design.md) | Visual design and menu structure of the web reference client | Accepted (structure, theme, fonts) / Proposed (typeface, colours, symbol) | — (BRD) |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 
