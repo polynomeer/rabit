@@ -30,12 +30,14 @@ test('the core flows run under the production Content-Security-Policy', async ({
 
   // Upload straight to object storage with a presigned PUT.
   const name = `e2e-csp-${Date.now().toString(36)}`;
+  await openTab(page, 'Studio');
   const upload = page.getByRole('form', { name: '오디오 업로드' });
   await upload
     .getByLabel('오디오 파일')
     .setInputFiles({ name: `${name}.wav`, mimeType: 'audio/wav', buffer: wavTone(2) });
   await upload.getByRole('button', { name: '업로드' }).click();
   await expect(upload.getByRole('status')).toBeHidden({ timeout: 60_000 });
+  await openTab(page, 'Archive');
   await expect(page.getByRole('region', { name: 'Archive' }).getByText(name)).toBeVisible();
 
   // Search and play catalog audio through the media gateway (hls.js, workers, blobs).

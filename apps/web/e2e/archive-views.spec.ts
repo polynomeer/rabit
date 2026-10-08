@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { apiAs, provision, signIn, subjectFor } from './support.ts';
+import { apiAs, openTab, provision, signIn, subjectFor } from './support.ts';
 
 /** Archive views (LIB-001): everything, or one kind of item. */
 test('filters the Archive by kind', async ({ page }) => {
@@ -21,6 +21,7 @@ test('filters the Archive by kind', async ({ page }) => {
   });
 
   await signIn(page, subject);
+  await openTab(page, 'Archive');
   const archive = page.getByRole('region', { name: 'Archive' });
   const items = archive.getByRole('list').first().getByRole('listitem');
   const views = archive.getByRole('group', { name: '보기' });

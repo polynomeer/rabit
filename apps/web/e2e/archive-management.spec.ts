@@ -7,6 +7,7 @@ test('edits an Audio Log, shows its waveform and removes a saved item', async ({
   await signIn(page, subject);
 
   // Record an Audio Log through the upload form.
+  await openTab(page, 'Studio');
   const upload = page.getByRole('form', { name: '오디오 업로드' });
   await upload.getByLabel('Audio Log').check();
   const title = `Memo ${Date.now().toString(36)}`;
@@ -16,6 +17,7 @@ test('edits an Audio Log, shows its waveform and removes a saved item', async ({
     .setInputFiles({ name: 'memo.wav', mimeType: 'audio/wav', buffer: wavTone(3) });
   await upload.getByRole('button', { name: '업로드', exact: true }).click();
   await expect(upload.getByRole('status')).toBeHidden({ timeout: 60_000 });
+  await openTab(page, 'Archive');
 
   const archive = page.getByRole('region', { name: 'Archive' });
   let item = archive.getByRole('listitem').filter({ hasText: title });
@@ -94,6 +96,7 @@ test('cancels an upload during transfer and releases it on the server', async ({
   const intent = page.waitForResponse(
     (r) => r.url().endsWith('/v1/uploads') && r.request().method() === 'POST',
   );
+  await openTab(page, 'Studio');
   const upload = page.getByRole('form', { name: '오디오 업로드' });
   await upload
     .getByLabel('오디오 파일')

@@ -6,18 +6,58 @@ import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
 import { OpsConsole } from './ops';
 import { PlayerProvider } from './player';
-import { digHref, navigate, opsHref, tabHref, TABS, useRoute } from './route';
+import {
+  digHref,
+  navigate,
+  opsHref,
+  PRIMARY_TABS,
+  SECONDARY_TABS,
+  tabHref,
+  useRoute,
+  type Tab,
+} from './route';
 import { Archive } from './archive';
+import { Icon, RabitSymbol, type IconName } from './brand';
+import { Home } from './home';
+import { Studio } from './studio';
 import { t } from './i18n';
 import { Account, Playlists, Search } from './views';
 import './styles.css';
+
+const TAB_ICON: Record<Tab, IconName> = {
+  Home: 'home',
+  Search: 'search',
+  DIG: 'dig',
+  Archive: 'archive',
+  Studio: 'studio',
+  Playlists: 'playlists',
+  Account: 'account',
+};
+
+function TabButton({ tab, current }: { tab: Tab; current: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-current={current ? 'page' : undefined}
+      onClick={() => {
+        navigate(tabHref(tab));
+      }}
+    >
+      <Icon name={TAB_ICON[tab]} size={20} />
+      <span className="tab-label">{tab}</span>
+    </button>
+  );
+}
 
 function SignIn({ onDone, error }: { onDone: () => void; error: string | null }) {
   const [err, setErr] = useState<string | null>(error);
   if (oidcEnabled)
     return (
       <main className="signin">
-        <h1>Rabit</h1>
+        <h1>
+          <RabitSymbol size={56} />
+          <span className="wordmark">Rabit</span>
+        </h1>
         <p className="muted">{t('signin.tagline')}</p>
         <button
           type="button"
@@ -47,7 +87,10 @@ function SignIn({ onDone, error }: { onDone: () => void; error: string | null })
     );
   return (
     <main className="signin">
-      <h1>Rabit</h1>
+      <h1>
+        <RabitSymbol size={56} />
+        <span className="wordmark">Rabit</span>
+      </h1>
       <p className="muted">{t('signin.tagline')}</p>
       <form
         onSubmit={(e) => {
@@ -140,38 +183,46 @@ function App() {
   return (
     <PlayerProvider>
       <header className="top">
-        <span className="logo" aria-hidden="true">
-          ◖
-        </span>
-        <h1 className="brand">Rabit</h1>
-        <nav aria-label={t('nav.main')}>
-          {TABS.map((entry) => (
-            <button
-              key={entry}
-              type="button"
-              aria-current={tab === entry ? 'page' : undefined}
-              onClick={() => {
-                navigate(tabHref(entry));
-              }}
-            >
-              {entry}
-            </button>
-          ))}
-          {operator ? (
-            <button
-              type="button"
-              aria-current={route.kind === 'ops' ? 'page' : undefined}
-              onClick={() => {
-                navigate(opsHref('users'));
-              }}
-            >
-              Ops
-            </button>
-          ) : null}
+        <h1 className="brand">
+          <a href={tabHref('Home')} aria-label={t('nav.home')}>
+            <RabitSymbol size={28} />
+            <span className="wordmark">Rabit</span>
+          </a>
+        </h1>
+        {/* One menu landmark: the primary list becomes the bottom bar on phones. */}
+        <nav aria-label={t('nav.main')} className="menu">
+          <ul className="tabs">
+            {PRIMARY_TABS.map((entry) => (
+              <li key={entry}>
+                <TabButton tab={entry} current={tab === entry} />
+              </li>
+            ))}
+          </ul>
+          <ul className="tabs-secondary">
+            {SECONDARY_TABS.map((entry) => (
+              <li key={entry}>
+                <TabButton tab={entry} current={tab === entry} />
+              </li>
+            ))}
+            {operator ? (
+              <li>
+                <button
+                  type="button"
+                  aria-current={route.kind === 'ops' ? 'page' : undefined}
+                  onClick={() => {
+                    navigate(opsHref('users'));
+                  }}
+                >
+                  <Icon name="ops" size={20} />
+                  <span className="tab-label">Ops</span>
+                </button>
+              </li>
+            ) : null}
+          </ul>
         </nav>
         <button
           type="button"
-          className="link"
+          className="link logout"
           onClick={() => {
             setToken(null);
             setSignedIn(false);
@@ -184,6 +235,8 @@ function App() {
         {route.kind === 'recording' ? <RecordingDetail id={route.id} /> : null}
         {route.kind === 'release' ? <ReleaseDetail id={route.id} /> : null}
         {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
+        {tab === 'Home' ? <Home /> : null}
+        {tab === 'Studio' ? <Studio /> : null}
         {tab === 'Archive' ? <Archive /> : null}
         {tab === 'Playlists' ? <Playlists /> : null}
         {tab === 'Search' ? (

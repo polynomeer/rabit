@@ -19,6 +19,25 @@ export const ko = {
   'common.release': '앨범',
   'common.status': '상태',
 
+  // ——— Home ———
+  'home.greeting': '좋은 음악은\n더 멀리 데려가요.',
+  'home.search': '아티스트, 곡, 레이블 검색',
+  'home.searchSubmit': '검색',
+  'home.areas': '둘러보기',
+  'home.area.search': '카탈로그에서 찾아 듣기',
+  'home.area.dig': '관계를 따라 더 깊이',
+  'home.area.archive': '듣고 가진 것, 기억할 것',
+  'home.area.studio': '나만의 소리 올리고 녹음하기',
+  'home.continue': '이어서 DIG',
+  'home.continueAll': '전체 기록',
+  'home.continueEmpty': '아직 DIG 기록이 없어요. 곡이나 앨범에서 DIG를 시작해 보세요.',
+
+  // ——— Studio ———
+  'studio.intro': '나만의 소리를\n만들고 남겨요.',
+  'studio.rightsNote':
+    '올린 오디오는 기본 비공개예요. 파일을 가지고 있다는 것만으로 권리가 생기지는 않아요.',
+  'studio.toArchive': 'Archive에서 보기',
+
   // ——— Errors (api.ts) ———
   'error.signInFailed': 'Sign-in failed',
   'error.requestFailed': 'Request failed ({status})',
@@ -51,6 +70,8 @@ export const ko = {
   'signin.failed': '로그인하지 못했습니다: {reason}',
   'signin.devNote': '로컬 개발용 발급기입니다(ADR-0009). 운영에서는 OIDC 공급자를 사용합니다.',
   'nav.main': '주 메뉴',
+  'nav.secondary': '보조 메뉴',
+  'nav.home': 'Rabit 홈',
   'nav.logout': '로그아웃',
 
   // ——— Shared item display (views.tsx) ———
@@ -272,6 +293,7 @@ export const ko = {
   'collection.addRelease': '실물 컬렉션에 추가',
   'collection.ownedBadge': '실물 소장: {formats} (본인 신고 · 재생권과 별개)',
   'collection.added': '실물 컬렉션에 추가했습니다.',
+  'archive.uploadInStudio': '새 오디오는 Studio에서 올리거나 녹음해요.',
   'archive.view.label': '보기',
   'archive.view.all': '전체',
   'archive.view.private': '개인 오디오',

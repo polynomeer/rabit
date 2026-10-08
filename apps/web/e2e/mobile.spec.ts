@@ -7,7 +7,7 @@ test('every tab fits a 375 px screen without horizontal scrolling', async ({ pag
   const subject = subjectFor('mobile');
   await provision(subject, { listener: true });
   await signIn(page, subject);
-  for (const tab of ['Archive', 'Playlists', 'Search', 'DIG', 'Account']) {
+  for (const tab of ['Home', 'Search', 'DIG', 'Archive', 'Studio', 'Playlists', 'Account']) {
     await openTab(page, tab);
     await expect(
       page.getByRole('heading', { level: 2 }).or(page.locator('main p')).first(),

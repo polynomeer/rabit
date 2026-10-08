@@ -508,7 +508,7 @@ export function DigStart({ entityId }: { entityId: string }) {
   return <p role="status">{failed ? t('dig.start.failed') : t('dig.start.preparing')}</p>;
 }
 
-interface SessionSummary {
+export interface SessionSummary {
   dig_session_id: string;
   title: string | null;
   saved: boolean;

@@ -25,7 +25,7 @@ export function Status({ p }: { p: Playability }) {
 }
 
 export function Ownership({ o }: { o: string | null }) {
-  return o ? <span className="badge">{tCode(OWNERSHIP_TEXT, o)}</span> : null;
+  return o ? <span className={`badge own-${o}`}>{tCode(OWNERSHIP_TEXT, o)}</span> : null;
 }
 
 /** Catalog items link to their detail page; private audio has none. */
