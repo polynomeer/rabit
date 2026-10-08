@@ -63,6 +63,10 @@ export const ko = {
   'playlists.add.confirm': '추가',
   'playlists.add.none': '먼저 Playlists 탭에서 플레이리스트를 만드세요.',
   'playlists.add.done': "'{title}'에 추가했습니다.",
+  'playlists.delete.submit': '플레이리스트 삭제',
+  'playlists.delete.confirm':
+    "'{title}' 플레이리스트를 삭제할까요? 담긴 곡과 오디오는 지워지지 않습니다.",
+  'playlists.delete.done': '플레이리스트를 삭제했습니다.',
   'playlists.rename.label': '플레이리스트 이름 바꾸기',
   'playlists.rename.field': '새 이름',
   'playlists.rename.submit': '이름 바꾸기',

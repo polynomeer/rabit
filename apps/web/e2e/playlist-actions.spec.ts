@@ -55,4 +55,12 @@ test('adds a catalog track and private audio to a playlist and renames things', 
   await lists.getByLabel('새 이름').fill('Long road trip');
   await lists.getByRole('button', { name: '이름 바꾸기' }).click();
   await expect(lists.getByRole('button', { name: 'Long road trip' })).toBeVisible();
+
+  // Deleting the playlist keeps what was in it.
+  page.once('dialog', (d) => void d.accept());
+  await lists.getByRole('button', { name: '플레이리스트 삭제' }).click();
+  await expect(lists.getByRole('status')).toHaveText('플레이리스트를 삭제했습니다.');
+  await expect(lists.getByRole('button', { name: 'Long road trip' })).toHaveCount(0);
+  await openTab(page, 'Archive');
+  await expect(archive.getByRole('listitem').filter({ hasText: 'Garage session' })).toBeVisible();
 });
