@@ -23,8 +23,9 @@ interface ReleaseOffer {
 interface Order {
   order_id: string;
   status: string;
-  release_id: string;
-  release_title: string;
+  kind: 'release' | 'subscription';
+  release_id: string | null;
+  release_title: string | null;
   price: Money;
   checkout_url: string | null;
   created_at: string;
@@ -81,27 +82,8 @@ export function PurchasePanel({
   }, [releaseId]);
   useEffect(load, [load]);
 
-  /** Waits for the provider's event to settle the order (up to a minute). */
-  const follow = async (orderId: string) => {
-    for (let i = 0; i < 60; i++) {
-      const o = await get<Order>(`/v1/orders/${orderId}`);
-      setOrder(o);
-      if (o.status !== 'pending') {
-        setMsg(tCode(ORDER_STATUS, o.status));
-        if (o.status === 'fulfilled') {
-          setMsg(t('purchase.done'));
-          onPurchased();
-          load();
-        }
-        return;
-      }
-      await new Promise((r) => setTimeout(r, 1000));
-    }
-    setMsg(t('purchase.waiting'));
-  };
-
   if (!offer) return null;
-  const pending = order?.status === 'pending' ? order : null;
+  const pending = order?.status === 'pending' && order.checkout_url ? order : null;
   return (
     <section className="card" aria-label={t('purchase.heading')}>
       <h3>{t('purchase.heading')}</h3>
@@ -114,57 +96,21 @@ export function PurchasePanel({
         </span>
         {offer.owned ? <span className="badge"> {t('purchase.owned')}</span> : null}
       </p>
-      {pending?.checkout_url ? (
-        <div role="group" aria-label={t('purchase.checkout')}>
-          {isMockCheckout(pending.checkout_url) ? (
-            <>
-              <p className="small muted">{t('purchase.mock.note')}</p>
-              <div className="actions">
-                {(['succeeded', 'failed'] as const).map((outcome) => (
-                  <button
-                    key={outcome}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setBusy(true);
-                      setMsg(t('purchase.confirming'));
-                      void fetch(`${String(pending.checkout_url)}/complete`, {
-                        method: 'POST',
-                        headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ outcome }),
-                      })
-                        .then(() => follow(pending.order_id))
-                        .finally(() => {
-                          setBusy(false);
-                        });
-                    }}
-                  >
-                    {t(outcome === 'succeeded' ? 'purchase.mock.pay' : 'purchase.mock.fail')}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p>
-              <a className="button" href={pending.checkout_url}>
-                {t('purchase.pay')}
-              </a>
-            </p>
-          )}
-          <button
-            type="button"
-            className="link"
-            disabled={busy}
-            onClick={() => {
-              void api<Order>('POST', `/v1/orders/${pending.order_id}/cancel`).then(({ data }) => {
-                setOrder(data);
-                setMsg(tCode(ORDER_STATUS, data.status));
-              });
-            }}
-          >
-            {t('purchase.cancel')}
-          </button>
-        </div>
+      {pending ? (
+        <CheckoutBox
+          order={pending}
+          onSettled={(o) => {
+            setOrder(o);
+            if (o.status === 'fulfilled') {
+              setMsg(t('purchase.done'));
+              onPurchased();
+              load();
+            } else {
+              setMsg(tCode(ORDER_STATUS, o.status));
+            }
+          }}
+          onWaiting={setMsg}
+        />
       ) : (
         <form
           aria-label={t('purchase.form')}
@@ -226,6 +172,220 @@ export function PurchasePanel({
   );
 }
 
+/** Polls an order until the provider's event settles it (up to a minute). */
+async function settle(orderId: string): Promise<Order | null> {
+  for (let i = 0; i < 60; i++) {
+    const o = await get<Order>(`/v1/orders/${orderId}`);
+    if (o.status !== 'pending') return o;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return null;
+}
+
+/**
+ * The checkout of a pending order: the sandbox provider's buttons (dev only) or a
+ * link to the provider's page, and a way to abandon the order.
+ */
+function CheckoutBox({
+  order,
+  onSettled,
+  onWaiting,
+}: {
+  order: Order;
+  onSettled: (o: Order) => void;
+  onWaiting: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const url = order.checkout_url ?? '';
+  return (
+    <div role="group" aria-label={t('purchase.checkout')}>
+      {isMockCheckout(url) ? (
+        <>
+          <p className="small muted">{t('purchase.mock.note')}</p>
+          <div className="actions">
+            {(['succeeded', 'failed'] as const).map((outcome) => (
+              <button
+                key={outcome}
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  onWaiting(t('purchase.confirming'));
+                  void fetch(`${url}/complete`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ outcome }),
+                  })
+                    .then(() => settle(order.order_id))
+                    .then((o) => {
+                      if (o) onSettled(o);
+                      else onWaiting(t('purchase.waiting'));
+                    })
+                    .finally(() => {
+                      setBusy(false);
+                    });
+                }}
+              >
+                {t(outcome === 'succeeded' ? 'purchase.mock.pay' : 'purchase.mock.fail')}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p>
+          <a className="button" href={url}>
+            {t('purchase.pay')}
+          </a>
+        </p>
+      )}
+      <button
+        type="button"
+        className="link"
+        disabled={busy}
+        onClick={() => {
+          void api<Order>('POST', `/v1/orders/${order.order_id}/cancel`).then(({ data }) => {
+            onSettled(data);
+          });
+        }}
+      >
+        {t('purchase.cancel')}
+      </button>
+    </div>
+  );
+}
+
+interface Plan {
+  plan: string;
+  price: Money;
+  available: boolean;
+  checkout_available: boolean;
+  current: { state: string; paid_through: string; auto_renew: boolean } | null;
+  pending_order_id: string | null;
+}
+
+/**
+ * Monthly subscription through the payment provider (COM-008, provisional price).
+ * Stopping renewal keeps the paid month; it is not a refund.
+ */
+export function SubscriptionPanel() {
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const load = useCallback(() => {
+    void get<Plan>('/v1/subscription/plan').then((p) => {
+      setPlan(p);
+      if (p.pending_order_id) void get<Order>(`/v1/orders/${p.pending_order_id}`).then(setOrder);
+    });
+  }, []);
+  useEffect(load, [load]);
+  if (!plan?.available) return null;
+  const cur = plan.current;
+  const renewing = cur?.state === 'active' && cur.auto_renew;
+  const pending = order?.status === 'pending' && order.checkout_url ? order : null;
+  return (
+    <section className="card" aria-label={t('subscribe.heading')}>
+      <h3>{t('subscribe.heading')}</h3>
+      <p>
+        <strong>{t('subscribe.price', { price: formatPrice(plan.price) })}</strong>{' '}
+        <span className="small muted">
+          {t('purchase.vat', {
+            vat: formatPrice({ ...plan.price, amount_minor: plan.price.tax_minor }),
+          })}
+        </span>
+      </p>
+      {cur && cur.state === 'active' ? (
+        <p>
+          {renewing
+            ? t('subscribe.renews', { date: formatDate(cur.paid_through) })
+            : t('subscribe.ends', { date: formatDate(cur.paid_through) })}
+        </p>
+      ) : null}
+      {cur?.state === 'past_due' ? <p>{t('subscribe.pastDue')}</p> : null}
+      {pending ? (
+        <CheckoutBox
+          order={pending}
+          onSettled={(o) => {
+            setOrder(o);
+            setMsg(o.status === 'fulfilled' ? t('subscribe.done') : tCode(ORDER_STATUS, o.status));
+            load();
+          }}
+          onWaiting={setMsg}
+        />
+      ) : renewing ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (!confirm(t('subscribe.stop.confirm'))) return;
+            setBusy(true);
+            void api('POST', '/v1/subscription/cancel')
+              .then(() => {
+                setMsg(t('subscribe.stopped'));
+                load();
+              })
+              .finally(() => {
+                setBusy(false);
+              });
+          }}
+        >
+          {t('subscribe.stop')}
+        </button>
+      ) : cur?.state === 'active' ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void api('POST', '/v1/subscription/resume')
+              .then(() => {
+                setMsg(t('subscribe.resumed'));
+                load();
+              })
+              .finally(() => {
+                setBusy(false);
+              });
+          }}
+        >
+          {t('subscribe.resume')}
+        </button>
+      ) : (
+        <>
+          <p className="small muted">{t('subscribe.terms')}</p>
+          <button
+            type="button"
+            disabled={busy || !plan.checkout_available}
+            onClick={() => {
+              setBusy(true);
+              setMsg(null);
+              api<Order>(
+                'POST',
+                '/v1/subscription/checkout',
+                {},
+                {
+                  'idempotency-key': `sub-${crypto.randomUUID()}`,
+                },
+              )
+                .then(({ data }) => {
+                  setOrder(data);
+                })
+                .catch((err: unknown) => {
+                  setMsg(err instanceof ApiError ? err.message : String(err));
+                })
+                .finally(() => {
+                  setBusy(false);
+                });
+            }}
+          >
+            {t('subscribe.start')}
+          </button>
+        </>
+      )}
+      {msg ? <p role="status">{msg}</p> : null}
+    </section>
+  );
+}
+
 /** Purchase history on the Account page. */
 export function Orders() {
   const [orders, setOrders] = useState<Order[] | null>(null);
@@ -245,7 +405,12 @@ export function Orders() {
           {orders.map((o) => (
             <li key={o.order_id}>
               <div>
-                <a href={entityHref(o.release_id)}>{o.release_title}</a> · {formatPrice(o.price)}
+                {o.release_id ? (
+                  <a href={entityHref(o.release_id)}>{o.release_title}</a>
+                ) : (
+                  t('purchase.orders.subscription')
+                )}{' '}
+                · {formatPrice(o.price)}
                 <div className="small muted">
                   {tCode(ORDER_STATUS, o.status)} · {formatDate(o.created_at)}
                 </div>
