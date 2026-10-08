@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'r
 import { api, get, sha256Hex, type LibraryItem } from './api';
 import { formatDateTime, t, type MessageKey } from './i18n';
 import { PhysicalCollection } from './collection';
+import { Recorder } from './recorder';
 import { usePlayer } from './player';
 import { errorText, ItemTitle, Ownership, Status, toEntry } from './views';
 
@@ -14,6 +15,9 @@ function Upload({ onDone }: { onDone: () => void }) {
   };
   const [intent, setIntent] = useState<'private_upload' | 'audio_log'>('private_upload');
   const [logTitle, setLogTitle] = useState('');
+  // A microphone recording replaces the file input for Audio Log (LOG-004).
+  const [recorded, setRecorded] = useState<File | null>(null);
+  const [recorderKey, setRecorderKey] = useState(0);
   // Cancelling is possible until finalize: it stops the transfer and releases the
   // upload's quota reservation on the server. Afterwards the audio is deleted instead.
   const cancel = useRef<{ abort: AbortController; uploadId: string | null } | null>(null);
@@ -30,7 +34,7 @@ function Upload({ onDone }: { onDone: () => void }) {
   async function submit(e: SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     const input = e.currentTarget.elements.namedItem('file') as HTMLInputElement;
-    const file = input.files?.[0];
+    const file = (intent === 'audio_log' ? recorded : null) ?? input.files?.[0];
     if (!file) return;
     const run = { abort: new AbortController(), uploadId: null as string | null };
     cancel.current = run;
@@ -97,6 +101,8 @@ function Upload({ onDone }: { onDone: () => void }) {
       setBusy(null);
       input.value = '';
       setLogTitle('');
+      setRecorded(null);
+      setRecorderKey((k) => k + 1);
       onDone();
     } catch (err) {
       if (cancelled()) return;
@@ -145,12 +151,14 @@ function Upload({ onDone }: { onDone: () => void }) {
           />
         </label>
       ) : null}
+      {intent === 'audio_log' ? <Recorder key={recorderKey} onRecorded={setRecorded} /> : null}
       <input
         name="file"
         type="file"
         accept="audio/*"
         aria-label={t('archive.upload.file')}
-        required
+        required={!(intent === 'audio_log' && recorded)}
+        hidden={intent === 'audio_log' && recorded !== null}
       />
       <div className="actions">
         <button type="submit" disabled={busy !== null && !busy.settled}>
@@ -261,6 +269,19 @@ function AudioLogEditor({
   );
 }
 
+/**
+ * Archive views (LIB-001): everything, or one kind. Purchases arrive with
+ * payments (Commercial Gate); memories and trips need location (P2).
+ */
+const VIEWS = [
+  ['all', 'archive.view.all'],
+  ['private', 'archive.view.private'],
+  ['audio_log', 'archive.view.audioLog'],
+  ['recording', 'archive.view.recording'],
+  ['release', 'archive.view.release'],
+] as const satisfies readonly (readonly [string, MessageKey])[];
+type View = (typeof VIEWS)[number][0];
+
 /** Archive: one library mixing private audio, Audio Logs and catalog items (BRD §10). */
 export function Archive() {
   const player = usePlayer();
@@ -268,6 +289,7 @@ export function Archive() {
   const [logs, setLogs] = useState<Map<string, AudioLog>>(new Map());
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<View>('all');
   const load = useCallback(() => {
     Promise.all([
       get<{ items: LibraryItem[] }>('/v1/library?limit=100'),
@@ -282,7 +304,15 @@ export function Archive() {
       });
   }, []);
   useEffect(load, [load]);
-  const playable = items.filter((i) => i.ref_type !== 'release');
+  const inView = (i: LibraryItem) => {
+    const isLog = i.ref_type === 'audio_source' && logs.has(i.ref_id);
+    if (view === 'private') return i.ref_type === 'audio_source' && !isLog;
+    if (view === 'audio_log') return isLog;
+    if (view === 'recording' || view === 'release') return i.ref_type === view;
+    return true;
+  };
+  const shown = items.filter(inView);
+  const playable = shown.filter((i) => i.ref_type !== 'release');
 
   return (
     <>
@@ -290,8 +320,24 @@ export function Archive() {
         <h2 id="archive-h">Archive</h2>
         <Upload onDone={load} />
         {error ? <p className="warn">{error}</p> : null}
+        <fieldset className="views">
+          <legend>{t('archive.view.label')}</legend>
+          {VIEWS.map(([v, key]) => (
+            <label key={v}>
+              <input
+                type="radio"
+                name="archive-view"
+                checked={view === v}
+                onChange={() => {
+                  setView(v);
+                }}
+              />{' '}
+              {t(key)}
+            </label>
+          ))}
+        </fieldset>
         <ul className="list">
-          {items.map((i) => {
+          {shown.map((i) => {
             const log = i.ref_type === 'audio_source' ? logs.get(i.ref_id) : undefined;
             return (
               <li key={i.library_item_id}>
@@ -370,6 +416,9 @@ export function Archive() {
             );
           })}
           {items.length === 0 ? <li className="muted">{t('archive.empty')}</li> : null}
+          {items.length > 0 && shown.length === 0 ? (
+            <li className="muted">{t('archive.view.empty')}</li>
+          ) : null}
         </ul>
       </section>
       <PhysicalCollection />
