@@ -256,23 +256,31 @@ pause
 
 # ── 3 ────────────────────────────────────────────────────────────────────
 stage "Domain and Route 53 hosted zone (O-02)"
-say "The stack uses api., media., media-origin. and app. under one domain."
-ask DOMAIN "Domain (e.g. rabit.example):"
-write_env DOMAIN "$DOMAIN"
-HOSTED_ZONE_ID=$(aws_ route53 list-hosted-zones-by-name --dns-name "$DOMAIN." \
-  --query "HostedZones[?Name=='$DOMAIN.'].Id | [0]" --output text 2>/dev/null | sed 's#/hostedzone/##')
-if [[ -z "$HOSTED_ZONE_ID" || "$HOSTED_ZONE_ID" == "None" ]]; then
-  warn "no hosted zone for $DOMAIN in this account"
-  open_url "https://console.aws.amazon.com/route53/v2/hostedzones"
-  step "Register the domain in Route 53 (Registered domains), or create a public hosted zone"
-  step "for $DOMAIN and point your registrar's name servers to the zone's NS records."
-  pause "Press Enter when the hosted zone exists."
+say "With a domain the stack uses api., media., media-origin. and app. under it."
+say "Without one (staging only), it uses CloudFront's *.cloudfront.net names; add the"
+say "domain later by setting it here and re-running from stage 6 (owner-actions O-02)."
+ask DOMAIN "Domain (e.g. rabit.example; '-' for none yet):"
+[[ "$DOMAIN" == "-" ]] && DOMAIN=""
+write_env DOMAIN "${DOMAIN:--}"
+HOSTED_ZONE_ID=""
+if [[ -n "$DOMAIN" ]]; then
   HOSTED_ZONE_ID=$(aws_ route53 list-hosted-zones-by-name --dns-name "$DOMAIN." \
-    --query "HostedZones[?Name=='$DOMAIN.'].Id | [0]" --output text | sed 's#/hostedzone/##')
+    --query "HostedZones[?Name=='$DOMAIN.'].Id | [0]" --output text 2>/dev/null | sed 's#/hostedzone/##')
+  if [[ -z "$HOSTED_ZONE_ID" || "$HOSTED_ZONE_ID" == "None" ]]; then
+    warn "no hosted zone for $DOMAIN in this account"
+    open_url "https://console.aws.amazon.com/route53/v2/hostedzones"
+    step "Register the domain in Route 53 (Registered domains), or create a public hosted zone"
+    step "for $DOMAIN and point your registrar's name servers to the zone's NS records."
+    pause "Press Enter when the hosted zone exists."
+    HOSTED_ZONE_ID=$(aws_ route53 list-hosted-zones-by-name --dns-name "$DOMAIN." \
+      --query "HostedZones[?Name=='$DOMAIN.'].Id | [0]" --output text | sed 's#/hostedzone/##')
+  fi
+  say "✓ hosted zone $HOSTED_ZONE_ID"
+  note "Certificates validate by DNS, so the zone must answer for $DOMAIN publicly."
+else
+  say "✓ no domain: CloudFront names for now"
 fi
-say "✓ hosted zone $HOSTED_ZONE_ID"
 write_env HOSTED_ZONE_ID "$HOSTED_ZONE_ID"
-note "Certificates validate by DNS, so the zone must answer for $DOMAIN publicly."
 pause
 
 # ── 4 ────────────────────────────────────────────────────────────────────
@@ -369,7 +377,7 @@ set_env_var WEB_DISTRIBUTION_ID "$(out web_distribution_id | jq -r .)"
 set_env_var API_BASE_URL "$(jq -r .api <<<"$URLS")"
 set_env_var APP_URL "$(jq -r .app <<<"$URLS")"
 set_env_var MEDIA_URL "$(jq -r .media <<<"$URLS")"
-set_env_var MEDIA_ORIGIN_URL "https://media-origin.$DOMAIN"
+set_env_var MEDIA_ORIGIN_URL "$(out media_origin_url | jq -r .)"
 for k in OIDC_ISSUER OIDC_CLIENT_ID OIDC_OPERATOR_ISSUER OIDC_OPERATOR_CLIENT_ID; do
   set_env_var "$k" "$(jq -r ".$k" <<<"$OIDC")"
 done

@@ -80,6 +80,9 @@ mock_provider "aws" {
       arn = "arn:aws:cloudfront::111122223333:distribution/MOCK"
     }
   }
+  mock_data "aws_ec2_managed_prefix_list" {
+    defaults = { id = "pl-cloudfront" }
+  }
   mock_resource "aws_ecr_repository" {
     defaults = {
       arn            = "arn:aws:ecr:ap-northeast-2:111122223333:repository/mock"
@@ -285,7 +288,7 @@ run "edge_uses_tls" {
   command = apply
 
   assert {
-    condition     = startswith(aws_lb_listener.https.ssl_policy, "ELBSecurityPolicy-TLS13")
+    condition     = startswith(aws_lb_listener.https[0].ssl_policy, "ELBSecurityPolicy-TLS13")
     error_message = "The load balancer uses a TLS 1.3 policy."
   }
   assert {
@@ -377,6 +380,75 @@ run "sign_in_is_cognito_with_an_mfa_operator_pool" {
     ])
     error_message = "The api trusts the user pool in Cognito mode and the operator pool for operators."
   }
+}
+
+# Until the owner registers a domain (owner-actions O-02), staging runs on
+# CloudFront's default names.
+run "staging_without_a_domain" {
+  command = apply
+  variables {
+    domain         = ""
+    hosted_zone_id = ""
+  }
+
+  assert {
+    condition = alltrue([
+      length(aws_acm_certificate.regional) == 0, length(aws_acm_certificate.edge) == 0,
+      length(aws_route53_record.validation) == 0, length(aws_route53_record.alb) == 0, length(aws_route53_record.cdn) == 0,
+    ])
+    error_message = "Without a domain there are no certificates or DNS records."
+  }
+  assert {
+    condition = alltrue([
+      for d in [aws_cloudfront_distribution.api[0], aws_cloudfront_distribution.media, aws_cloudfront_distribution.web] :
+      d.default_cache_behavior[0].viewer_protocol_policy != "allow-all" && d.viewer_certificate[0].cloudfront_default_certificate
+    ])
+    error_message = "Viewers reach api, media and web over HTTPS on CloudFront's certificate."
+  }
+  assert {
+    condition = alltrue([
+      aws_cloudfront_distribution.api[0].default_cache_behavior[0].cache_policy_id == data.aws_cloudfront_cache_policy.disabled.id,
+      aws_cloudfront_distribution.api[0].default_cache_behavior[0].origin_request_policy_id == data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id,
+    ])
+    error_message = "The api is never cached and gets the viewer's Authorization header."
+  }
+  assert {
+    condition     = length(aws_vpc_security_group_ingress_rule.alb_https) == 0 && length(aws_vpc_security_group_ingress_rule.alb_http) == 0
+    error_message = "The load balancer is not open to the internet."
+  }
+  assert {
+    condition     = aws_vpc_security_group_ingress_rule.alb_from_cloudfront[0].prefix_list_id == data.aws_ec2_managed_prefix_list.cloudfront[0].id
+    error_message = "Only CloudFront reaches the load balancer."
+  }
+  assert {
+    condition = alltrue([
+      for r in [aws_lb_listener_rule.api, aws_lb_listener_rule.media] :
+      length([for c in r.condition : c if length(c.http_header) > 0]) == 2 && r.listener_arn == aws_lb_listener.http.arn
+    ])
+    error_message = "The load balancer forwards only requests with CloudFront's secret and role headers."
+  }
+  assert {
+    condition     = length(aws_lb_listener.https) == 0 && aws_lb_listener.http.default_action[0].type == "fixed-response"
+    error_message = "Anything else gets a 404."
+  }
+  assert {
+    condition = alltrue([
+      strcontains(local.content_security_policy, "https://${aws_cloudfront_distribution.api[0].domain_name}"),
+      strcontains(local.content_security_policy, "https://${aws_cloudfront_distribution.media.domain_name}"),
+      toset(aws_cognito_user_pool_client.web["users"].callback_urls) == toset(["https://${aws_cloudfront_distribution.web.domain_name}/"]),
+    ])
+    error_message = "The CSP and the sign-in return address use the CloudFront names."
+  }
+}
+
+run "production_requires_a_domain" {
+  command = plan
+  variables {
+    environment    = "production"
+    domain         = ""
+    hosted_zone_id = ""
+  }
+  expect_failures = [aws_lb.main]
 }
 
 run "rejects_unknown_environment" {

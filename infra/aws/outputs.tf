@@ -29,7 +29,12 @@ output "web_distribution_id" {
 }
 
 output "urls" {
-  value = { for k, h in local.hosts : k => "https://${h}" if k != "media_origin" }
+  value = { for k, h in local.hosts : k => "https://${h}" }
+}
+
+output "media_origin_url" {
+  description = "What CloudFront reaches for media; the post-deploy checks expect it to refuse viewers (MEDIA_ORIGIN_URL)."
+  value       = local.media_origin_url
 }
 
 output "kms_key_arn" {

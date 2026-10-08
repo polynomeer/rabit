@@ -53,9 +53,10 @@ if [ -n "${MEDIA_URL:-}" ]; then
   expect "media gateway reachable through CloudFront, refuses a forged token" "($c)" test "$c" = 403
 fi
 if [ -n "${MEDIA_ORIGIN_URL:-}" ]; then
-  # Without CloudFront's secret header the load balancer does not forward to media.
+  # Without CloudFront's secret header the load balancer does not forward to media
+  # (404); without a domain it does not even accept the connection (000).
   c=$(code "$MEDIA_ORIGIN_URL/media/v1/forged-token/index.m3u8")
-  expect "media origin refuses requests that bypass CloudFront" "($c)" test "$c" = 404
+  expect "media origin refuses requests that bypass CloudFront" "($c)" test "$c" = 404 -o "$c" = 000
 fi
 
 exit "$FAILED"

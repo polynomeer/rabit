@@ -1,7 +1,10 @@
-# Certificates: the load balancer's in the region, CloudFront's in us-east-1.
+# Certificates (only with a domain): the load balancer's in the region,
+# CloudFront's in us-east-1. Without a domain CloudFront uses its default
+# certificate for *.cloudfront.net.
 resource "aws_acm_certificate" "regional" {
-  domain_name               = local.hosts.api
-  subject_alternative_names = [local.hosts.media_origin]
+  count                     = local.use_domain ? 1 : 0
+  domain_name               = local.domain_hosts.api
+  subject_alternative_names = [local.domain_hosts.media_origin]
   validation_method         = "DNS"
   lifecycle {
     create_before_destroy = true
@@ -9,9 +12,10 @@ resource "aws_acm_certificate" "regional" {
 }
 
 resource "aws_acm_certificate" "edge" {
+  count                     = local.use_domain ? 1 : 0
   provider                  = aws.us_east_1
-  domain_name               = local.hosts.media
-  subject_alternative_names = [local.hosts.app]
+  domain_name               = local.domain_hosts.media
+  subject_alternative_names = [local.domain_hosts.app]
   validation_method         = "DNS"
   lifecycle {
     create_before_destroy = true
@@ -19,10 +23,10 @@ resource "aws_acm_certificate" "edge" {
 }
 
 locals {
-  validation_records = merge(
-    { for o in aws_acm_certificate.regional.domain_validation_options : o.domain_name => o },
-    { for o in aws_acm_certificate.edge.domain_validation_options : o.domain_name => o },
-  )
+  validation_records = {
+    for o in flatten(concat(aws_acm_certificate.regional[*].domain_validation_options, aws_acm_certificate.edge[*].domain_validation_options)) :
+    o.domain_name => o
+  }
 }
 
 resource "aws_route53_record" "validation" {
@@ -36,14 +40,39 @@ resource "aws_route53_record" "validation" {
 }
 
 resource "aws_acm_certificate_validation" "regional" {
-  certificate_arn         = aws_acm_certificate.regional.arn
-  validation_record_fqdns = [for o in aws_acm_certificate.regional.domain_validation_options : aws_route53_record.validation[o.domain_name].fqdn]
+  count                   = local.use_domain ? 1 : 0
+  certificate_arn         = aws_acm_certificate.regional[0].arn
+  validation_record_fqdns = [for o in aws_acm_certificate.regional[0].domain_validation_options : aws_route53_record.validation[o.domain_name].fqdn]
 }
 
 resource "aws_acm_certificate_validation" "edge" {
+  count                   = local.use_domain ? 1 : 0
   provider                = aws.us_east_1
-  certificate_arn         = aws_acm_certificate.edge.arn
-  validation_record_fqdns = [for o in aws_acm_certificate.edge.domain_validation_options : aws_route53_record.validation[o.domain_name].fqdn]
+  certificate_arn         = aws_acm_certificate.edge[0].arn
+  validation_record_fqdns = [for o in aws_acm_certificate.edge[0].domain_validation_options : aws_route53_record.validation[o.domain_name].fqdn]
+}
+
+locals {
+  # Viewer side: our certificate with a domain, CloudFront's default otherwise
+  # (which only allows the TLSv1 setting; viewers still negotiate TLS 1.2+).
+  edge_certificate = local.use_domain ? {
+    acm_certificate_arn = aws_acm_certificate_validation.edge[0].certificate_arn
+    ssl_support_method  = "sni-only"
+    minimum_protocol    = "TLSv1.2_2021"
+    } : {
+    acm_certificate_arn = null
+    ssl_support_method  = null
+    minimum_protocol    = "TLSv1"
+  }
+  # Origin side: HTTPS to media-origin.<domain>, or HTTP to the load balancer's
+  # own name, which only answers CloudFront's address ranges and the secret header.
+  lb_origin = local.use_domain ? {
+    domain_name = local.domain_hosts.media_origin
+    protocol    = "https-only"
+    } : {
+    domain_name = aws_lb.main.dns_name
+    protocol    = "http-only"
+  }
 }
 
 # ---- media: CloudFront → load balancer (ADR-0008) ----
@@ -62,21 +91,25 @@ resource "aws_cloudfront_distribution" "media" {
   enabled         = true
   is_ipv6_enabled = true
   comment         = "${local.name} media"
-  aliases         = [local.hosts.media]
+  aliases         = local.use_domain ? [local.domain_hosts.media] : []
   price_class     = "PriceClass_200" # includes Korea and Japan edges
 
   origin {
     origin_id   = "media"
-    domain_name = local.hosts.media_origin
+    domain_name = local.lb_origin.domain_name
     custom_origin_config {
       http_port              = 80
       https_port             = 443
-      origin_protocol_policy = "https-only"
+      origin_protocol_policy = local.lb_origin.protocol
       origin_ssl_protocols   = ["TLSv1.2"]
     }
     custom_header {
       name  = "x-origin-verify"
       value = random_password.origin_verify.result
+    }
+    custom_header {
+      name  = "x-origin-role"
+      value = "media"
     }
   }
 
@@ -97,9 +130,62 @@ resource "aws_cloudfront_distribution" "media" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.edge.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    cloudfront_default_certificate = !local.use_domain
+    acm_certificate_arn            = local.edge_certificate.acm_certificate_arn
+    ssl_support_method             = local.edge_certificate.ssl_support_method
+    minimum_protocol_version       = local.edge_certificate.minimum_protocol
+  }
+}
+
+# ---- api without a domain: CloudFront → load balancer ----
+# With a domain the api is served by the load balancer at api.<domain>. Without
+# one, CloudFront gives it an HTTPS name. Nothing is cached; every viewer header
+# but Host (Authorization included) goes to the api.
+resource "aws_cloudfront_distribution" "api" {
+  count           = local.use_domain ? 0 : 1
+  enabled         = true
+  is_ipv6_enabled = true
+  comment         = "${local.name} api"
+  price_class     = "PriceClass_200"
+
+  origin {
+    origin_id   = "api"
+    domain_name = aws_lb.main.dns_name
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+      origin_read_timeout    = 60
+    }
+    custom_header {
+      name  = "x-origin-verify"
+      value = random_password.origin_verify.result
+    }
+    custom_header {
+      name  = "x-origin-role"
+      value = "api"
+    }
+  }
+
+  default_cache_behavior {
+    target_origin_id         = "api"
+    viewer_protocol_policy   = "https-only"
+    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods           = ["GET", "HEAD"]
+    cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
+    compress                 = false
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
   }
 }
 
@@ -132,8 +218,8 @@ data "aws_cloudfront_cache_policy" "optimized" {
 locals {
   csp_policy = { for d, sources in jsondecode(file("${path.module}/../web/csp.json")) : d => sources if d != "//" }
   csp_origins = {
-    "{api}"    = "https://${local.hosts.api}"
-    "{media}"  = "https://${local.hosts.media}"
+    "{api}"    = "https://${local.api_host}"
+    "{media}"  = "https://${local.media_host}"
     "{oidc}"   = local.cognito_origins
     "{upload}" = "https://${local.buckets.quarantine}.s3.${var.region}.amazonaws.com"
   }
@@ -173,7 +259,7 @@ resource "aws_cloudfront_distribution" "web" {
   enabled             = true
   is_ipv6_enabled     = true
   comment             = "${local.name} web"
-  aliases             = [local.hosts.app]
+  aliases             = local.use_domain ? [local.domain_hosts.app] : []
   default_root_object = "index.html"
   price_class         = "PriceClass_200"
 
@@ -200,9 +286,10 @@ resource "aws_cloudfront_distribution" "web" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.edge.certificate_arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
+    cloudfront_default_certificate = !local.use_domain
+    acm_certificate_arn            = local.edge_certificate.acm_certificate_arn
+    ssl_support_method             = local.edge_certificate.ssl_support_method
+    minimum_protocol_version       = local.edge_certificate.minimum_protocol
   }
 }
 
@@ -228,9 +315,9 @@ resource "aws_s3_bucket_policy" "web" {
   depends_on = [aws_s3_bucket_public_access_block.web]
 }
 
-# ---- DNS ----
+# ---- DNS (only with a domain) ----
 resource "aws_route53_record" "alb" {
-  for_each = toset([local.hosts.api, local.hosts.media_origin])
+  for_each = local.use_domain ? toset([local.domain_hosts.api, local.domain_hosts.media_origin]) : toset([])
   zone_id  = var.hosted_zone_id
   name     = each.value
   type     = "A"
@@ -242,16 +329,16 @@ resource "aws_route53_record" "alb" {
 }
 
 resource "aws_route53_record" "cdn" {
-  for_each = {
-    (local.hosts.media) = aws_cloudfront_distribution.media
-    (local.hosts.app)   = aws_cloudfront_distribution.web
-  }
+  for_each = local.use_domain ? {
+    (local.domain_hosts.media) = { name = aws_cloudfront_distribution.media.domain_name, zone = aws_cloudfront_distribution.media.hosted_zone_id }
+    (local.domain_hosts.app)   = { name = aws_cloudfront_distribution.web.domain_name, zone = aws_cloudfront_distribution.web.hosted_zone_id }
+  } : {}
   zone_id = var.hosted_zone_id
   name    = each.key
   type    = "A"
   alias {
-    name                   = each.value.domain_name
-    zone_id                = each.value.hosted_zone_id
+    name                   = each.value.name
+    zone_id                = each.value.zone
     evaluate_target_health = false
   }
 }
