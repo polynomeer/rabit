@@ -45,6 +45,8 @@ const env: NodeJS.ProcessEnv = {
   MEDIA_TOKEN_SECRET: 'e2e-only-media-token-secret-0123456789abcdef',
   CURSOR_SECRET: 'e2e-only-cursor-secret-0123456789abcdefghij',
   WORKER_CONCURRENCY: '2',
+  PAYMENTS_PROVIDER: 'mock',
+  PAYMENTS_MOCK_WEBHOOK_SECRET: 'e2e-only-mock-pay-secret-0123456789abcdefgh',
 };
 
 mkdirSync(resolve(web, 'e2e-results'), { recursive: true });
