@@ -37,13 +37,15 @@ variable "interface_endpoint_az_count" {
 }
 
 variable "domain" {
-  description = "Apex domain in Route 53, e.g. rabit.example. Hosts: api., media., media-origin., app."
+  description = "Apex domain in Route 53, e.g. rabit.example. Hosts: api., media., media-origin., app. Empty: CloudFront's default names (staging only)."
   type        = string
+  default     = ""
 }
 
 variable "hosted_zone_id" {
-  description = "Route 53 hosted zone for var.domain."
+  description = "Route 53 hosted zone for var.domain. Empty when there is no domain."
   type        = string
+  default     = ""
 }
 
 variable "bucket_prefix" {

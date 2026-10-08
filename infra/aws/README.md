@@ -31,7 +31,7 @@ Estimated cost for staging (alpha size, Seoul list prices, 2026-10): about USD 2
 These need an AWS account, a domain and decisions; Claude does not create accounts or handle credentials.
 
 1. **AWS account.** Preferably an AWS Organization with separate `staging` and `production` accounts, sign-in through IAM Identity Center, MFA on the root user.
-2. **Domain.** A domain with a Route 53 hosted zone. The stack uses `api.`, `media.`, `media-origin.` and `app.` under it.
+2. **Domain.** A domain with a Route 53 hosted zone. The stack uses `api.`, `media.`, `media-origin.` and `app.` under it. Staging can start without one (`domain = ""`): api, media and web then use CloudFront's `*.cloudfront.net` names, and the load balancer accepts only CloudFront (ADR-0012 amendment). Production requires a domain.
 3. **Login provider: Amazon Cognito (ADR-0009, decided).** The stack creates both pools. After the first apply, create the first operator in the operator pool (no self sign-up); they set a password and enroll an authenticator app at first sign-in:
    ```bash
    aws cognito-idp admin-create-user --user-pool-id "$(tofu output -raw operator_pool_id)" \
@@ -68,7 +68,7 @@ The services start with zero tasks because no image exists yet. Then:
    - `OPS_SUBNETS` (comma-separated), `OPS_SECURITY_GROUP`;
    - `WEB_BUCKET`, `WEB_DISTRIBUTION_ID`, `API_BASE_URL` (`https://api.<domain>`);
    - `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_OPERATOR_ISSUER`, `OIDC_OPERATOR_CLIENT_ID` (`tofu output oidc`; the web client's sign-in, ADR-0009);
-   - `APP_URL`, `MEDIA_URL`, `MEDIA_ORIGIN_URL` (`https://app.`, `https://media.`, `https://media-origin.` under the domain) for the post-deploy checks.
+   - `APP_URL`, `MEDIA_URL` (`tofu output urls`) and `MEDIA_ORIGIN_URL` (`tofu output media_origin_url`) for the post-deploy checks.
 2. Run the **deploy** workflow for `staging`. It builds the ARM64 image, runs migrations as the `ops` task, rolls out the services and publishes the web client.
 3. Apply again without the zero counts: `tofu apply -var-file=environments/staging.tfvars`.
 

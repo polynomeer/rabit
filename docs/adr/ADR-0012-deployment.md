@@ -40,6 +40,14 @@ First launch is in Korea (Q01, country only) and runs on **AWS `ap-northeast-2` 
 - Data residency: all stored data stays in the Seoul region. CloudFront edges cache only short-lived media responses.
 - Accounts: separate AWS accounts (or at least separate state and prefixes) for staging and production; humans use IAM Identity Center, CI deploys through GitHub OIDC with a role scoped to ECR push and ECS deploy.
 
+## Amendment (2026-10-08): staging without a domain
+The owner deploys staging before registering a domain (owner-actions O-02). With `domain` empty:
+- api, media and web get CloudFront's default `*.cloudfront.net` names and certificate; no ACM certificates, no Route 53 records.
+- The api gets its own CloudFront distribution: caching disabled, all viewer headers but `Host` forwarded (so `Authorization` reaches the api).
+- CloudFront reaches the load balancer over **plain HTTP** on port 80. The load balancer's security group admits only CloudFront's origin-facing prefix list, and its rules forward only requests carrying the secret `x-origin-verify` header plus an `x-origin-role` header; everything else gets 404.
+- Accepted risk, staging only: bearer tokens and media session tokens cross the AWS network between CloudFront and the load balancer unencrypted. Staging holds no real users' data. Production refuses an empty domain (plan-time precondition).
+- Adding the domain later: set `domain` and `hosted_zone_id`, apply, update the GitHub environment variables. The web client's address changes, so Cognito callback URLs and the CSP follow from the same apply; existing staging sessions end.
+
 ## Consequences
 - Alpha estimate ≈ USD 220/month: the ≈ USD 150 of the comparison plus a NAT gateway (≈ USD 43) and the worker's interface endpoints (5 × USD 0.013/h ≈ USD 47 in one zone). At 10k MAU ≈ USD 2,500/month, ~72 % of it media egress.
 - Production configuration refuses `S3_SSE` other than `aws:kms` and uses the task IAM role instead of static S3 keys.
