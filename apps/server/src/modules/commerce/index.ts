@@ -41,7 +41,7 @@ import {
 
 export { includedTax, ledgerBalances } from './ledger.js';
 export { MockPaymentProvider } from './mock-provider.js';
-export { reconcile } from './service.js';
+export { purchasableRecordings, reconcile } from './service.js';
 
 const reason = z.string().min(3).max(500);
 

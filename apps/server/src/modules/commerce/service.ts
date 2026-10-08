@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Selectable } from 'kysely';
+import { sql, type Selectable } from 'kysely';
 import type { Db, DbOrTx } from '../../platform/db/db.js';
 import type {
   OfferTable,
@@ -117,6 +117,50 @@ async function ownsRelease(db: DbOrTx, userId: string, releaseId: string) {
     .where('status', '=', 'active')
     .executeTakeFirst();
   return row !== undefined;
+}
+
+/**
+ * Recordings the user could buy now in their territory: on a release whose offer
+ * is on sale there and which is sellable as a whole. Used to say "available for
+ * purchase" instead of "subscription required" (PLY-005).
+ */
+export async function purchasableRecordings(
+  db: DbOrTx,
+  recordingIds: readonly string[],
+  territory: string,
+  now: Date,
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (recordingIds.length === 0) return out;
+  const rows = await db
+    .selectFrom('offer as o')
+    .innerJoin('release_track as t', 't.release_id', 'o.release_id')
+    .select(['o.release_id', 't.recording_id'])
+    .where('o.status', '=', 'on_sale')
+    .where(sql<boolean>`${territory} = ANY(o.territories)`)
+    .where('o.release_id', 'in', (eb) =>
+      eb
+        .selectFrom('release_track')
+        .select('release_id')
+        .where('recording_id', 'in', [...recordingIds]),
+    )
+    .execute();
+  const byRelease = new Map<string, string[]>();
+  for (const r of rows)
+    byRelease.set(r.release_id, [...(byRelease.get(r.release_id) ?? []), r.recording_id]);
+  const grants = await activeGrants(
+    db,
+    rows.map((r) => r.recording_id),
+    territory,
+    'stream',
+    now,
+  );
+  const wanted = new Set(recordingIds);
+  for (const tracks of byRelease.values()) {
+    if (!tracks.every((id) => grants.has(id))) continue;
+    for (const id of tracks) if (wanted.has(id)) out.add(id);
+  }
+  return out;
 }
 
 /** The release's offer for the caller's licence territory, or 404. Prices are server-side (COM-013). */

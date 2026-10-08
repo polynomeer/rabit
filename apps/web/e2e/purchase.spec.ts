@@ -39,6 +39,8 @@ test('buys an album with the mock provider and plays it without a subscription',
   await page.goto(`/#/release/${releaseId}`);
   const tracks = page.getByRole('list', { name: '트랙' });
   await expect(tracks.getByRole('button', { name: '재생' }).first()).toBeDisabled();
+  // Without a subscription, a track on sale says it can be bought (PLY-005).
+  await expect(tracks.getByRole('listitem').first()).toContainText('구매 가능');
 
   const panel = page.getByRole('region', { name: '앨범 구매' });
   await expect(panel).toContainText('₩11,000');
