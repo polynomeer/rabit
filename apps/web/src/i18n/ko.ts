@@ -104,6 +104,12 @@ export const ko = {
   'account.supportId.hint': '문의할 때 이 ID를 알려 주세요.',
   'account.storage': '저장 공간',
   'account.storage.usage': '{used} MiB / {max} GiB',
+  'account.delete.heading': '계정 삭제',
+  'account.delete.note':
+    '계정을 삭제하면 바로 로그인할 수 없게 되고, 올린 오디오·Audio Log·플레이리스트·실물 컬렉션·DIG 기록이 모두 지워집니다. 되돌릴 수 없으니 필요하면 먼저 내보내기를 받아 두세요. 구독과 이용권은 함께 종료됩니다.',
+  'account.delete.word': '삭제',
+  'account.delete.confirm': "확인을 위해 '{word}'를 입력하세요",
+  'account.delete.submit': '계정 삭제',
   'account.export.heading': '내보내기',
   'account.export.note':
     '내가 올린 원본과 기록(라이브러리, 플레이리스트, Audio Log, DIG 기록)을 받습니다. 카탈로그 음원은 포함되지 않습니다.',
