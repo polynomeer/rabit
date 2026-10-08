@@ -458,7 +458,32 @@ ol.list {
   color: var(--muted);
 }
 
-/* ——— Player: a floating bar above the bottom menu ——— */
+/* ——— Round icon buttons and filled actions ——— */
+button.round {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+button.primary,
+a.button.primary {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #ffffff;
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+button.round.big {
+  width: 72px;
+  height: 72px;
+}
+
+/* ——— Mini player: a floating bar above the bottom menu ——— */
 .player {
   position: fixed;
   bottom: 12px;
@@ -469,26 +494,195 @@ ol.list {
   display: flex;
   gap: 12px;
   align-items: center;
-  padding: 10px 16px;
+  padding: 8px 10px 8px 8px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
   flex-wrap: wrap;
+  overflow: hidden;
+}
+.player[hidden] {
+  display: none;
 }
 @media (max-width: 899px) {
   .player {
     bottom: calc(var(--tabbar-h) + 8px + env(safe-area-inset-bottom));
   }
 }
-.player .now {
+.player-now {
   flex: 1 1 200px;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--fg);
+  text-decoration: none;
 }
-.player audio {
-  flex: 1 1 180px;
+.player-text {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  max-width: 100%;
+}
+.player-text > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.player-idle {
+  flex: 1;
+  padding-left: 8px;
+}
+.player-buttons {
+  display: flex;
+  gap: 6px;
+}
+.player-message {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0 8px;
+}
+.progress-thin {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--line);
+}
+.progress-thin > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.cover {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* ——— Now Playing ——— */
+.now-playing {
+  position: relative;
+  max-width: 440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.now-playing::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -80px;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
+  pointer-events: none;
+}
+.now-playing .eyebrow {
+  text-align: center;
+}
+.now-cover {
+  display: flex;
+  justify-content: center;
+}
+.now-cover .cover {
+  width: min(320px, 100%);
+  height: auto;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+}
+.now-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+.now-title h2 {
+  margin: 0;
+}
+.now-title p {
+  margin: 2px 0 0;
+}
+.progress input[type='range'] {
+  width: 100%;
+  min-height: 24px;
+  margin: 0;
+  accent-color: var(--fg);
+}
+.progress-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.now-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+}
+.now-controls .round:not(.primary) {
+  border: none;
+  background: none;
+}
+.now-controls .primary {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+.now-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dig-cta {
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 56px;
+  border-radius: 28px;
+  background: var(--purple);
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.dig-cta .symbol {
+  color: #ffffff;
+}
+.dig-cta:hover {
+  outline: 2px solid var(--accent);
+}
+.now-actions .button {
+  gap: 6px;
+  min-height: 56px;
+  border-radius: 28px;
+}
+.queue {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.queue button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  text-align: left;
+  border: none;
+  background: none;
+  border-radius: 14px;
+  padding: 8px 12px;
+}
+.queue [aria-current='true'] {
+  background: var(--accent-soft);
+}
+.queue [aria-current='true'] .queue-title {
+  font-weight: 600;
 }
 
 /* ——— DIG ——— */
@@ -569,12 +763,52 @@ a.button:hover {
 .detail > .link {
   display: block;
 }
-.detail h2 {
-  margin-top: 4px;
+.detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 20px;
+  margin: 16px 0 12px;
 }
-.detail .badge {
-  display: inline-block;
-  margin: 16px 0 0;
+.detail-head h2 {
+  margin: 4px 0 0;
+  font-size: 2rem;
+}
+.detail-head .cover {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+/* Album tracks: number, title and state, play. The playing track is highlighted. */
+ol.tracks {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+}
+ol.tracks li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 6px 12px;
+  border-radius: 16px;
+}
+ol.tracks li + li {
+  margin-top: 2px;
+}
+ol.tracks li.current {
+  background: var(--accent-soft);
+}
+ol.tracks li.current .track-main > a {
+  font-weight: 600;
+}
+.track-no {
+  width: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.track-main {
+  flex: 1;
+  min-width: 0;
 }
 table.passport {
   width: 100%;
@@ -632,16 +866,15 @@ form[aria-label='Audio Log 편집'] label {
   display: block;
   margin: 8px 0;
 }
-/* Player waveform (private audio). */
-.player .waveform {
-  flex: 1 1 160px;
-  min-width: 120px;
-  height: 40px;
+/* Waveform of private audio on the Now Playing screen. */
+.waveform {
+  width: 100%;
+  height: 48px;
 }
-.player .waveform rect {
+.waveform rect {
   fill: var(--line);
 }
-.player .waveform rect.played {
+.waveform rect.played {
   fill: var(--accent);
 }
 

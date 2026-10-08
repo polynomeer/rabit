@@ -32,6 +32,12 @@ export const ko = {
   'home.continueAll': '전체 기록',
   'home.continueEmpty': '아직 DIG 기록이 없어요. 곡이나 앨범에서 DIG를 시작해 보세요.',
 
+  // ——— Now Playing ———
+  'now.find': '들을 곡 찾기',
+  'now.credits': '크레딧과 Passport',
+  'now.queue': '재생 목록',
+  'now.album': '앨범 보기',
+
   // ——— Studio ———
   'studio.intro': '나만의 소리를\n만들고 남겨요.',
   'studio.rightsNote':
@@ -370,6 +376,8 @@ export const ko = {
   'details.passport.integrityEmpty': '아직 판정된 축이 없습니다.',
   'details.recording.appearsOn': '수록:',
   'details.release.tracks': '트랙',
+  'details.release.summary': '{count}곡 · {minutes}분',
+  'details.release.playAll': '전체 재생',
   'details.entity.startDig': '여기서 DIG 시작',
   'details.entity.axes': '연결 축',
 
@@ -480,7 +488,13 @@ export const ko = {
   'player.quality.provisional': '(임시 설정)',
   'player.idle': '재생 중인 오디오 없음',
   'player.controls': '오디오 컨트롤',
-  'player.next': '다음',
+  'player.next': '다음 곡',
+  'player.previous': '이전 곡',
+  'player.pause': '일시정지',
+  'player.resume': '이어서 재생',
+  'player.open': '재생 화면 열기',
+  'player.position': '재생 위치',
+  'player.positionText': '{duration} 중 {time}',
 
   // ——— Operator console ———
   'ops.section.users': '사용자 지원',

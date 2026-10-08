@@ -6,11 +6,14 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
   type RefObject,
 } from 'react';
-import { api, ApiError, OWNERSHIP_TEXT } from './api';
-import { t, tCode, type MessageKey } from './i18n';
+import { api, ApiError } from './api';
+import { Cover, Icon } from './brand';
+import { t, type MessageKey } from './i18n';
+import { nowPlayingHref, useRoute } from './route';
 
 /** A queue entry references an id — never a file URL (PB Phase 13). */
 export interface QueueEntry {
@@ -20,7 +23,13 @@ export interface QueueEntry {
   ownership?: string | null | undefined;
   audio_source_id?: string | undefined;
   recording_id?: string | undefined;
+  /** Which stand-in cover to show (the release's, when known). */
+  cover_id?: string | undefined;
 }
+
+/** The cover shown for a queue entry: its release when known, else the item itself. */
+export const coverOf = (e: QueueEntry): string =>
+  e.cover_id ?? e.recording_id ?? e.audio_source_id ?? e.key;
 
 interface Session {
   session_id: string;
@@ -33,7 +42,19 @@ interface Session {
 interface PlayerApi {
   queue: QueueEntry[];
   index: number;
+  current: QueueEntry | undefined;
+  playing: boolean;
+  /** "AAC 256kbps · lossless"-style text for the current session, if any. */
+  quality: string | null;
+  /** Private audio's waveform peaks (catalog playback has none). */
+  peaks: number[] | null;
+  /** The media element, for components that follow the playback position. */
+  audio: RefObject<HTMLAudioElement | null>;
   play(entries: QueueEntry[], start?: number): void;
+  jump: (index: number) => void;
+  toggle: () => void;
+  next: () => void;
+  previous: () => void;
   message: string | null;
 }
 
@@ -71,6 +92,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [index, setIndex] = useState(-1);
   const [session, setSession] = useState<Session | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const route = useRoute();
   const seq = useRef(0);
   const lastBeat = useRef(0);
 
@@ -186,69 +209,116 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       stale = true;
     };
   }, [waveformSource]);
+  const quality = session
+    ? [
+        t('player.quality', {
+          codec: session.quality.codec.toUpperCase(),
+          kbps: session.quality.bitrate_kbps,
+        }),
+        session.quality.lossless ? t('player.quality.lossless') : '',
+        session.quality.provisional ? t('player.quality.provisional') : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
+  const jump = (at: number) => {
+    // Re-selecting the same index restarts it: reset first, then select.
+    setIndex(-1);
+    setTimeout(() => {
+      setIndex(at);
+    }, 0);
+  };
+  const toggle = () => {
+    const el = audio.current;
+    if (!el || !current) return;
+    if (el.paused) void el.play().catch(() => undefined);
+    else el.pause();
+  };
+  const previous = () => {
+    const el = audio.current;
+    // Like most players: past the first seconds, "previous" restarts the track.
+    if (el && el.currentTime > 3) el.currentTime = 0;
+    else if (index > 0) jump(index - 1);
+  };
   const api_: PlayerApi = {
     queue,
     index,
+    current,
+    playing,
+    quality,
+    peaks,
+    audio,
     message,
     play(entries, at = 0) {
       setQueue(entries);
-      setIndex(-1);
-      setTimeout(() => {
-        setIndex(at);
-      }, 0);
+      jump(at);
     },
+    jump,
+    toggle,
+    next: playNext,
+    previous,
   };
+  const onNowPlaying = route.kind === 'now';
 
   return (
     <Ctx.Provider value={api_}>
       {children}
-      <footer className="player" aria-label={t('player.region')}>
-        <div className="now">
-          {current ? (
-            <>
+      <footer className="player" aria-label={t('player.region')} hidden={onNowPlaying}>
+        {current ? (
+          <a className="player-now" href={nowPlayingHref}>
+            <Cover id={coverOf(current)} size={44} />
+            <span className="player-text">
               <strong>{current.title}</strong>
-              {current.subtitle ? <span className="muted"> · {current.subtitle}</span> : null}
-              {current.ownership ? (
-                <span className="badge">{tCode(OWNERSHIP_TEXT, current.ownership)}</span>
-              ) : null}
-              {session ? (
-                <span className="muted small">
-                  {' '}
-                  {t('player.quality', {
-                    codec: session.quality.codec.toUpperCase(),
-                    kbps: session.quality.bitrate_kbps,
-                  })}
-                  {session.quality.lossless ? ` · ${t('player.quality.lossless')}` : ''}
-                  {session.quality.provisional ? ` ${t('player.quality.provisional')}` : ''}
-                </span>
-              ) : null}
-            </>
-          ) : (
-            <span className="muted">{t('player.idle')}</span>
-          )}
-          {message ? (
-            <p role="status" className="warn">
-              {message}
-            </p>
-          ) : null}
+              {current.subtitle ? <span className="muted small">{current.subtitle}</span> : null}
+            </span>
+            <span className="visually-hidden">{t('player.open')}</span>
+          </a>
+        ) : (
+          <span className="muted player-idle">{t('player.idle')}</span>
+        )}
+        <div className="player-buttons">
+          <button
+            type="button"
+            className="round primary"
+            aria-label={playing ? t('player.pause') : t('player.resume')}
+            disabled={!current}
+            onClick={toggle}
+          >
+            <Icon name={playing ? 'pause' : 'play'} size={18} />
+          </button>
+          <button
+            type="button"
+            className="round"
+            aria-label={t('player.next')}
+            disabled={index + 1 >= queue.length}
+            onClick={playNext}
+          >
+            <Icon name="next" size={18} />
+          </button>
         </div>
-        <audio
-          ref={audio}
-          controls
-          aria-label={t('player.controls')}
-          onPlay={() => {
-            if (session) send('started', session);
-          }}
-          onPause={() => {
-            if (session) send('paused', session);
-          }}
-          onEnded={playNext}
-        />
-        {peaks && peaks.length > 0 ? <Waveform peaks={peaks} audio={audio} /> : null}
-        <button type="button" onClick={playNext} disabled={index + 1 >= queue.length}>
-          {t('player.next')}
-        </button>
+        {current ? <Progress audio={audio} thin /> : null}
+        {message ? (
+          <p role="status" className="warn player-message">
+            {message}
+          </p>
+        ) : null}
       </footer>
+      <audio
+        ref={audio}
+        aria-label={t('player.controls')}
+        onPlay={() => {
+          setPlaying(true);
+          if (session) send('started', session);
+        }}
+        onPause={() => {
+          setPlaying(false);
+          if (session) send('paused', session);
+        }}
+        onEnded={() => {
+          setPlaying(false);
+          playNext();
+        }}
+      />
     </Ctx.Provider>
   );
 }
@@ -259,30 +329,99 @@ export function usePlayer(): PlayerApi {
   return p;
 }
 
+/** Follows the media element's position without re-rendering every player consumer. */
+export function useAudioClock(audio: RefObject<HTMLAudioElement | null>): {
+  time: number;
+  duration: number;
+} {
+  const [clock, setClock] = useState({ time: 0, duration: 0 });
+  useEffect(() => {
+    const el = audio.current;
+    if (!el) return;
+    const update = () => {
+      setClock({
+        time: el.currentTime,
+        duration: Number.isFinite(el.duration) ? el.duration : 0,
+      });
+    };
+    update();
+    el.addEventListener('timeupdate', update);
+    el.addEventListener('durationchange', update);
+    el.addEventListener('emptied', update);
+    return () => {
+      el.removeEventListener('timeupdate', update);
+      el.removeEventListener('durationchange', update);
+      el.removeEventListener('emptied', update);
+    };
+  }, [audio]);
+  return clock;
+}
+
+export function clockText(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${String(Math.floor(s / 60))}:${String(s % 60).padStart(2, '0')}`;
+}
+
 /**
- * Decorative peak overview with the played part highlighted; the audio controls stay
- * the accessible control. It follows the audio element itself, so playback progress
- * re-renders only this component, not every player consumer.
+ * Playback position. `thin` is the decorative line in the mini player; the full
+ * version is a labelled slider (keyboard: arrows seek by 5 s) with both times.
  */
-function Waveform({
+export function Progress({
+  audio,
+  thin = false,
+}: {
+  audio: RefObject<HTMLAudioElement | null>;
+  thin?: boolean;
+}) {
+  const { time, duration } = useAudioClock(audio);
+  const ratio = duration > 0 ? Math.min(1, time / duration) : 0;
+  if (thin)
+    return (
+      <span className="progress-thin" aria-hidden="true">
+        <span style={{ width: `${String(ratio * 100)}%` }} />
+      </span>
+    );
+  return (
+    <div className="progress">
+      <input
+        type="range"
+        min={0}
+        max={duration > 0 ? Math.floor(duration) : 0}
+        step={5}
+        value={Math.floor(time)}
+        disabled={duration <= 0}
+        aria-label={t('player.position')}
+        aria-valuetext={t('player.positionText', {
+          time: clockText(time),
+          duration: clockText(duration),
+        })}
+        style={{ '--ratio': `${String(ratio * 100)}%` } as CSSProperties}
+        onChange={(e) => {
+          const el = audio.current;
+          if (el) el.currentTime = Number(e.target.value);
+        }}
+      />
+      <div className="progress-times" aria-hidden="true">
+        <span>{clockText(time)}</span>
+        <span>{clockText(duration)}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Decorative peak overview with the played part highlighted; the position slider
+ * stays the accessible control.
+ */
+export function Waveform({
   peaks,
   audio,
 }: {
   peaks: number[];
   audio: RefObject<HTMLAudioElement | null>;
 }) {
-  const [progress, setProgress] = useState(0);
-  useEffect(() => {
-    const el = audio.current;
-    if (!el) return;
-    const update = () => {
-      setProgress(el.duration > 0 ? el.currentTime / el.duration : 0);
-    };
-    el.addEventListener('timeupdate', update);
-    return () => {
-      el.removeEventListener('timeupdate', update);
-    };
-  }, [audio]);
+  const { time, duration } = useAudioClock(audio);
+  const progress = duration > 0 ? time / duration : 0;
   const bars = 120;
   const step = peaks.length / bars;
   const values = Array.from({ length: bars }, (_, i) => {

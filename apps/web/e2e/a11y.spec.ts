@@ -72,6 +72,13 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.getByRole('link', { name: 'Harbour Lights' }).first().click();
     await expect(page.getByRole('list', { name: '트랙' })).toBeVisible();
     found.push(...(await scan(page, 'release')));
+    await page.getByRole('button', { name: '전체 재생' }).click();
+    await page.getByRole('link', { name: /재생 화면 열기/ }).click();
+    await expect(page.getByRole('slider', { name: '재생 위치' })).toBeVisible();
+    found.push(...(await scan(page, 'now-playing')));
+    await page.goBack();
+    // Wait for the album again: until it loads, the mini player is the only artist link.
+    await expect(page.getByRole('list', { name: '트랙' })).toBeVisible();
 
     await page.getByRole('link', { name: 'Velvet Quasar' }).first().click();
     await expect(page.getByRole('list', { name: '연결' }).getByRole('link').first()).toBeVisible();

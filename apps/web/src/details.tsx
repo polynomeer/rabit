@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get, type Connection, type EntitySummary, type Playability } from './api';
+import { Cover } from './brand';
 import { AddToCollection } from './collection';
 import { LabelTimelineView } from './labels';
 import { AddToPlaylist } from './playlist-add';
@@ -171,11 +172,14 @@ function Page({
   title,
   kind,
   missing,
+  coverId,
   children,
 }: {
   title: string | null;
   kind: string;
   missing: boolean;
+  /** Recordings and releases show their (stand-in) cover next to the title. */
+  coverId?: string | undefined;
   children?: ReactNode;
 }) {
   return (
@@ -195,8 +199,13 @@ function Page({
         <p role="status">{t('common.loading')}</p>
       ) : (
         <>
-          <p className="badge">{kind}</p>
-          <h2 id="detail-h">{title}</h2>
+          <div className={coverId ? 'detail-head with-cover' : 'detail-head'}>
+            {coverId ? <Cover id={coverId} size={168} round={20} /> : null}
+            <div>
+              <p className="eyebrow">{kind}</p>
+              <h2 id="detail-h">{title}</h2>
+            </div>
+          </div>
           {children}
         </>
       )}
@@ -398,7 +407,12 @@ export function RecordingDetail({ id }: { id: string }) {
   const player = usePlayer();
   const { data: r, missing } = useResource<Recording>(`/v1/recordings/${id}`);
   return (
-    <Page title={r?.title ?? null} kind={t('common.recording')} missing={missing}>
+    <Page
+      title={r?.title ?? null}
+      kind={t('common.recording')}
+      missing={missing}
+      coverId={r?.releases[0]?.release_id ?? r?.recording_id}
+    >
       {r ? (
         <>
           <p>
@@ -425,6 +439,7 @@ export function RecordingDetail({ id }: { id: string }) {
           <div className="actions">
             <button
               type="button"
+              className="primary"
               disabled={!r.playability.playable}
               onClick={() => {
                 player.play([
@@ -433,6 +448,7 @@ export function RecordingDetail({ id }: { id: string }) {
                     title: r.title,
                     subtitle: r.artists.map((a) => a.name).join(', '),
                     recording_id: r.recording_id,
+                    cover_id: r.releases[0]?.release_id,
                   },
                 ]);
               }}
@@ -464,12 +480,15 @@ export function ReleaseDetail({ id }: { id: string }) {
       title: track.title,
       subtitle: r.artists.map((a) => a.name).join(', '),
       recording_id: track.recording_id,
+      cover_id: r.release_id,
     })) ?? [];
+  const firstPlayable = r?.tracks.findIndex((track) => track.playability.playable) ?? -1;
   return (
     <Page
       title={r?.title ?? null}
       kind={label(TYPE_TEXT, r?.release_type ?? null)}
       missing={missing}
+      coverId={r?.release_id}
     >
       {r ? (
         <>
@@ -483,7 +502,25 @@ export function ReleaseDetail({ id }: { id: string }) {
               </>
             ) : null}
           </p>
+          <p className="small muted">
+            {t('details.release.summary', {
+              count: r.tracks.length,
+              minutes: Math.round(
+                r.tracks.reduce((sum, track) => sum + (track.duration_ms ?? 0), 0) / 60_000,
+              ),
+            })}
+          </p>
           <div className="actions">
+            <button
+              type="button"
+              className="primary"
+              disabled={firstPlayable < 0}
+              onClick={() => {
+                player.play(queue, firstPlayable);
+              }}
+            >
+              {t('details.release.playAll')}
+            </button>
             <a className="button" href={digHref(r.release_id)}>
               DIG
             </a>
@@ -500,10 +537,18 @@ export function ReleaseDetail({ id }: { id: string }) {
               setReload((n) => n + 1);
             }}
           />
-          <ol className="list tracks" aria-label={t('details.release.tracks')}>
+          <ol className="tracks" aria-label={t('details.release.tracks')}>
             {r.tracks.map((track, i) => (
-              <li key={`${String(track.disc_no)}-${String(track.position)}`}>
-                <div>
+              <li
+                key={`${String(track.disc_no)}-${String(track.position)}`}
+                className={
+                  player.current?.recording_id === track.recording_id ? 'current' : undefined
+                }
+              >
+                <span className="track-no" aria-hidden="true">
+                  {track.position}
+                </span>
+                <div className="track-main">
                   <a href={entityHref(track.recording_id)}>{track.title}</a>{' '}
                   <span className="muted small">{duration(track.duration_ms)}</span>{' '}
                   <Status p={track.playability} />
