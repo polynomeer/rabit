@@ -86,6 +86,8 @@ const envSchema = z
      */
     PAYMENTS_PROVIDER: z.enum(['none', 'mock']).default('none'),
     PAYMENTS_MOCK_WEBHOOK_SECRET: secret.optional(),
+    /** Monthly plan price in KRW with VAT. A placeholder until pricing is decided (Q03, Q04). */
+    SUBSCRIPTION_PRICE_MINOR: positiveInt.default(10_900),
 
     WORKER_CONCURRENCY: positiveInt.default(2),
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
@@ -219,6 +221,7 @@ export interface Config {
   secrets: { mediaToken: string; cursor: string };
   rateLimit: { enabled: boolean; store: 'postgres' | 'memory' };
   payments: { provider: 'none' } | { provider: 'mock'; webhookSecret: string };
+  subscription: { plan: string; priceMinor: number };
   worker: { concurrency: number; ffmpegPath: string; ffprobePath: string };
   quota: {
     maxTotalBytes: number;
@@ -297,6 +300,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       e.PAYMENTS_PROVIDER === 'mock'
         ? { provider: 'mock', webhookSecret: e.PAYMENTS_MOCK_WEBHOOK_SECRET ?? '' }
         : { provider: 'none' },
+    subscription: { plan: 'listen_monthly', priceMinor: e.SUBSCRIPTION_PRICE_MINOR },
     worker: {
       concurrency: e.WORKER_CONCURRENCY,
       ffmpegPath: e.FFMPEG_PATH,

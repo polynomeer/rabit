@@ -33,7 +33,7 @@
 |---|---|---|---|
 | O-20 | Legal entity, UI language(s), minors policy | Q01 (country decided: Korea) | Korean UI catalog exists (`apps/web/src/i18n/ko.ts`) |
 | O-21 | Catalog contracts and their rights (stream/preview/download/analysis) | Q02 | Rights model enforces grants per territory and use |
-| O-22 | Free-tier quotas and prices, payment provider, taxes | Q03, Q04, Q05 | Quotas are configuration placeholders. Album purchase is built against a sandbox provider (ADR-0018 provisional, 2026-10-09: KRW, VAT included, play only); a real provider needs its adapter, tax rules, refund policy and purchase terms reviewed |
+| O-22 | Free-tier quotas and prices, payment provider, taxes | Q03, Q04, Q05 | Quotas are configuration placeholders. Album purchase and a monthly subscription are built against a sandbox provider (ADR-0018 provisional, 2026-10-09: KRW, VAT included, play only; subscription price is the placeholder `SUBSCRIPTION_PRICE_MINOR` = 10,900). A real provider needs its adapter, tax rules, refund and withdrawal policy, renewal retry/grace policy and the terms reviewed |
 | O-23 | Legal review: storing users' copies of third-party audio, removal obligations at contract end | G-LOCKER, RQ-01 | Removal API and restore reconcile exist (R10, R9) |
 | O-24 | Privacy notice, retention periods, cross-border rules for analysis | Q13, DM-02 | Data stays in Seoul (ADR-0012) |
 | O-25 | Supported devices and offline scope | Q06 | Web reference client only (ADR-0011) |

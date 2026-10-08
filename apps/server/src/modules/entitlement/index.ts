@@ -27,6 +27,13 @@ import {
 export {
   activePlayEntitlement,
   activePlayEntitlements,
+  activateSubscriptionPeriod,
+  addMonths,
+  endSubscriptionNow,
+  getSubscription,
+  markSubscriptionPastDue,
+  resumeSubscriptionRenewal,
+  stopSubscriptionRenewal,
   issuePurchaseEntitlement,
   revokePurchaseEntitlement,
   subscriptionState,

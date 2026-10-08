@@ -21,6 +21,12 @@ import { WebhookRejected, type PaymentProvider } from './provider.js';
 import {
   APPLY_EVENT_JOB,
   KR_VAT_BP,
+  RENEW_JOB,
+  cancelSubscriptionRenewal,
+  createSubscriptionOrder,
+  renewSubscriptions,
+  resumeRenewal,
+  subscriptionPlan,
   SUBMIT_REFUND_JOB,
   applyEvent,
   cancelOrder,
@@ -42,7 +48,7 @@ import {
 
 export { includedTax, ledgerBalances } from './ledger.js';
 export { MockPaymentProvider } from './mock-provider.js';
-export { purchasableRecordings, reconcile } from './service.js';
+export { purchasableRecordings, reconcile, renewSubscriptions } from './service.js';
 
 const reason = z.string().min(3).max(500);
 
@@ -86,6 +92,36 @@ async function routes(app: FastifyInstance, ctx: AppContext, provider: PaymentPr
       () => createOrder(ctx.db, pp, p, body, req.id),
     );
     return reply.status(r.status).header('etag', etag(r.body.version)).send(r.body);
+  });
+
+  // ---- subscription (COM-008, provisional price: SUBSCRIPTION_PRICE_MINOR) ----
+
+  app.get('/v1/subscription/plan', async (req) => {
+    const p = requirePrincipal(req.principal);
+    return subscriptionPlan(ctx.db, p.userId, ctx.config.subscription, provider !== null);
+  });
+
+  app.post('/v1/subscription/checkout', async (req, reply) => {
+    const p = requirePrincipal(req.principal);
+    parse(z.strictObject({}), req.body ?? {});
+    const pp = requireProvider(provider);
+    const key = idempotencyKeyFrom(req.headers, true);
+    const r = await withIdempotency(
+      ctx.db,
+      { userId: p.userId, operation: 'subscription.checkout', key, request: {} },
+      () => createSubscriptionOrder(ctx.db, pp, p, ctx.config.subscription, req.id),
+    );
+    return reply.status(r.status).header('etag', etag(r.body.version)).send(r.body);
+  });
+
+  app.post('/v1/subscription/cancel', async (req) => {
+    const p = requirePrincipal(req.principal);
+    return cancelSubscriptionRenewal(ctx.db, p, req.id);
+  });
+
+  app.post('/v1/subscription/resume', async (req) => {
+    const p = requirePrincipal(req.principal);
+    return resumeRenewal(ctx.db, p, req.id);
   });
 
   app.get('/v1/orders', async (req) => {
@@ -203,6 +239,12 @@ async function routes(app: FastifyInstance, ctx: AppContext, provider: PaymentPr
       if (!done) throw errors.invalidState('This checkout is not open.');
       return reply.status(202).send({ checkout_ref, outcome: body.outcome });
     });
+    app.put('/dev/mock-pay/cards/:user_id', async (req) => {
+      const { user_id } = parse(z.object({ user_id: idOf('user') }), req.params);
+      const body = parse(z.strictObject({ declined: z.boolean() }), req.body);
+      await mock.setCard(ctx.db, user_id, body.declined);
+      return { user_id, declined: body.declined };
+    });
     ctx.log.warn('mock payment provider is ENABLED (never in production)');
   }
 }
@@ -259,6 +301,14 @@ export function commerceModule(): Module {
           },
         },
         {
+          kind: RENEW_JOB,
+          leaseMs: 5 * 60_000,
+          async handle() {
+            if (provider)
+              await renewSubscriptions(ctx.db, provider, ctx.config.subscription, ctx.log);
+          },
+        },
+        {
           kind: 'commerce.expire_orders',
           leaseMs: 60_000,
           async handle() {
@@ -293,6 +343,7 @@ export function commerceModule(): Module {
     schedules: [
       { kind: 'commerce.expire_orders', everyMs: 5 * 60_000 },
       { kind: 'commerce.reconcile', everyMs: 60 * 60_000 },
+      { kind: RENEW_JOB, everyMs: 60 * 60_000 },
     ],
   };
 }

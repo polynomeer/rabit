@@ -324,6 +324,7 @@ export interface SubscriptionTable {
   state: 'active' | 'past_due' | 'cancelled' | 'expired';
   paid_through: Timestamp;
   source: 'operator' | 'sandbox';
+  auto_renew: Generated<boolean>;
   version: Generated<number>;
   created_at: CreatedAt;
   updated_at: UpdatedAt;
@@ -587,11 +588,14 @@ export interface OfferTable {
   updated_at: UpdatedAt;
 }
 
+export type OrderKind = 'release' | 'subscription';
+
 export interface PurchaseOrderTable {
   id: string;
   user_id: string;
-  offer_id: string;
-  offer_version: number;
+  kind: ColumnType<OrderKind, OrderKind | undefined, never>;
+  offer_id: string | null;
+  offer_version: number | null;
   status: OrderStatus;
   currency: Currency;
   amount_minor: ColumnType<number, number, never>;
@@ -610,7 +614,25 @@ export interface PurchaseOrderTable {
 }
 
 /** What the buyer agreed to, frozen at order time (COM-002). */
-export interface OrderSnapshot {
+export type OrderSnapshot = ReleaseSnapshot | SubscriptionSnapshot;
+
+export interface SubscriptionSnapshot {
+  kind: 'subscription';
+  plan: string;
+  /** Length of the period this payment adds, from the later of now and the paid-through date. */
+  period_months: number;
+  renewal: boolean;
+  territory: string;
+  currency: Currency;
+  amount_minor: number;
+  tax_minor: number;
+  vat_rate_bp: number;
+  capabilities: string[];
+  terms_version: string;
+}
+
+export interface ReleaseSnapshot {
+  kind?: 'release';
   release_id: string;
   release_title: string;
   artist_names: string[];
@@ -668,6 +690,12 @@ export interface LedgerLineTable {
   credit_minor: ColumnType<number, number, never>;
 }
 
+export interface MockCardTable {
+  user_id: string;
+  declined: boolean;
+  updated_at: UpdatedAt;
+}
+
 export interface MockPaymentTable {
   id: string;
   checkout_ref: string;
@@ -707,6 +735,7 @@ export interface Database {
   ledger_journal: LedgerJournalTable;
   ledger_line: LedgerLineTable;
   mock_payment: MockPaymentTable;
+  mock_card: MockCardTable;
   library_item: LibraryItemTable;
   physical_item: PhysicalItemTable;
   blind_dig: BlindDigTable;

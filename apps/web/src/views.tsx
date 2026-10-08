@@ -12,7 +12,7 @@ import {
 } from './api';
 import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
-import { Orders } from './purchase';
+import { Orders, SubscriptionPanel } from './purchase';
 import { entityHref, navigate, searchHref } from './route';
 
 export function Status({ p }: { p: Playability }) {
@@ -512,6 +512,7 @@ export function Account() {
         </dl>
       ) : null}
       <Entitlements />
+      <SubscriptionPanel />
       <Orders />
       <div className="card">
         <h3>{t('account.export.heading')}</h3>

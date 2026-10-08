@@ -489,6 +489,55 @@ paths:
       responses:
         '200': { description: Current subscription or null, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionEnvelope' } } } }
 
+  /v1/subscription/plan:
+    get:
+      tags: [commerce]
+      operationId: getSubscriptionPlan
+      description: >
+        The monthly plan at its price with VAT included. The price is a configuration
+        placeholder (SUBSCRIPTION_PRICE_MINOR) until pricing is decided (Q03, Q04);
+        only KR accounts can subscribe for now.
+      responses:
+        '200': { description: Plan, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionPlan' } } } }
+  /v1/subscription/checkout:
+    post:
+      tags: [commerce]
+      operationId: checkoutSubscription
+      description: >
+        Opens a checkout for one month. The period starts at the later of now and the current
+        paid-through date and renews monthly until stopped (COM-008). A pending checkout is
+        returned (200); an active subscription is not sold again (409; resume renewal instead).
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKeyRequired' } ]
+      requestBody:
+        content: { application/json: { schema: { type: object, additionalProperties: false } } }
+      responses:
+        '201':
+          description: Checkout opened
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } }
+        '200':
+          description: The pending checkout
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } }
+        '403': { description: Not available in the caller's region, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { description: Checkout is off, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /v1/subscription/cancel:
+    post:
+      tags: [commerce]
+      operationId: stopSubscriptionRenewal
+      description: Stops automatic renewal. Access continues until the paid-through date; this is not a refund. Purchases are unaffected (COM-009).
+      responses:
+        '200': { description: Subscription after the change, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionEnvelope' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/subscription/resume:
+    post:
+      tags: [commerce]
+      operationId: resumeSubscriptionRenewal
+      description: Turns automatic renewal back on while a paid sandbox subscription is still active (no payment now).
+      responses:
+        '200': { description: Subscription after the change, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionEnvelope' } } } }
+        '409': { $ref: '#/components/responses/Error' }
   /v1/releases/{release_id}/offer:
     parameters: [ { name: release_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
     get:
@@ -1162,6 +1211,21 @@ paths:
         '202': { description: Outcome recorded; webhook queued, content: { application/json: { schema: { type: object } } } }
         '409': { $ref: '#/components/responses/Error' }
 
+  /dev/mock-pay/cards/{user_id}:
+    parameters: [ { name: user_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    put:
+      tags: [system]
+      operationId: devMockCard
+      security: []
+      x-rabit-status: dev-only
+      description: Makes the sandbox provider decline (or accept) the user's renewal charges.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [declined], properties: { declined: { type: boolean } } } } }
+      responses:
+        '200': { description: Stored, content: { application/json: { schema: { type: object } } } }
+        '400': { $ref: '#/components/responses/Error' }
+
   /dev/.well-known/jwks.json:
     get:
       tags: [system]
@@ -1790,14 +1854,17 @@ components:
         confirm_already_owned: { type: boolean, default: false }
     Order:
       type: object
-      required: [order_id, status, offer_id, release_id, release_title, artist_names, price, capabilities, terms_version, checkout_url, entitlement_id, created_at, expires_at, paid_at, refunded_at, version]
+      required: [order_id, kind, status, offer_id, release_id, release_title, artist_names, plan, renewal, price, capabilities, terms_version, checkout_url, entitlement_id, created_at, expires_at, paid_at, refunded_at, version]
       properties:
         order_id: { $ref: '#/components/schemas/Id' }
+        kind: { type: string, enum: [release, subscription] }
         status: { type: string, enum: [pending, paid, fulfilled, cancelled, expired, refund_pending, refunded] }
-        offer_id: { $ref: '#/components/schemas/Id' }
-        release_id: { $ref: '#/components/schemas/Id' }
-        release_title: { type: string }
+        offer_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ], description: Release orders only }
+        release_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        release_title: { type: [string, 'null'] }
         artist_names: { type: array, items: { type: string } }
+        plan: { type: [string, 'null'], description: Subscription orders only }
+        renewal: { type: boolean, description: An automatic renewal charge }
         price: { $ref: '#/components/schemas/Money' }
         capabilities: { type: array, items: { type: string } }
         terms_version: { type: string }
@@ -1840,6 +1907,26 @@ components:
       required: [reason]
       properties:
         reason: { $ref: '#/components/schemas/Reason' }
+    SubscriptionPlan:
+      type: object
+      required: [plan, period, price, available, checkout_available, current, pending_order_id, terms_version]
+      properties:
+        plan: { type: string }
+        period: { type: string, enum: [P1M] }
+        price: { $ref: '#/components/schemas/Money' }
+        available: { type: boolean, description: The caller's region can subscribe }
+        checkout_available: { type: boolean }
+        current:
+          oneOf:
+            - { type: 'null' }
+            - type: object
+              required: [state, paid_through, auto_renew]
+              properties:
+                state: { type: string, enum: [active, past_due, cancelled, expired] }
+                paid_through: { $ref: '#/components/schemas/Timestamp' }
+                auto_renew: { type: boolean }
+        pending_order_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        terms_version: { type: string }
     MockCheckout:
       type: object
       required: [checkout_ref, order_id, amount_minor, currency, status, provider]
@@ -1878,6 +1965,7 @@ components:
         state: { type: string, enum: [active, past_due, cancelled, expired] }
         paid_through: { $ref: '#/components/schemas/Timestamp' }
         source: { type: string, enum: [operator, sandbox] }
+        auto_renew: { type: boolean, description: Renews through the payment provider (sandbox) until stopped }
     SubscriptionEnvelope:
       type: object
       required: [subscription]

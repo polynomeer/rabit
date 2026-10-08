@@ -56,6 +56,30 @@ export class MockPaymentProvider implements PaymentProvider {
     return { checkoutRef, checkoutUrl: `${this.apiBaseUrl}/dev/mock-pay/checkouts/${checkoutRef}` };
   }
 
+  /** Renewal charge: declined when the buyer's mock card is set to decline. */
+  async charge(
+    db: DbOrTx,
+    input: { orderId: string; userId: string; amountMinor: number; currency: string },
+  ) {
+    const { checkoutRef } = await this.createCheckout(db, input);
+    const card = await db
+      .selectFrom('mock_card')
+      .select('declined')
+      .where('user_id', '=', input.userId)
+      .executeTakeFirst();
+    await this.complete(db, checkoutRef, card?.declined ? 'failed' : 'succeeded');
+    return { checkoutRef };
+  }
+
+  /** Dev: make the buyer's stored card decline (or accept) future renewals. */
+  async setCard(db: DbOrTx, userId: string, declined: boolean) {
+    await db
+      .insertInto('mock_card')
+      .values({ user_id: userId, declined })
+      .onConflict((oc) => oc.column('user_id').doUpdateSet({ declined, updated_at: new Date() }))
+      .execute();
+  }
+
   async requestRefund(
     db: DbOrTx,
     input: { refundId: string; checkoutRef: string; amountMinor: number },
