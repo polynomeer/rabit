@@ -205,6 +205,13 @@ describe('album purchase with the mock provider (COM-003..006)', () => {
       payload: { recording_id: cat.ids['r1'], device_id: 'device-test-1' },
     });
     expect(before.statusCode).toBe(403);
+    expect(before.json().error.code).toBe('PURCHASE_AVAILABLE');
+    const rel = await h.api.inject({ url: `/v1/releases/${releaseId}`, headers: u.headers });
+    expect(
+      rel
+        .json<{ tracks: { playability: { reason: string } }[] }>()
+        .tracks.map((t) => t.playability.reason),
+    ).toEqual(['purchase_available', 'purchase_available']);
 
     await pay(o);
     const done = await getOrder(u, o.order_id);
@@ -459,7 +466,7 @@ describe('refunds and withdrawal', () => {
   });
 
   it('cancels pending orders when an offer is withdrawn and refunds a payment that still arrives', async () => {
-    const { offerId } = await albumOnSale();
+    const { cat, offerId } = await albumOnSale();
     const u = await buyer();
     const o = (await order(u, offerId)).json<Order>();
     const w = await h.api.inject({
@@ -474,6 +481,9 @@ describe('refunds and withdrawal', () => {
     await pay(o);
     const after = await getOrder(u, o.order_id);
     expect(after).toMatchObject({ status: 'refunded', entitlement_id: null });
+    // Not on sale any more: a non-subscriber is asked for a subscription again.
+    const rel = await h.api.inject({ url: `/v1/releases/${cat.ids['album']}`, headers: u.headers });
+    expect(rel.json().tracks[0].playability.reason).toBe('subscription_required');
     const lines = await journalsOf(o.order_id);
     expect(lines.reduce((a, l) => a + l.debit_minor - l.credit_minor, 0)).toBe(0);
     expect((await order(u, offerId)).statusCode).toBe(409);

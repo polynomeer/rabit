@@ -27,6 +27,7 @@ import {
   commerceModule,
   commerceSupportSection,
   deleteAccountOrders,
+  purchasableRecordings,
 } from '../modules/commerce/index.js';
 import { getUser, identityModule, identitySupportSection } from '../modules/identity/index.js';
 import {
@@ -57,7 +58,10 @@ import {
 } from '../modules/playback/index.js';
 import type { Module } from './modules.js';
 
-/** Rights ∧ entitlement at access time (ADR-0016 steps 4–5). Territory is server-side only. */
+/**
+ * Rights ∧ entitlement at access time (ADR-0016 steps 4–5). Territory is server-side only.
+ * Without an entitlement, a recording on sale says so instead of asking for a subscription.
+ */
 export const catalogAccess: CatalogAccess = async (db, principal, recordingIds, now) => {
   const out = new Map<string, CatalogDecision>();
   const user = await getUser(db, principal.userId);
@@ -65,17 +69,22 @@ export const catalogAccess: CatalogAccess = async (db, principal, recordingIds, 
   const grants = country
     ? await activeGrants(db, recordingIds, country, 'stream', now)
     : new Map<string, { id: string; version: number }>();
-  const ents = await activePlayEntitlements(
-    db,
-    principal.userId,
-    recordingIds.filter((id) => grants.has(id)),
-    now,
-  );
+  const granted = recordingIds.filter((id) => grants.has(id));
+  const ents = await activePlayEntitlements(db, principal.userId, granted, now);
+  const notEntitled = granted.filter((id) => !ents.has(id));
+  const buyable =
+    country && notEntitled.length > 0
+      ? await purchasableRecordings(db, notEntitled, country, now)
+      : new Set<string>();
   for (const id of recordingIds) {
     const grant = grants.get(id);
     const ent = ents.get(id);
     if (!grant) out.set(id, { allowed: false, reason: 'rights_unavailable' });
-    else if (!ent) out.set(id, { allowed: false, reason: 'subscription_required' });
+    else if (!ent)
+      out.set(id, {
+        allowed: false,
+        reason: buyable.has(id) ? 'purchase_available' : 'subscription_required',
+      });
     else
       out.set(id, {
         allowed: true,
