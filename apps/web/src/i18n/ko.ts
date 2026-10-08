@@ -57,6 +57,21 @@ export const ko = {
   'item.playable': '재생 가능',
 
   // ——— Playlists ———
+  'playlists.add.label': '플레이리스트에 추가',
+  'playlists.add.choose': '추가할 플레이리스트',
+  'playlists.add.submit': '플레이리스트에 추가',
+  'playlists.add.confirm': '추가',
+  'playlists.add.none': '먼저 Playlists 탭에서 플레이리스트를 만드세요.',
+  'playlists.add.done': "'{title}'에 추가했습니다.",
+  'playlists.delete.submit': '플레이리스트 삭제',
+  'playlists.delete.confirm':
+    "'{title}' 플레이리스트를 삭제할까요? 담긴 곡과 오디오는 지워지지 않습니다.",
+  'playlists.delete.done': '플레이리스트를 삭제했습니다.',
+  'playlists.rename.label': '플레이리스트 이름 바꾸기',
+  'playlists.rename.field': '새 이름',
+  'playlists.rename.submit': '이름 바꾸기',
+  'archive.item.rename': '이름 바꾸기',
+  'archive.item.renameField': '오디오 이름',
   'playlists.reloaded': '다른 곳에서 변경되어 다시 불러왔습니다.',
   'playlists.new.placeholder': '새 플레이리스트 이름',
   'playlists.new.label': '플레이리스트 이름',

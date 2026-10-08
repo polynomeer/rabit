@@ -146,6 +146,51 @@ export function Playlists() {
       {open ? (
         <div className="card">
           <h3>{open.title}</h3>
+          <form
+            className="inline"
+            aria-label={t('playlists.rename.label')}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const input = e.currentTarget.elements.namedItem('title') as HTMLInputElement;
+              const title = input.value.trim();
+              if (!title || title === open.title) return;
+              void mutate('PATCH', `/v1/playlists/${open.playlist_id}`, { title }).then(load);
+            }}
+          >
+            <label htmlFor={`pl-title-${open.playlist_id}`} className="visually-hidden">
+              {t('playlists.rename.field')}
+            </label>
+            <input
+              id={`pl-title-${open.playlist_id}`}
+              key={open.title}
+              name="title"
+              defaultValue={open.title}
+              maxLength={200}
+              required
+            />{' '}
+            <button type="submit">{t('playlists.rename.submit')}</button>{' '}
+            <button
+              type="button"
+              onClick={() => {
+                if (!etag || !confirm(t('playlists.delete.confirm', { title: open.title }))) return;
+                api('DELETE', `/v1/playlists/${open.playlist_id}`, undefined, {
+                  'if-match': etag,
+                }).then(
+                  () => {
+                    setOpen(null);
+                    setEtag(null);
+                    setMsg(t('playlists.delete.done'));
+                    load();
+                  },
+                  (e: unknown) => {
+                    setMsg(errorText(e));
+                  },
+                );
+              }}
+            >
+              {t('playlists.delete.submit')}
+            </button>
+          </form>
           <ol className="list">
             {open.items.map((i, idx) => (
               <li key={i.item_id}>
