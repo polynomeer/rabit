@@ -167,6 +167,11 @@ describe('OpenAPI contract (ADR-0010)', () => {
       },
     });
     validate('post', '/v1/ops/offers', offer.statusCode, offer.json());
+    const listed = await h.api.inject({
+      url: `/v1/ops/releases/${ids['album']}/offers`,
+      headers: ops.op.headers,
+    });
+    validate('get', '/v1/ops/releases/{release_id}/offers', listed.statusCode, listed.json());
     const ro = await h.api.inject({
       url: `/v1/releases/${ids['album']}/offer`,
       headers: u.headers,

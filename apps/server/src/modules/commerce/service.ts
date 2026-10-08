@@ -798,6 +798,17 @@ export async function createOffer(
   });
 }
 
+/** Every offer of a release, newest first, for the operator console. */
+export async function releaseOffers(db: DbOrTx, releaseId: string) {
+  const rows = await db
+    .selectFrom('offer')
+    .selectAll()
+    .where('release_id', '=', releaseId)
+    .orderBy('created_at', 'desc')
+    .execute();
+  return { items: rows.map(offerView) };
+}
+
 /** Withdrawal cancels pending orders; their late payments are refunded (COM-018). */
 export async function withdrawOffer(
   db: Db,

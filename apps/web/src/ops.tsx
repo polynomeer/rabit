@@ -13,6 +13,7 @@ const SECTION_TEXT: Record<OpsSection, MessageKey> = {
   reports: 'ops.section.reports',
   jobs: 'ops.section.jobs',
   rights: 'ops.section.rights',
+  sales: 'ops.section.sales',
 };
 /** Button labels for the status an entitlement or rights grant is moved to. */
 const GRANT_STATUS_ACTION: Record<'active' | 'suspended' | 'revoked', MessageKey> = {
@@ -101,6 +102,7 @@ export function OpsConsole({ section }: { section: OpsSection }) {
       {section === 'reports' ? <Reports reason={reason} valid={valid} /> : null}
       {section === 'jobs' ? <Jobs reason={reason} valid={valid} /> : null}
       {section === 'rights' ? <Rights reason={reason} valid={valid} /> : null}
+      {section === 'sales' ? <Sales reason={reason} valid={valid} /> : null}
     </section>
   );
 }
@@ -741,5 +743,271 @@ function Rights({ reason, valid }: Props) {
         </>
       ) : null}
     </div>
+  );
+}
+
+// ——— Sales (ADR-0018, provisional) ———
+
+interface Offer {
+  offer_id: string;
+  territories: string[];
+  price: { amount_minor: number; currency: string; tax_minor: number };
+  status: string;
+  version: number;
+}
+interface OpsOrder {
+  order_id: string;
+  status: string;
+  user_id: string;
+  release_id: string;
+  release_title: string;
+  provider: string;
+  price: { amount_minor: number; currency: string; tax_minor: number };
+  created_at: string;
+  paid_at: string | null;
+  version: number;
+  events: { payment_event_id: string; type: string; status: string; detail: string | null }[];
+  refunds: { refund_id: string; status: string; amount_minor: number; requested_by: string }[];
+  ledger: {
+    journal_id: string;
+    kind: string;
+    account: string;
+    debit_minor: number;
+    credit_minor: number;
+  }[];
+}
+
+const won = (m: { amount_minor: number; currency: string }) =>
+  new Intl.NumberFormat('ko-KR', { style: 'currency', currency: m.currency }).format(
+    m.amount_minor,
+  );
+
+function Sales({ reason, valid }: Props) {
+  return (
+    <div>
+      <ReleaseOffers reason={reason} valid={valid} />
+      <OrderLookup reason={reason} valid={valid} />
+    </div>
+  );
+}
+
+/** Offers of one release: put it on sale, or withdraw the current offer. */
+function ReleaseOffers({ reason, valid }: Props) {
+  const [releaseId, setReleaseId] = useState('');
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const { msg, run } = useAction();
+  const fetchOffers = (id: string) =>
+    get<{ items: Offer[] }>(`/v1/ops/releases/${id}/offers`).then((r) => {
+      setOffers(r.items);
+      setLoaded(id);
+    });
+  const reload = (ok: boolean) => {
+    if (ok && loaded) void fetchOffers(loaded).catch(() => undefined);
+  };
+  return (
+    <section className="card" aria-labelledby="offers-h">
+      <h3 id="offers-h">{t('ops.sales.offers.heading')}</h3>
+      <form
+        aria-label={t('ops.sales.offers.lookupForm')}
+        className="row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(t('ops.sales.lookup'), () => fetchOffers(releaseId.trim()));
+        }}
+      >
+        <input
+          aria-label={t('ops.sales.releaseId')}
+          placeholder="rel_…"
+          value={releaseId}
+          onChange={(e) => {
+            setReleaseId(e.target.value);
+          }}
+          pattern="rel_[0-9A-HJKMNP-TV-Z]{26}"
+          required
+        />
+        <button type="submit">{t('ops.sales.lookup')}</button>
+      </form>
+      <Status msg={msg} />
+      {loaded ? (
+        <>
+          <p>
+            <a href={entityHref(loaded)}>{t('ops.sales.viewRelease')}</a>
+          </p>
+          <ul className="list" aria-label={t('ops.sales.offers.list')}>
+            {offers.map((o) => (
+              <li key={o.offer_id}>
+                <div className="small">
+                  <strong>
+                    {o.status === 'on_sale' ? t('ops.sales.onSale') : t('ops.sales.withdrawn')}
+                  </strong>{' '}
+                  · {won(o.price)} · {o.territories.join(', ')} · <code>{o.offer_id}</code>
+                </div>
+                {o.status === 'on_sale' ? (
+                  <div className="actions">
+                    <button
+                      type="button"
+                      disabled={!valid}
+                      onClick={() =>
+                        void run(t('ops.sales.withdraw'), () =>
+                          api('POST', `/v1/ops/offers/${o.offer_id}/withdraw`, { reason }),
+                        ).then(reload)
+                      }
+                    >
+                      {t('ops.sales.withdraw')}
+                    </button>
+                  </div>
+                ) : null}
+              </li>
+            ))}
+            {offers.length === 0 ? <li className="muted">{t('ops.sales.offers.empty')}</li> : null}
+          </ul>
+          <form
+            aria-label={t('ops.sales.create')}
+            className="card"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = e.currentTarget.elements;
+              const v = (n: string) => (f.namedItem(n) as HTMLInputElement).value.trim();
+              void run(t('ops.sales.create'), () =>
+                api('POST', '/v1/ops/offers', {
+                  release_id: loaded,
+                  territories: v('territories')
+                    .split(',')
+                    .map((x) => x.trim().toUpperCase())
+                    .filter(Boolean),
+                  price_minor: Number(v('price')),
+                  reason,
+                }),
+              ).then(reload);
+            }}
+          >
+            <h4>{t('ops.sales.create')}</h4>
+            <p className="small muted">{t('ops.sales.create.note')}</p>
+            <Field label={t('ops.sales.price')}>
+              <input name="price" type="number" min={100} max={10_000_000} step={100} required />
+            </Field>
+            <Field label={t('ops.sales.territories')}>
+              <input name="territories" required defaultValue="KR" />
+            </Field>
+            <button type="submit" disabled={!valid}>
+              {t('ops.sales.create')}
+            </button>
+          </form>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+/** One order with its provider events, refunds and ledger lines; full refund. */
+function OrderLookup({ reason, valid }: Props) {
+  const [orderId, setOrderId] = useState('');
+  const [order, setOrder] = useState<OpsOrder | null>(null);
+  const { msg, run } = useAction();
+  const fetchOrder = (id: string) => get<OpsOrder>(`/v1/ops/orders/${id}`).then(setOrder);
+  return (
+    <section className="card" aria-labelledby="order-h">
+      <h3 id="order-h">{t('ops.sales.order.heading')}</h3>
+      <form
+        aria-label={t('ops.sales.order.lookupForm')}
+        className="row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(t('ops.sales.lookup'), () => fetchOrder(orderId.trim()));
+        }}
+      >
+        <input
+          aria-label={t('ops.sales.orderId')}
+          placeholder="ord_…"
+          value={orderId}
+          onChange={(e) => {
+            setOrderId(e.target.value);
+          }}
+          pattern="ord_[0-9A-HJKMNP-TV-Z]{26}"
+          required
+        />
+        <button type="submit">{t('ops.sales.lookup')}</button>
+      </form>
+      <Status msg={msg} />
+      {order ? (
+        <>
+          <Facts
+            data={{
+              status: order.status,
+              release: order.release_title,
+              price: won(order.price),
+              vat: won({ ...order.price, amount_minor: order.price.tax_minor }),
+              user_id: order.user_id,
+              provider: order.provider,
+              created_at: formatDateTime(order.created_at),
+              paid_at: order.paid_at ? formatDateTime(order.paid_at) : null,
+            }}
+          />
+          <h4>{t('ops.sales.order.events')}</h4>
+          <ul className="list small" aria-label={t('ops.sales.order.events')}>
+            {order.events.map((e) => (
+              <li key={e.payment_event_id}>
+                {e.type} · <strong>{e.status}</strong>
+                {e.detail ? ` · ${e.detail}` : ''}
+              </li>
+            ))}
+          </ul>
+          <h4>{t('ops.sales.order.ledger')}</h4>
+          <table className="small" aria-label={t('ops.sales.order.ledger')}>
+            <thead>
+              <tr>
+                <th>{t('ops.sales.ledger.kind')}</th>
+                <th>{t('ops.sales.ledger.account')}</th>
+                <th>{t('ops.sales.ledger.debit')}</th>
+                <th>{t('ops.sales.ledger.credit')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.ledger.map((l, i) => (
+                <tr key={`${l.journal_id}-${String(i)}`}>
+                  <td>{l.kind}</td>
+                  <td>{l.account}</td>
+                  <td>{l.debit_minor || ''}</td>
+                  <td>{l.credit_minor || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {order.refunds.length > 0 ? (
+            <ul className="list small" aria-label={t('ops.sales.order.refunds')}>
+              {order.refunds.map((r) => (
+                <li key={r.refund_id}>
+                  {t('ops.sales.order.refund')} · <strong>{r.status}</strong> · {r.requested_by}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {order.status === 'fulfilled' || order.status === 'paid' ? (
+            <div className="actions">
+              <button
+                type="button"
+                disabled={!valid}
+                onClick={() => {
+                  if (!confirm(t('ops.sales.refund.confirm'))) return;
+                  void run(t('ops.sales.refund'), () =>
+                    api(
+                      'POST',
+                      `/v1/ops/orders/${order.order_id}/refunds`,
+                      { reason },
+                      { 'if-match': `"${String(order.version)}"` },
+                    ),
+                  ).then((ok) => {
+                    if (ok) void fetchOrder(order.order_id).catch(() => undefined);
+                  });
+                }}
+              >
+                {t('ops.sales.refund')}
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </section>
   );
 }

@@ -80,7 +80,7 @@ export async function asOperator(method: string, path: string, body: Record<stri
       'content-type': 'application/json',
       'idempotency-key': `e2e-${crypto.randomUUID()}`,
     },
-    body: JSON.stringify(body),
+    ...(method === 'GET' ? {} : { body: JSON.stringify(body) }),
   });
   return { status: r.status, json: (await r.json().catch(() => null)) as unknown };
 }
