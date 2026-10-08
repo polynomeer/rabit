@@ -33,6 +33,14 @@ export interface PaymentProvider {
     db: DbOrTx,
     order: { orderId: string; amountMinor: number; currency: string },
   ): Promise<{ checkoutRef: string; checkoutUrl: string }>;
+  /**
+   * Charges the buyer's stored payment method (subscription renewal) without a
+   * checkout; the outcome arrives later as a webhook. Returns the payment reference.
+   */
+  charge(
+    db: DbOrTx,
+    input: { orderId: string; userId: string; amountMinor: number; currency: string },
+  ): Promise<{ checkoutRef: string }>;
   /** Asks for a full refund; the outcome arrives later as a webhook. */
   requestRefund(
     db: DbOrTx,

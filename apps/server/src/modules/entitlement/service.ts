@@ -34,6 +34,7 @@ export function subscriptionView(s: SubRow | undefined) {
           state: s.state,
           paid_through: s.paid_through.toISOString(),
           source: s.source,
+          auto_renew: s.auto_renew,
         }
       : null,
   };
@@ -179,12 +180,15 @@ export async function setSubscription(
         state: input.state,
         paid_through: input.paid_through,
         source: 'operator',
+        auto_renew: false,
       })
       .onConflict((oc) =>
         oc.column('user_id').doUpdateSet((eb) => ({
           plan: input.plan,
           state: input.state,
           paid_through: input.paid_through,
+          source: 'operator',
+          auto_renew: false,
           version: eb('subscription.version', '+', 1),
           updated_at: new Date(),
         })),
@@ -413,4 +417,168 @@ export async function revokePurchaseEntitlement(
     .returningAll()
     .executeTakeFirst();
   if (e) await emitChanged(tx, e, correlationId);
+}
+
+/** Same day next month(s), clamped to the month's last day (31 Jan + 1 → 28/29 Feb). */
+export function addMonths(d: Date, months: number): Date {
+  const out = new Date(d.getTime());
+  const day = out.getUTCDate();
+  out.setUTCDate(1);
+  out.setUTCMonth(out.getUTCMonth() + months);
+  const last = new Date(Date.UTC(out.getUTCFullYear(), out.getUTCMonth() + 1, 0)).getUTCDate();
+  out.setUTCDate(Math.min(day, last));
+  return out;
+}
+
+/** Mirrors the subscription into its single `catalog_all` entitlement. */
+async function syncSubscriptionEntitlement(
+  tx: DbOrTx,
+  sub: SubRow,
+  status: GrantStatus,
+  correlationId: string | null,
+) {
+  const ent = await tx
+    .insertInto('entitlement')
+    .values({
+      id: newId('entitlement'),
+      user_id: sub.user_id,
+      scope: 'catalog_all',
+      resource_id: null,
+      capabilities: ['play'],
+      origin: 'subscription',
+      origin_ref: sub.id,
+      valid_to: sub.paid_through,
+      status,
+    })
+    .onConflict((oc) =>
+      oc
+        .column('user_id')
+        .where('origin', '=', 'subscription')
+        .doUpdateSet((eb) => ({
+          status,
+          valid_to: sub.paid_through,
+          origin_ref: sub.id,
+          version: eb('entitlement.version', '+', 1),
+          updated_at: new Date(),
+        })),
+    )
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  await emitChanged(tx, ent, correlationId);
+  return ent;
+}
+
+/**
+ * A paid subscription period (COM-008): the period starts at the later of now
+ * and the current paid-through date, and the subscription renews until the user
+ * stops it. Runs in the caller's transaction with the order and the ledger.
+ */
+export async function activateSubscriptionPeriod(
+  tx: DbOrTx,
+  input: { userId: string; plan: string; months: number },
+  correlationId: string | null,
+): Promise<string> {
+  const now = new Date();
+  const current = await tx
+    .selectFrom('subscription')
+    .selectAll()
+    .where('user_id', '=', input.userId)
+    .forUpdate()
+    .executeTakeFirst();
+  const base =
+    current && ['active', 'past_due'].includes(current.state) && current.paid_through > now
+      ? current.paid_through
+      : now;
+  const paidThrough = addMonths(base, input.months);
+  const sub = await tx
+    .insertInto('subscription')
+    .values({
+      id: newId('subscription'),
+      user_id: input.userId,
+      plan: input.plan,
+      state: 'active',
+      paid_through: paidThrough,
+      source: 'sandbox',
+      auto_renew: true,
+    })
+    .onConflict((oc) =>
+      oc.column('user_id').doUpdateSet((eb) => ({
+        plan: input.plan,
+        state: 'active',
+        paid_through: paidThrough,
+        source: 'sandbox',
+        auto_renew: true,
+        version: eb('subscription.version', '+', 1),
+        updated_at: now,
+      })),
+    )
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  return (await syncSubscriptionEntitlement(tx, sub, 'active', correlationId)).id;
+}
+
+/** A renewal payment failed: no access until paid (fail closed, as for `past_due`). */
+export async function markSubscriptionPastDue(
+  tx: DbOrTx,
+  userId: string,
+  correlationId: string | null,
+): Promise<void> {
+  const sub = await tx
+    .updateTable('subscription')
+    .set((eb) => ({ state: 'past_due', version: eb('version', '+', 1), updated_at: new Date() }))
+    .where('user_id', '=', userId)
+    .where('state', '=', 'active')
+    .returningAll()
+    .executeTakeFirst();
+  if (sub) await syncSubscriptionEntitlement(tx, sub, 'suspended', correlationId);
+}
+
+/** Immediate end after a refund: access stops now and nothing renews. */
+export async function endSubscriptionNow(
+  tx: DbOrTx,
+  userId: string,
+  correlationId: string | null,
+): Promise<void> {
+  const sub = await tx
+    .updateTable('subscription')
+    .set((eb) => ({
+      state: 'cancelled',
+      paid_through: new Date(),
+      auto_renew: false,
+      version: eb('version', '+', 1),
+      updated_at: new Date(),
+    }))
+    .where('user_id', '=', userId)
+    .returningAll()
+    .executeTakeFirst();
+  if (sub) await syncSubscriptionEntitlement(tx, sub, 'expired', correlationId);
+}
+
+/**
+ * Stops automatic renewal; access continues until the paid-through date and
+ * then expires (COM-008: stopping renewal is not a refund).
+ */
+export async function stopSubscriptionRenewal(tx: DbOrTx, userId: string) {
+  const sub = await tx
+    .updateTable('subscription')
+    .set((eb) => ({ auto_renew: false, version: eb('version', '+', 1), updated_at: new Date() }))
+    .where('user_id', '=', userId)
+    .where('auto_renew', '=', true)
+    .returningAll()
+    .executeTakeFirst();
+  return subscriptionView(sub ?? (await getSubscription(tx, userId)));
+}
+
+/** Turns renewal back on for a paid, still active sandbox subscription. */
+export async function resumeSubscriptionRenewal(tx: DbOrTx, userId: string) {
+  const sub = await tx
+    .updateTable('subscription')
+    .set((eb) => ({ auto_renew: true, version: eb('version', '+', 1), updated_at: new Date() }))
+    .where('user_id', '=', userId)
+    .where('state', '=', 'active')
+    .where('source', '=', 'sandbox')
+    .where('auto_renew', '=', false)
+    .returningAll()
+    .executeTakeFirst();
+  return sub ? subscriptionView(sub) : null;
 }

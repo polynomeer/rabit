@@ -189,6 +189,10 @@ describe('OpenAPI contract (ADR-0010)', () => {
     validate('get', '/v1/orders/{order_id}', one.statusCode, one.json());
     const list = await h.api.inject({ url: '/v1/orders', headers: u.headers });
     validate('get', '/v1/orders', list.statusCode, list.json());
+    const plan = await h.api.inject({ url: '/v1/subscription/plan', headers: u.headers });
+    validate('get', '/v1/subscription/plan', plan.statusCode, plan.json());
+    const sub = await h.api.inject({ url: '/v1/subscription', headers: u.headers });
+    validate('get', '/v1/subscription', sub.statusCode, sub.json());
     const opsView = await h.api.inject({ url: `/v1/ops/orders/${id}`, headers: ops.op.headers });
     validate('get', '/v1/ops/orders/{order_id}', opsView.statusCode, opsView.json());
   });
