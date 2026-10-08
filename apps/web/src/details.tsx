@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get, type Connection, type EntitySummary, type Playability } from './api';
 import { AddToCollection } from './collection';
 import { LabelTimelineView } from './labels';
+import { AddToPlaylist } from './playlist-add';
 import { AXIS_TEXT, EvidenceLine, roleText } from './dig';
 import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
@@ -436,6 +437,7 @@ export function RecordingDetail({ id }: { id: string }) {
               DIG
             </a>
             <SaveButton refType="recording" refId={r.recording_id} />
+            <AddToPlaylist refType="recording" refId={r.recording_id} />
           </div>
           <PassportView recordingId={r.recording_id} />
           <ReportForm subjectType="recording" subjectId={r.recording_id} />

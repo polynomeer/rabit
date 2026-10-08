@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'r
 import { api, get, sha256Hex, type LibraryItem } from './api';
 import { formatDateTime, t, type MessageKey } from './i18n';
 import { PhysicalCollection } from './collection';
+import { AddToPlaylist } from './playlist-add';
 import { Recorder } from './recorder';
 import { entityHref } from './route';
 import { usePlayer } from './player';
@@ -387,6 +388,7 @@ export function Archive() {
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('all');
+  const [renaming, setRenaming] = useState<string | null>(null);
   const load = useCallback(() => {
     Promise.all([
       get<{ items: LibraryItem[] }>('/v1/library?limit=100'),
@@ -481,6 +483,22 @@ export function Archive() {
                       {t('archive.item.edit')}
                     </button>
                   ) : null}
+                  {i.ref_type === 'audio_source' && !log ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenaming(renaming === i.ref_id ? null : i.ref_id);
+                      }}
+                    >
+                      {t('archive.item.rename')}
+                    </button>
+                  ) : null}
+                  {i.ref_type !== 'release' ? (
+                    <AddToPlaylist
+                      refType={i.ref_type === 'audio_source' ? 'audio_source' : 'recording'}
+                      refId={i.ref_id}
+                    />
+                  ) : null}
                   {i.ref_type === 'audio_source' ? (
                     <button
                       type="button"
@@ -505,6 +523,34 @@ export function Archive() {
                     </button>
                   ) : null}
                 </div>
+                {renaming === i.ref_id ? (
+                  <form
+                    className="inline"
+                    aria-label={t('archive.item.rename')}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const input = e.currentTarget.elements.namedItem('title') as HTMLInputElement;
+                      void api('PATCH', `/v1/audio-sources/${i.ref_id}`, {
+                        title: input.value.trim(),
+                      }).then(() => {
+                        setRenaming(null);
+                        load();
+                      });
+                    }}
+                  >
+                    <label htmlFor={`rename-${i.ref_id}`} className="visually-hidden">
+                      {t('archive.item.renameField')}
+                    </label>
+                    <input
+                      id={`rename-${i.ref_id}`}
+                      name="title"
+                      defaultValue={i.title ?? ''}
+                      maxLength={200}
+                      required
+                    />{' '}
+                    <button type="submit">{t('common.save')}</button>
+                  </form>
+                ) : null}
                 {log && editing === log.audio_log_id ? (
                   <AudioLogEditor
                     log={log}
