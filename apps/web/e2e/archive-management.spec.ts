@@ -112,6 +112,7 @@ test('cancels an upload during transfer and releases it on the server', async ({
   const state = (await apiAs(subject, 'GET', `/v1/uploads/${uploadId}`)).json as { state: string };
   expect(state.state).toBe('cancelled');
   // Nothing appears in the Archive.
+  await openTab(page, 'Archive');
   await expect(page.getByRole('region', { name: 'Archive' }).getByRole('listitem')).toHaveText([
     /아직 아무것도 없습니다/,
   ]);
