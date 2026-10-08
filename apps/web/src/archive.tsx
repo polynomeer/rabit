@@ -3,6 +3,7 @@ import { api, get, sha256Hex, type LibraryItem } from './api';
 import { formatDateTime, t, type MessageKey } from './i18n';
 import { PhysicalCollection } from './collection';
 import { Recorder } from './recorder';
+import { entityHref } from './route';
 import { usePlayer } from './player';
 import { errorText, ItemTitle, Ownership, Status, toEntry } from './views';
 
@@ -184,6 +185,82 @@ interface AudioLog {
   recorded_at: string;
   recorded_tz: string;
   tags: string[];
+  linked_recording_id: string | null;
+}
+
+/**
+ * The catalog track an Audio Log is about (LOG-003), e.g. a cover practice of a
+ * song. Chosen from search; a link is the owner's note, not a rights claim.
+ */
+function LinkedTrackPicker({
+  value,
+  onChange,
+}: {
+  value: { id: string; name: string } | null;
+  onChange: (v: { id: string; name: string } | null) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<{ id: string; title: string; subtitle: string | null }[]>([]);
+  return (
+    <fieldset>
+      <legend>{t('archive.log.linked')}</legend>
+      {value ? (
+        <p>
+          <a href={entityHref(value.id)}>{value.name}</a>{' '}
+          <button
+            type="button"
+            onClick={() => {
+              onChange(null);
+            }}
+          >
+            {t('archive.log.unlink')}
+          </button>
+        </p>
+      ) : null}
+      <label htmlFor="link-search">{t('archive.log.linkSearch')}</label>{' '}
+      <input
+        id="link-search"
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.preventDefault();
+        }}
+      />{' '}
+      <button
+        type="button"
+        disabled={q.trim() === ''}
+        onClick={() => {
+          void get<{
+            items: { id: string; kind: string; title: string; subtitle: string | null }[];
+          }>(`/v1/search?q=${encodeURIComponent(q.trim())}`).then((r) => {
+            setHits(r.items.filter((i) => i.kind === 'recording').slice(0, 8));
+          });
+        }}
+      >
+        {t('archive.log.find')}
+      </button>
+      {hits.length > 0 ? (
+        <ul className="list" aria-label={t('archive.log.linkResults')}>
+          {hits.map((h) => (
+            <li key={h.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({ id: h.id, name: h.title });
+                  setHits([]);
+                }}
+              >
+                {t('archive.log.linkThis', { title: h.title })}
+              </button>{' '}
+              <span className="muted small">{h.subtitle}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </fieldset>
+  );
 }
 
 /** `2026-10-03T22:15:00Z` → `2026-10-04T07:15` in the browser's time zone (for datetime-local). */
@@ -207,6 +284,22 @@ function AudioLogEditor({
   onCancel: () => void;
 }) {
   const [msg, setMsg] = useState<string | null>(null);
+  const [linked, setLinked] = useState<{ id: string; name: string } | null>(
+    log.linked_recording_id
+      ? { id: log.linked_recording_id, name: t('archive.log.linkedTrack') }
+      : null,
+  );
+  // Show the linked track's real name once it is known.
+  useEffect(() => {
+    if (!log.linked_recording_id) return;
+    const id = log.linked_recording_id;
+    void get<{ name: string }>(`/v1/entities/${id}`).then(
+      (e) => {
+        setLinked((cur) => (cur?.id === id ? { id, name: e.name } : cur));
+      },
+      () => undefined,
+    );
+  }, [log.linked_recording_id]);
   return (
     <form
       className="card"
@@ -226,6 +319,9 @@ function AudioLogEditor({
         if (title !== log.title) patch['title'] = title;
         if (note !== (log.note ?? '')) patch['note'] = note === '' ? null : note;
         if (tags.join(',') !== log.tags.join(',')) patch['tags'] = tags;
+        if ((linked?.id ?? null) !== log.linked_recording_id) {
+          patch['linked_recording_id'] = linked?.id ?? null;
+        }
         if (when !== toLocalInput(log.recorded_at)) {
           patch['recorded_at'] = new Date(when).toISOString();
           patch['recorded_tz'] = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -258,6 +354,7 @@ function AudioLogEditor({
           required
         />
       </label>
+      <LinkedTrackPicker value={linked} onChange={setLinked} />
       <div className="actions">
         <button type="submit">{t('common.save')}</button>
         <button type="button" onClick={onCancel}>
@@ -352,6 +449,14 @@ export function Archive() {
                       {formatDateTime(log.recorded_at)} ({log.recorded_tz})
                       {log.tags.length > 0 ? ` · #${log.tags.join(' #')}` : ''}
                       {log.note ? <span className="log-note"> · {log.note}</span> : null}
+                      {log.linked_recording_id ? (
+                        <>
+                          {' · '}
+                          <a href={entityHref(log.linked_recording_id)}>
+                            {t('archive.log.linkedTrack')}
+                          </a>
+                        </>
+                      ) : null}
                     </p>
                   ) : null}
                 </div>

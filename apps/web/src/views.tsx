@@ -3,6 +3,8 @@ import {
   api,
   ApiError,
   get,
+  setToken,
+  SIGNED_OUT,
   OWNERSHIP_TEXT,
   REASON_TEXT,
   type Playability,
@@ -501,6 +503,55 @@ export function Account() {
           </p>
         ) : null}
       </div>
+      <DeleteAccount />
     </section>
+  );
+}
+
+/**
+ * Account deletion (invariant 12, LIB-008): the account is blocked at once and
+ * every module deletes its data in the background. There is no grace period yet
+ * (DM-02 is open), so the user types a word to confirm.
+ */
+function DeleteAccount() {
+  const word = t('account.delete.word');
+  const [typed, setTyped] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <form
+      className="card danger"
+      aria-label={t('account.delete.heading')}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (typed.trim() !== word) return;
+        api('DELETE', '/v1/me', undefined, {
+          'idempotency-key': `del-${crypto.randomUUID()}`,
+        }).then(
+          () => {
+            setToken(null);
+            window.dispatchEvent(new Event(SIGNED_OUT));
+          },
+          (x: unknown) => {
+            setMsg(errorText(x));
+          },
+        );
+      }}
+    >
+      <h3>{t('account.delete.heading')}</h3>
+      <p className="small">{t('account.delete.note')}</p>
+      <label htmlFor="delete-confirm">{t('account.delete.confirm', { word })}</label>{' '}
+      <input
+        id="delete-confirm"
+        value={typed}
+        autoComplete="off"
+        onChange={(e) => {
+          setTyped(e.target.value);
+        }}
+      />{' '}
+      <button type="submit" disabled={typed.trim() !== word}>
+        {t('account.delete.submit')}
+      </button>
+      {msg ? <p role="status">{msg}</p> : null}
+    </form>
   );
 }
