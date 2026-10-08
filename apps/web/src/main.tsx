@@ -19,6 +19,7 @@ import {
 import { Archive } from './archive';
 import { Icon, RabitSymbol, type IconName } from './brand';
 import { Home } from './home';
+import { NowPlaying } from './nowplaying';
 import { Studio } from './studio';
 import { t } from './i18n';
 import { Account, Playlists, Search } from './views';
@@ -235,6 +236,7 @@ function App() {
         {route.kind === 'recording' ? <RecordingDetail id={route.id} /> : null}
         {route.kind === 'release' ? <ReleaseDetail id={route.id} /> : null}
         {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
+        {route.kind === 'now' ? <NowPlaying /> : null}
         {tab === 'Home' ? <Home /> : null}
         {tab === 'Studio' ? <Studio /> : null}
         {tab === 'Archive' ? <Archive /> : null}

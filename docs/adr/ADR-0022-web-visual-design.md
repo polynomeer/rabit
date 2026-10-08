@@ -31,7 +31,8 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 
 ## Consequences
 - Browser E2E tests open Studio to upload and the Archive to inspect the result; the mobile test covers all seven entries.
-- Screen-specific redesigns (Now Playing, album/recording pages, DIG, Archive timeline) follow in later changes on the same tokens.
+- Screen-specific redesigns follow on the same tokens. Done: Now Playing (`#/now`) with custom controls (play/pause, previous/next, a labelled position slider) driving a control-less `<audio>` element; album and recording pages with covers. Pending: DIG, Archive timeline.
+- The catalog has no artwork yet; covers are deterministic brand-palette compositions per release (`Cover`), decorative only. Real artwork replaces them when the catalog carries images.
 - Ownership badges carry a per-source class (`own-<code>`); the text label stays the primary signal (NFR-A11Y-003).
 
 ## Revisit trigger

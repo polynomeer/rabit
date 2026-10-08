@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
  * button works without a server-side router:
  *   #/home  #/studio  #/archive  #/playlists  #/search  #/search/<query>  #/account
  *   #/dig  #/dig/<entity id> (starts a session)  #/dig-session/<session id>
- *   #/recording/<id>  #/release/<id>  #/entity/<id>
+ *   #/recording/<id>  #/release/<id>  #/entity/<id>  #/now (Now Playing)
  *   #/ops/<users|reports|jobs|rights|sales> (operators)
  */
 export const TABS = ['Home', 'Search', 'DIG', 'Archive', 'Studio', 'Playlists', 'Account'] as const;
@@ -25,7 +25,8 @@ export const SECONDARY_TABS = ['Playlists', 'Account'] as const satisfies readon
 export type Route =
   | { kind: 'tab'; tab: Tab; digStart: string | null; query: string }
   | { kind: 'recording' | 'release' | 'entity' | 'dig-session'; id: string }
-  | { kind: 'ops'; section: OpsSection };
+  | { kind: 'ops'; section: OpsSection }
+  | { kind: 'now' };
 
 export const OPS_SECTIONS = ['users', 'reports', 'jobs', 'rights', 'sales'] as const;
 export type OpsSection = (typeof OPS_SECTIONS)[number];
@@ -42,6 +43,7 @@ export function parseHash(hash: string): Route {
     ID.test(second)
   )
     return { kind: first, id: second };
+  if (first === 'now') return { kind: 'now' };
   if (first === 'ops') {
     const section = OPS_SECTIONS.find((s) => s === second) ?? 'users';
     return { kind: 'ops', section };
@@ -61,6 +63,7 @@ export function parseHash(hash: string): Route {
 export const tabHref = (tab: Tab) => `#/${tab.toLowerCase()}`;
 export const digHref = (entityId: string) => `#/dig/${entityId}`;
 export const searchHref = (q: string) => `#/search/${encodeURIComponent(q)}`;
+export const nowPlayingHref = '#/now';
 export const opsHref = (section: OpsSection) => `#/ops/${section}`;
 
 /** The detail page for any catalog id: recordings and releases have their own pages. */

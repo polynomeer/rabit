@@ -44,9 +44,11 @@ test('edits an Audio Log, shows its waveform and removes a saved item', async ({
     tags: ['idea', 'melody'],
   });
 
-  // Private audio shows its waveform while playing.
+  // Private audio shows its waveform on the Now Playing screen.
   await item.getByRole('button', { name: '재생' }).click();
-  const waveform = page.locator('.player svg.waveform');
+  await page.getByRole('link', { name: /재생 화면 열기/ }).click();
+  await expect(page.getByRole('heading', { level: 2, name: renamed })).toBeVisible();
+  const waveform = page.locator('.now-playing svg.waveform');
   await expect(waveform).toBeVisible();
   await expect(waveform.locator('rect')).toHaveCount(120);
 
