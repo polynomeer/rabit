@@ -1,7 +1,7 @@
 # Album purchase (provisional)
 
 - Status: implemented against the sandbox provider (2026-10-09). Decision: [ADR-0018](../adr/ADR-0018-payments-and-ledger.md) provisional section. Requirements: COM-001–007, COM-009, COM-010, COM-012, COM-013, COM-016, COM-018. Code: `apps/server/src/modules/commerce/`.
-- Not included: downloads (COM-011, Legal), subscription checkout (COM-008), partial refunds, settlement (COM-015), a real provider (Q04).
+- Not included: downloads (COM-011, Legal), partial refunds, settlement (COM-015), a real provider (Q04). Subscription checkout (COM-008) is in §5.
 
 ## 1. Order states
 
@@ -38,7 +38,22 @@ One journal per order and kind. The database refuses unbalanced journals (deferr
 
 `PAYMENTS_PROVIDER=mock` (refused in production) with `PAYMENTS_MOCK_WEBHOOK_SECRET`. The order's `checkout_url` points at `GET /dev/mock-pay/checkouts/{ref}`; `POST …/complete` with `succeeded` or `failed` plays the buyer. Outcomes are delivered as signed webhooks by a job through the same verification as HTTP deliveries. Refunds succeed while the mock payment is `succeeded`.
 
-## 5. Operations
+## 5. Monthly subscription (COM-008)
+
+| Action | Effect |
+|---|---|
+| `GET /v1/subscription/plan` | plan, placeholder price with VAT, whether the region can subscribe, current state |
+| `POST /v1/subscription/checkout` | order `kind = subscription`; on payment one month is added from the later of now and the paid-through date, renewal on |
+| `POST /v1/subscription/cancel` | renewal off; access until the paid-through date, then the existing expiry job ends it |
+| `POST /v1/subscription/resume` | renewal back on while the month runs; no charge now |
+| renewal job (hourly) | charges the stored payment method for subscriptions ending within 24 h; success extends a month, decline → `past_due` (no access) |
+| operator refund of a subscription order | access ends now (`cancelled`), renewal off; purchases stay (COM-009) |
+
+Checkout is refused while a subscription is active (pay again only after it lapses or fails). Operator-set subscriptions keep working as before and never renew. The mock provider declines renewals for a user after `PUT /dev/mock-pay/cards/{user_id} {"declined": true}`.
+
+Open (owner): price, retry and grace policy for declined renewals, withdrawal rules (청약철회) and the terms text.
+
+## 6. Operations
 
 - Offers: `POST /v1/ops/offers` (one on sale per release), `POST /v1/ops/offers/{id}/withdraw`.
 - Refund: `POST /v1/ops/orders/{id}/refunds` with If-Match and a reason; audited.
