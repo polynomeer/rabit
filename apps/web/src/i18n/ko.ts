@@ -128,6 +128,16 @@ export const ko = {
   'archive.upload.submit': '업로드',
   'archive.upload.cancel': '업로드 취소',
   'archive.upload.privacyNote': '비공개로 저장되며 다른 사용자에게 보이지 않습니다.',
+  'recorder.group': '마이크 녹음',
+  'recorder.start': '마이크로 녹음',
+  'recorder.stop': '녹음 중지',
+  'recorder.recording': '녹음 중 {time}',
+  'recorder.preview': '녹음 미리듣기',
+  'recorder.discard': '다시 녹음',
+  'recorder.denied':
+    '마이크를 쓸 수 없습니다. 브라우저에서 마이크 권한을 허용한 뒤 다시 시도하세요. 파일 업로드는 그대로 쓸 수 있습니다.',
+  'recorder.unsupported':
+    '이 브라우저는 지원하는 형식(MP4·Ogg)으로 녹음할 수 없습니다. 녹음 파일을 직접 올려 주세요.',
   'archive.log.editForm': 'Audio Log 편집',
   'archive.log.saveFailed': '저장하지 못했습니다: {error}',
   'archive.log.note': '메모',
@@ -200,6 +210,13 @@ export const ko = {
   'collection.deleteConfirm': '이 실물 기록을 지울까요?',
   'collection.addRelease': '실물 컬렉션에 추가',
   'collection.added': '실물 컬렉션에 추가했습니다.',
+  'archive.view.label': '보기',
+  'archive.view.all': '전체',
+  'archive.view.private': '개인 오디오',
+  'archive.view.audioLog': 'Audio Log',
+  'archive.view.recording': '저장한 곡',
+  'archive.view.release': '저장한 앨범',
+  'archive.view.empty': '이 보기에 해당하는 항목이 없습니다.',
   'archive.empty': '아직 아무것도 없습니다. 첫 녹음이나 파일을 올려 보세요.',
 
   // ——— Detail pages and Music Passport ———
