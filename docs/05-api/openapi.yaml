@@ -900,6 +900,14 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /v1/ops/releases/{release_id}/offers:
+    parameters: [ { name: release_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [ops, commerce]
+      operationId: opsListReleaseOffers
+      responses:
+        '200': { description: 'All offers of the release, newest first', content: { application/json: { schema: { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Offer' } } } } } } }
+        '403': { $ref: '#/components/responses/Error' }
   /v1/ops/offers/{offer_id}/withdraw:
     parameters: [ { name: offer_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
     post:

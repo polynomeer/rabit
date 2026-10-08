@@ -33,6 +33,7 @@ import {
   offerForRelease,
   opsOrder,
   receiveEvent,
+  releaseOffers,
   reconcile,
   requestRefund,
   submitRefund,
@@ -124,6 +125,12 @@ async function routes(app: FastifyInstance, ctx: AppContext, provider: PaymentPr
     );
     const offer = await createOffer(ctx.db, op, body, req.id);
     return reply.status(201).send(offer);
+  });
+
+  app.get('/v1/ops/releases/:release_id/offers', async (req) => {
+    requireOperator(req.principal);
+    const { release_id } = parse(z.object({ release_id: idOf('release') }), req.params);
+    return releaseOffers(ctx.db, release_id);
   });
 
   app.post('/v1/ops/offers/:offer_id/withdraw', async (req) => {
