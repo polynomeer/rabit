@@ -20,6 +20,8 @@ const defaults: Record<string, string> = {
   MEDIA_TOKEN_SECRET: 'test-media-token-secret-0123456789abcdef0123',
   CURSOR_SECRET: 'test-cursor-secret-0123456789abcdef0123456789',
   WORKER_CONCURRENCY: '2',
+  PAYMENTS_PROVIDER: 'mock',
+  PAYMENTS_MOCK_WEBHOOK_SECRET: 'test-mock-pay-webhook-secret-0123456789abcd',
 };
 
 for (const [k, v] of Object.entries(defaults)) {

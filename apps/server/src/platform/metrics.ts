@@ -13,6 +13,24 @@ export const metrics = {
     buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
     registers: [registry],
   }),
+  paymentEvents: new Counter({
+    name: 'rabit_payment_events_total',
+    help: 'Payment provider webhooks by type and outcome (received, rejected, applied, ignored, held)',
+    labelNames: ['provider', 'type', 'outcome'] as const,
+    registers: [registry],
+  }),
+  orders: new Counter({
+    name: 'rabit_orders_total',
+    help: 'Order state transitions',
+    labelNames: ['event'] as const,
+    registers: [registry],
+  }),
+  paymentReconcileMismatches: new Counter({
+    name: 'rabit_payment_reconcile_mismatches_total',
+    help: 'Orders whose state disagrees with the payment provider',
+    labelNames: ['kind'] as const,
+    registers: [registry],
+  }),
   jobsTotal: new Counter({
     name: 'rabit_jobs_total',
     help: 'Job executions by outcome',

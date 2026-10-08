@@ -44,10 +44,11 @@ function validate(method: string, path: string, status: number, body: unknown): 
 let h: Harness;
 let u: TestUser;
 let ids: Record<string, string>;
+let ops: Awaited<ReturnType<typeof asOperator>>;
 
 beforeAll(async () => {
   h = await createHarness();
-  const ops = await asOperator(h);
+  ops = await asOperator(h);
   ids = (await seedCatalog(h)).ids;
   u = await h.user();
   await ops.setCountry(u, 'KR');
@@ -152,5 +153,38 @@ describe('OpenAPI contract (ADR-0010)', () => {
       headers: u.headers,
     });
     validate('get', '/v1/audio-sources/{audio_source_id}', 404, err.json());
+  });
+  it('commerce responses match their schemas', async () => {
+    const offer = await h.api.inject({
+      method: 'POST',
+      url: '/v1/ops/offers',
+      headers: ops.op.headers,
+      payload: {
+        release_id: ids['album'],
+        territories: ['KR'],
+        price_minor: 11000,
+        reason: 'contract',
+      },
+    });
+    validate('post', '/v1/ops/offers', offer.statusCode, offer.json());
+    const ro = await h.api.inject({
+      url: `/v1/releases/${ids['album']}/offer`,
+      headers: u.headers,
+    });
+    validate('get', '/v1/releases/{release_id}/offer', ro.statusCode, ro.json());
+    const created = await h.api.inject({
+      method: 'POST',
+      url: '/v1/orders',
+      headers: { ...u.headers, 'idempotency-key': 'contract-order-1' },
+      payload: { offer_id: offer.json().offer_id },
+    });
+    validate('post', '/v1/orders', created.statusCode, created.json());
+    const id = created.json().order_id as string;
+    const one = await h.api.inject({ url: `/v1/orders/${id}`, headers: u.headers });
+    validate('get', '/v1/orders/{order_id}', one.statusCode, one.json());
+    const list = await h.api.inject({ url: '/v1/orders', headers: u.headers });
+    validate('get', '/v1/orders', list.statusCode, list.json());
+    const opsView = await h.api.inject({ url: `/v1/ops/orders/${id}`, headers: ops.op.headers });
+    validate('get', '/v1/ops/orders/{order_id}', opsView.statusCode, opsView.json());
   });
 });

@@ -24,7 +24,13 @@ import {
   subscriptionView,
 } from './service.js';
 
-export { activePlayEntitlement, activePlayEntitlements, subscriptionState } from './service.js';
+export {
+  activePlayEntitlement,
+  activePlayEntitlements,
+  issuePurchaseEntitlement,
+  revokePurchaseEntitlement,
+  subscriptionState,
+} from './service.js';
 
 const reason = z.string().min(3).max(500);
 

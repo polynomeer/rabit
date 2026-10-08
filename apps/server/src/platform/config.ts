@@ -79,6 +79,14 @@ const envSchema = z
      */
     RATE_LIMIT_STORE: z.enum(['postgres', 'memory']).default('postgres'),
 
+    /**
+     * Payment provider for album purchase (ADR-0018, provisional). `none` turns
+     * checkout off; `mock` is the sandbox provider with signed webhooks, refused in
+     * production until a real provider is decided (Q04).
+     */
+    PAYMENTS_PROVIDER: z.enum(['none', 'mock']).default('none'),
+    PAYMENTS_MOCK_WEBHOOK_SECRET: secret.optional(),
+
     WORKER_CONCURRENCY: positiveInt.default(2),
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
     FFPROBE_PATH: z.string().min(1).default('ffprobe'),
@@ -96,6 +104,20 @@ const envSchema = z
         code: 'custom',
         path: ['AUTH_DEV_ISSUER_ENABLED'],
         message: 'must be false when NODE_ENV=production',
+      });
+    }
+    if (c.NODE_ENV === 'production' && c.PAYMENTS_PROVIDER === 'mock') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PAYMENTS_PROVIDER'],
+        message: 'must not be mock when NODE_ENV=production',
+      });
+    }
+    if (c.PAYMENTS_PROVIDER === 'mock' && !c.PAYMENTS_MOCK_WEBHOOK_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PAYMENTS_MOCK_WEBHOOK_SECRET'],
+        message: 'is required when PAYMENTS_PROVIDER=mock',
       });
     }
     if (c.NODE_ENV === 'production' && !c.RATE_LIMIT_ENABLED) {
@@ -196,6 +218,7 @@ export interface Config {
   };
   secrets: { mediaToken: string; cursor: string };
   rateLimit: { enabled: boolean; store: 'postgres' | 'memory' };
+  payments: { provider: 'none' } | { provider: 'mock'; webhookSecret: string };
   worker: { concurrency: number; ffmpegPath: string; ffprobePath: string };
   quota: {
     maxTotalBytes: number;
@@ -270,6 +293,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     secrets: { mediaToken: e.MEDIA_TOKEN_SECRET, cursor: e.CURSOR_SECRET },
     rateLimit: { enabled: e.RATE_LIMIT_ENABLED, store: e.RATE_LIMIT_STORE },
+    payments:
+      e.PAYMENTS_PROVIDER === 'mock'
+        ? { provider: 'mock', webhookSecret: e.PAYMENTS_MOCK_WEBHOOK_SECRET ?? '' }
+        : { provider: 'none' },
     worker: {
       concurrency: e.WORKER_CONCURRENCY,
       ffmpegPath: e.FFMPEG_PATH,
