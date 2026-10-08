@@ -368,3 +368,49 @@ export async function expireEntitlements(db: Db): Promise<number> {
     return rows.length;
   });
 }
+
+/**
+ * Entitlement for a fulfilled purchase (COM-006, COM-016), written in the caller's
+ * transaction with the order and ledger changes. Independent of the subscription:
+ * cancelling one never touches the other (COM-001, COM-009).
+ */
+export async function issuePurchaseEntitlement(
+  tx: DbOrTx,
+  input: { userId: string; releaseId: string; capabilities: string[]; orderId: string },
+  correlationId: string | null,
+): Promise<string> {
+  const e = await tx
+    .insertInto('entitlement')
+    .values({
+      id: newId('entitlement'),
+      user_id: input.userId,
+      scope: 'release',
+      resource_id: input.releaseId,
+      capabilities: [...new Set(input.capabilities)],
+      origin: 'purchase',
+      origin_ref: input.orderId,
+      valid_to: null,
+      status: 'active',
+    })
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  await emitChanged(tx, e, correlationId);
+  return e.id;
+}
+
+/** Revokes a purchase entitlement after a refund; active sessions end through the event. */
+export async function revokePurchaseEntitlement(
+  tx: DbOrTx,
+  entitlementId: string,
+  correlationId: string | null,
+): Promise<void> {
+  const e = await tx
+    .updateTable('entitlement')
+    .set((eb) => ({ status: 'revoked', version: eb('version', '+', 1), updated_at: new Date() }))
+    .where('id', '=', entitlementId)
+    .where('origin', '=', 'purchase')
+    .where('status', 'in', ['active', 'suspended'])
+    .returningAll()
+    .executeTakeFirst();
+  if (e) await emitChanged(tx, e, correlationId);
+}

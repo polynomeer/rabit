@@ -569,6 +569,116 @@ export interface BlindDigItemTable {
   decided_at: Date | null;
 }
 
+export type Currency = 'KRW';
+export type OrderStatus =
+  'pending' | 'paid' | 'fulfilled' | 'cancelled' | 'expired' | 'refund_pending' | 'refunded';
+
+export interface OfferTable {
+  id: string;
+  release_id: string;
+  territories: string[];
+  currency: Currency;
+  price_minor: ColumnType<number, number, never>;
+  vat_rate_bp: number;
+  capabilities: string[];
+  status: 'on_sale' | 'withdrawn';
+  version: Generated<number>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface PurchaseOrderTable {
+  id: string;
+  user_id: string;
+  offer_id: string;
+  offer_version: number;
+  status: OrderStatus;
+  currency: Currency;
+  amount_minor: ColumnType<number, number, never>;
+  tax_minor: ColumnType<number, number, never>;
+  snapshot: JSONColumnType<OrderSnapshot>;
+  provider: string;
+  checkout_ref: string | null;
+  checkout_url: string | null;
+  entitlement_id: string | null;
+  expires_at: Timestamp;
+  paid_at: Timestamp | null;
+  refunded_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+/** What the buyer agreed to, frozen at order time (COM-002). */
+export interface OrderSnapshot {
+  release_id: string;
+  release_title: string;
+  artist_names: string[];
+  recording_ids: string[];
+  territory: string;
+  currency: Currency;
+  amount_minor: number;
+  tax_minor: number;
+  vat_rate_bp: number;
+  capabilities: string[];
+  terms_version: string;
+}
+
+export interface PaymentRefundTable {
+  id: string;
+  order_id: string;
+  amount_minor: ColumnType<number, number, never>;
+  status: 'requested' | 'succeeded' | 'failed';
+  provider_ref: string | null;
+  requested_by: string;
+  reason: string;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface PaymentEventTable {
+  id: string;
+  provider: string;
+  provider_event_id: string;
+  type: string;
+  checkout_ref: string;
+  payload_sha256: string;
+  payload: JSONColumnType<Record<string, unknown>>;
+  status: 'received' | 'applied' | 'ignored' | 'held';
+  detail: string | null;
+  received_at: Generated<Date>;
+  processed_at: Timestamp | null;
+}
+
+export interface LedgerJournalTable {
+  id: string;
+  order_id: string;
+  kind: 'sale' | 'refund';
+  currency: Currency;
+  created_at: CreatedAt;
+}
+
+export type LedgerAccount = 'provider_clearing' | 'revenue' | 'vat_payable';
+
+export interface LedgerLineTable {
+  journal_id: string;
+  line_no: number;
+  account: LedgerAccount;
+  debit_minor: ColumnType<number, number, never>;
+  credit_minor: ColumnType<number, number, never>;
+}
+
+export interface MockPaymentTable {
+  id: string;
+  checkout_ref: string;
+  order_id: string;
+  amount_minor: ColumnType<number, number, never>;
+  currency: string;
+  status: 'open' | 'succeeded' | 'failed' | 'refunded';
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
 export interface Database {
   rate_limit_counter: RateLimitCounterTable;
   provenance_claim: ProvenanceClaimTable;
@@ -590,6 +700,13 @@ export interface Database {
   rights_grant: RightsGrantTable;
   subscription: SubscriptionTable;
   entitlement: EntitlementTable;
+  offer: OfferTable;
+  purchase_order: PurchaseOrderTable;
+  payment_refund: PaymentRefundTable;
+  payment_event: PaymentEventTable;
+  ledger_journal: LedgerJournalTable;
+  ledger_line: LedgerLineTable;
+  mock_payment: MockPaymentTable;
   library_item: LibraryItemTable;
   physical_item: PhysicalItemTable;
   blind_dig: BlindDigTable;

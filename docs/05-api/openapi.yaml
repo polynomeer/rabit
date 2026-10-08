@@ -25,6 +25,8 @@ tags:
     description: Physical Collection, manual registration (COL-001/002/007). A record of ownership, never a playback right (COL-003).
   - name: exports
   - name: entitlements
+  - name: commerce
+    description: Album purchase (ADR-0018, provisional; sandbox provider only)
   - name: dig
   - name: search
   - name: integrity
@@ -487,6 +489,70 @@ paths:
       responses:
         '200': { description: Current subscription or null, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionEnvelope' } } } }
 
+  /v1/releases/{release_id}/offer:
+    parameters: [ { name: release_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [commerce]
+      operationId: getReleaseOffer
+      description: >
+        The release's offer in the caller's licence territory, at the server's price with VAT
+        included (COM-013), with the purchase terms shown before payment (COM-012). 404 when
+        there is no offer for the territory or a track lacks rights there.
+      responses:
+        '200': { description: Offer, content: { application/json: { schema: { $ref: '#/components/schemas/ReleaseOffer' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/orders:
+    get:
+      tags: [commerce]
+      operationId: listOrders
+      responses:
+        '200': { description: "Caller's orders, newest first", content: { application/json: { schema: { $ref: '#/components/schemas/OrderList' } } } }
+    post:
+      tags: [commerce]
+      operationId: createOrder
+      description: >
+        Opens an order with a frozen snapshot and a provider checkout. While an order for the
+        same offer is pending, it is returned (200) instead of opening another (COM-010).
+        Payment is confirmed only by a verified provider event, never by the client (COM-004).
+      parameters: [ { $ref: '#/components/parameters/IdempotencyKeyRequired' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateOrderRequest' } } }
+      responses:
+        '201':
+          description: Order opened; pay at checkout_url
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } }
+        '200':
+          description: The pending order for this offer
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } }
+        '403': { description: RIGHTS_UNAVAILABLE in the caller's territory, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { description: Already owned (set confirm_already_owned) or no longer on sale, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '503': { description: Checkout is off (no payment provider configured), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /v1/orders/{order_id}:
+    parameters: [ { name: order_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [commerce]
+      operationId: getOrder
+      responses:
+        '200':
+          description: Order (another user's order is 404)
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/orders/{order_id}/cancel:
+    parameters: [ { name: order_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [commerce]
+      operationId: cancelOrder
+      description: Abandons a pending order. A payment that still arrives is refunded.
+      responses:
+        '200': { description: Cancelled, content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+
   /v1/dig/entities/{entity_id}/axes:
     parameters: [ { $ref: '#/components/parameters/EntityId' } ]
     get:
@@ -821,6 +887,64 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '412': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
+  /v1/ops/offers:
+    post:
+      tags: [ops, commerce]
+      operationId: opsCreateOffer
+      description: Puts a release on sale (KRW, VAT included; one offer on sale per release).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateOfferRequest' } } }
+      responses:
+        '201': { description: On sale, content: { application/json: { schema: { $ref: '#/components/schemas/Offer' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/ops/offers/{offer_id}/withdraw:
+    parameters: [ { name: offer_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [ops, commerce]
+      operationId: opsWithdrawOffer
+      description: Ends the sale; pending orders are cancelled and late payments refunded (COM-018).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReasonRequest' } } }
+      responses:
+        '200': { description: Withdrawn, content: { application/json: { schema: { $ref: '#/components/schemas/Offer' } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/orders/{order_id}:
+    parameters: [ { name: order_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [ops, commerce]
+      operationId: opsGetOrder
+      responses:
+        '200':
+          description: Order with provider events, refunds and ledger lines
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/OpsOrder' } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/orders/{order_id}/refunds:
+    parameters: [ { name: order_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [ops, commerce]
+      operationId: opsRefundOrder
+      description: Full refund of a paid order. The entitlement is revoked when the provider confirms.
+      parameters: [ { $ref: '#/components/parameters/IfMatch' } ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReasonRequest' } } }
+      responses:
+        '202':
+          description: Refund requested
+          headers: { ETag: { $ref: '#/components/headers/ETag' } }
+          content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '412': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
   /v1/ops/entitlements:
     post:
       tags: [ops]
@@ -984,6 +1108,51 @@ paths:
         '200': { description: Manifest or segment bytes }
         '403': { description: Token invalid/expired or session revoked }
         '404': { description: Unknown path }
+
+  /webhooks/payments/{provider}:
+    parameters: [ { name: provider, in: path, required: true, schema: { type: string, maxLength: 20 } } ]
+    post:
+      tags: [commerce]
+      operationId: receivePaymentWebhook
+      security: []
+      description: >
+        Payment provider events (COM-005). Authenticated by the provider's signature over the raw
+        body and a timestamp within 5 minutes; stored before the response and applied once by a
+        job, so a redelivery is acknowledged as a duplicate. The mock provider signs with the
+        `mock-pay-signature` header (`t=<unix>,v1=<hex HMAC-SHA256 of "t.body">`).
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object } } }
+      responses:
+        '200': { description: Stored (or a duplicate), content: { application/json: { schema: { type: object, required: [received, duplicate], properties: { received: { type: boolean }, duplicate: { type: boolean } } } } } }
+        '400': { description: 'Signature, timestamp or payload rejected', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: Not the configured provider, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /dev/mock-pay/checkouts/{checkout_ref}:
+    parameters: [ { name: checkout_ref, in: path, required: true, schema: { type: string, pattern: '^mck_[0-9a-f]{24}$' } } ]
+    get:
+      tags: [system]
+      operationId: devMockCheckout
+      security: []
+      x-rabit-status: dev-only
+      description: The sandbox provider's checkout (PAYMENTS_PROVIDER=mock, never in production).
+      responses:
+        '200': { description: Checkout, content: { application/json: { schema: { $ref: '#/components/schemas/MockCheckout' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /dev/mock-pay/checkouts/{checkout_ref}/complete:
+    parameters: [ { name: checkout_ref, in: path, required: true, schema: { type: string, pattern: '^mck_[0-9a-f]{24}$' } } ]
+    post:
+      tags: [system]
+      operationId: devMockCompleteCheckout
+      security: []
+      x-rabit-status: dev-only
+      description: Simulates the buyer paying (or failing) at the sandbox provider; the outcome arrives as a signed webhook.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [outcome], properties: { outcome: { type: string, enum: [succeeded, failed] } } } } }
+      responses:
+        '202': { description: Outcome recorded; webhook queued, content: { application/json: { schema: { type: object } } } }
+        '409': { $ref: '#/components/responses/Error' }
 
   /dev/.well-known/jwks.json:
     get:
@@ -1570,6 +1739,110 @@ components:
         expires_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
         failure_code: { type: [string, 'null'] }
 
+    Money:
+      type: object
+      required: [amount_minor, currency, tax_minor, tax_included]
+      properties:
+        amount_minor: { type: integer, minimum: 1, description: Integer minor units (KRW has none) }
+        currency: { type: string, enum: [KRW] }
+        tax_minor: { type: integer, minimum: 0 }
+        tax_included: { type: boolean }
+    Offer:
+      type: object
+      required: [offer_id, release_id, territories, price, capabilities, status, version]
+      properties:
+        offer_id: { $ref: '#/components/schemas/Id' }
+        release_id: { $ref: '#/components/schemas/Id' }
+        territories: { type: array, items: { $ref: '#/components/schemas/Country' } }
+        price: { $ref: '#/components/schemas/Money' }
+        capabilities: { type: array, items: { type: string, enum: [play] } }
+        status: { type: string, enum: [on_sale, withdrawn] }
+        version: { type: integer }
+    ReleaseOffer:
+      allOf:
+        - { $ref: '#/components/schemas/Offer' }
+        - type: object
+          required: [owned, pending_order_id, terms, checkout_available]
+          properties:
+            owned: { type: boolean }
+            pending_order_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+            checkout_available: { type: boolean }
+            terms:
+              type: object
+              required: [terms_version, summary]
+              properties:
+                terms_version: { type: string }
+                summary: { type: array, items: { type: string } }
+    CreateOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [offer_id]
+      properties:
+        offer_id: { $ref: '#/components/schemas/Id' }
+        confirm_already_owned: { type: boolean, default: false }
+    Order:
+      type: object
+      required: [order_id, status, offer_id, release_id, release_title, artist_names, price, capabilities, terms_version, checkout_url, entitlement_id, created_at, expires_at, paid_at, refunded_at, version]
+      properties:
+        order_id: { $ref: '#/components/schemas/Id' }
+        status: { type: string, enum: [pending, paid, fulfilled, cancelled, expired, refund_pending, refunded] }
+        offer_id: { $ref: '#/components/schemas/Id' }
+        release_id: { $ref: '#/components/schemas/Id' }
+        release_title: { type: string }
+        artist_names: { type: array, items: { type: string } }
+        price: { $ref: '#/components/schemas/Money' }
+        capabilities: { type: array, items: { type: string } }
+        terms_version: { type: string }
+        checkout_url: { type: [string, 'null'], description: Present while pending }
+        entitlement_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        created_at: { $ref: '#/components/schemas/Timestamp' }
+        expires_at: { $ref: '#/components/schemas/Timestamp' }
+        paid_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        refunded_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+        version: { type: integer }
+    OrderList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Order' } }
+    OpsOrder:
+      allOf:
+        - { $ref: '#/components/schemas/Order' }
+        - type: object
+          required: [user_id, provider, events, refunds, ledger]
+          properties:
+            user_id: { $ref: '#/components/schemas/Id' }
+            provider: { type: string }
+            events: { type: array, items: { type: object, required: [payment_event_id, type, status], properties: { payment_event_id: { type: string }, type: { type: string }, status: { type: string, enum: [received, applied, ignored, held] }, detail: { type: [string, 'null'] } } } }
+            refunds: { type: array, items: { type: object, required: [refund_id, status, amount_minor], properties: { refund_id: { type: string }, status: { type: string, enum: [requested, succeeded, failed] }, amount_minor: { type: integer } } } }
+            ledger: { type: array, items: { type: object, required: [journal_id, kind, account, debit_minor, credit_minor], properties: { journal_id: { type: string }, kind: { type: string, enum: [sale, refund] }, account: { type: string, enum: [provider_clearing, revenue, vat_payable] }, debit_minor: { type: integer }, credit_minor: { type: integer } } } }
+    CreateOfferRequest:
+      type: object
+      additionalProperties: false
+      required: [release_id, territories, price_minor, reason]
+      properties:
+        release_id: { $ref: '#/components/schemas/Id' }
+        territories: { type: array, minItems: 1, maxItems: 50, items: { $ref: '#/components/schemas/Country' } }
+        price_minor: { type: integer, minimum: 100, maximum: 10000000 }
+        vat_rate_bp: { type: integer, minimum: 0, maximum: 10000, default: 1000 }
+        reason: { $ref: '#/components/schemas/Reason' }
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { $ref: '#/components/schemas/Reason' }
+    MockCheckout:
+      type: object
+      required: [checkout_ref, order_id, amount_minor, currency, status, provider]
+      properties:
+        checkout_ref: { type: string }
+        order_id: { type: string }
+        amount_minor: { type: integer }
+        currency: { type: string }
+        status: { type: string, enum: [open, succeeded, failed, refunded] }
+        provider: { type: string }
+        signature_header: { type: string }
     Entitlement:
       type: object
       required: [entitlement_id, scope, resource_id, capabilities, origin, status, valid_from, valid_to, version]

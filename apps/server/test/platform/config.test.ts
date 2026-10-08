@@ -75,6 +75,7 @@ describe('config', () => {
       NODE_ENV: 'production',
       AUTH_DEV_ISSUER_ENABLED: 'false',
       AUTH_JWKS_URL: 'https://idp.example/jwks',
+      PAYMENTS_PROVIDER: 'none',
     };
     expect(() => loadConfig(prod)).toThrow(/S3_SSE/);
     expect(() => loadConfig({ ...prod, S3_SSE: 'aws:kms' })).toThrow(/S3_SSE_KMS_KEY_ID/);

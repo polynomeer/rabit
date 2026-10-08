@@ -23,6 +23,11 @@ import {
   collectionSupportSection,
   deleteAccountCollection,
 } from '../modules/collection/index.js';
+import {
+  commerceModule,
+  commerceSupportSection,
+  deleteAccountOrders,
+} from '../modules/commerce/index.js';
 import { getUser, identityModule, identitySupportSection } from '../modules/identity/index.js';
 import {
   blindDigExportSection,
@@ -99,6 +104,7 @@ export function allModules(): Module[] {
         deleteAccountCollection,
         deleteAccountAudio,
         deleteAccountLibrary,
+        deleteAccountOrders,
         deleteAccountEntitlements,
       ],
     }),
@@ -115,6 +121,7 @@ export function allModules(): Module[] {
       },
     }),
     entitlementModule(),
+    commerceModule(),
     playbackModule({ catalogAccess, resolveRecordingSource: recordingSource }),
     libraryModule({
       catalogAccess,
@@ -127,6 +134,7 @@ export function allModules(): Module[] {
       supportSections: () => [
         identitySupportSection,
         entitlementSupportSection,
+        commerceSupportSection,
         audioSupportSection,
         playbackSupportSection,
         librarySupportSection,
