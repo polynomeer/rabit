@@ -138,6 +138,13 @@ export const ko = {
     '마이크를 쓸 수 없습니다. 브라우저에서 마이크 권한을 허용한 뒤 다시 시도하세요. 파일 업로드는 그대로 쓸 수 있습니다.',
   'recorder.unsupported':
     '이 브라우저는 지원하는 형식(MP4·Ogg)으로 녹음할 수 없습니다. 녹음 파일을 직접 올려 주세요.',
+  'archive.log.linked': '연결 곡 (선택)',
+  'archive.log.linkSearch': '카탈로그에서 곡 찾기',
+  'archive.log.find': '찾기',
+  'archive.log.linkResults': '연결할 곡 후보',
+  'archive.log.linkThis': '{title} 연결',
+  'archive.log.unlink': '연결 해제',
+  'archive.log.linkedTrack': '연결 곡',
   'archive.log.editForm': 'Audio Log 편집',
   'archive.log.saveFailed': '저장하지 못했습니다: {error}',
   'archive.log.note': '메모',
