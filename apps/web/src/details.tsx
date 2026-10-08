@@ -6,6 +6,7 @@ import { AddToPlaylist } from './playlist-add';
 import { AXIS_TEXT, EvidenceLine, roleText } from './dig';
 import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
+import { PurchasePanel } from './purchase';
 import { digHref, entityHref } from './route';
 import { Status } from './views';
 
@@ -134,31 +135,36 @@ function Links({ refs }: { refs: Ref[] }) {
   );
 }
 
-/** Loads one resource; a 404 is shown as "not found" instead of an error. */
+/**
+ * Loads one resource; a 404 is shown as "not found" instead of an error. Bumping
+ * `reload` reads it again while the current data stays on screen.
+ */
 // T is the caller's expected response shape (validated server-side by the contract).
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-function useResource<T>(path: string): { data: T | null; missing: boolean } {
-  const [state, setState] = useState<{ data: T | null; missing: boolean }>({
+function useResource<T>(path: string, reload = 0): { data: T | null; missing: boolean } {
+  const [state, setState] = useState<{ data: T | null; missing: boolean; path: string }>({
     data: null,
     missing: false,
+    path,
   });
   useEffect(() => {
     let stale = false;
-    setState({ data: null, missing: false });
+    setState((s) => (s.path === path ? s : { data: null, missing: false, path }));
     get<T>(path).then(
       (data) => {
-        if (!stale) setState({ data, missing: false });
+        if (!stale) setState({ data, missing: false, path });
       },
       (e: unknown) => {
         if (!stale && e instanceof ApiError && e.status === 404)
-          setState({ data: null, missing: true });
+          setState({ data: null, missing: true, path });
       },
     );
     return () => {
       stale = true;
     };
-  }, [path]);
-  return state;
+  }, [path, reload]);
+  // A new path shows nothing until it loads, never the previous resource.
+  return state.path === path ? state : { data: null, missing: false };
 }
 
 function Page({
@@ -449,7 +455,9 @@ export function RecordingDetail({ id }: { id: string }) {
 
 export function ReleaseDetail({ id }: { id: string }) {
   const player = usePlayer();
-  const { data: r, missing } = useResource<Release>(`/v1/releases/${id}`);
+  // Bumped after a purchase so the tracks' playability is read again.
+  const [reload, setReload] = useState(0);
+  const { data: r, missing } = useResource<Release>(`/v1/releases/${id}`, reload);
   const queue: QueueEntry[] =
     r?.tracks.map((track) => ({
       key: track.recording_id,
@@ -486,6 +494,12 @@ export function ReleaseDetail({ id }: { id: string }) {
               artist={r.artists.map((x) => x.name).join(', ')}
             />
           </div>
+          <PurchasePanel
+            releaseId={r.release_id}
+            onPurchased={() => {
+              setReload((n) => n + 1);
+            }}
+          />
           <ol className="list tracks" aria-label={t('details.release.tracks')}>
             {r.tracks.map((track, i) => (
               <li key={`${String(track.disc_no)}-${String(track.position)}`}>
