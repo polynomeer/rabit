@@ -237,40 +237,60 @@ export function AddToCollection({
   artist: string;
 }) {
   const [msg, setMsg] = useState<string | null>(null);
+  // PLY-002: the release page says when the user owns it physically. A separate
+  // badge from playback: owning the record never grants the digital master (COL-003).
+  const [owned, setOwned] = useState<Format[]>([]);
+  const loadOwned = useCallback(() => {
+    get<{ items: PhysicalItem[] }>('/v1/physical-items?limit=100').then(
+      (r) => {
+        setOwned(r.items.filter((i) => i.release?.release_id === releaseId).map((i) => i.format));
+      },
+      () => undefined,
+    );
+  }, [releaseId]);
+  useEffect(loadOwned, [loadOwned]);
   return (
-    <form
-      className="inline"
-      aria-label={t('collection.addRelease')}
-      onSubmit={(e) => {
-        e.preventDefault();
-        const format = (e.currentTarget.elements.namedItem('format') as HTMLSelectElement).value;
-        api('POST', '/v1/physical-items', {
-          format,
-          title,
-          artist_name: artist || null,
-          release_id: releaseId,
-        }).then(
-          () => {
-            setMsg(t('collection.added'));
-          },
-          (x: unknown) => {
-            setMsg(errorText(x));
-          },
-        );
-      }}
-    >
-      <label htmlFor={`add-phy-${releaseId}`} className="visually-hidden">
-        {t('collection.field.format')}
-      </label>
-      <select id={`add-phy-${releaseId}`} name="format" defaultValue="cd">
-        {FORMATS.map(([k, key]) => (
-          <option key={k} value={k}>
-            {t(key)}
-          </option>
-        ))}
-      </select>{' '}
-      <button type="submit">{t('collection.addRelease')}</button>
-      {msg ? <span role="status"> {msg}</span> : null}
-    </form>
+    <>
+      {owned.length > 0 ? (
+        <span className="badge" role="note">
+          {t('collection.ownedBadge', { formats: [...new Set(owned)].map(formatText).join(', ') })}
+        </span>
+      ) : null}{' '}
+      <form
+        className="inline"
+        aria-label={t('collection.addRelease')}
+        onSubmit={(e) => {
+          e.preventDefault();
+          const format = (e.currentTarget.elements.namedItem('format') as HTMLSelectElement).value;
+          api('POST', '/v1/physical-items', {
+            format,
+            title,
+            artist_name: artist || null,
+            release_id: releaseId,
+          }).then(
+            () => {
+              setMsg(t('collection.added'));
+              loadOwned();
+            },
+            (x: unknown) => {
+              setMsg(errorText(x));
+            },
+          );
+        }}
+      >
+        <label htmlFor={`add-phy-${releaseId}`} className="visually-hidden">
+          {t('collection.field.format')}
+        </label>
+        <select id={`add-phy-${releaseId}`} name="format" defaultValue="cd">
+          {FORMATS.map(([k, key]) => (
+            <option key={k} value={k}>
+              {t(key)}
+            </option>
+          ))}
+        </select>{' '}
+        <button type="submit">{t('collection.addRelease')}</button>
+        {msg ? <span role="status"> {msg}</span> : null}
+      </form>
+    </>
   );
 }

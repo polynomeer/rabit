@@ -216,6 +216,7 @@ export const ko = {
   'collection.edition': '판본:',
   'collection.deleteConfirm': '이 실물 기록을 지울까요?',
   'collection.addRelease': '실물 컬렉션에 추가',
+  'collection.ownedBadge': '실물 소장: {formats} (본인 신고 · 재생권과 별개)',
   'collection.added': '실물 컬렉션에 추가했습니다.',
   'archive.view.label': '보기',
   'archive.view.all': '전체',

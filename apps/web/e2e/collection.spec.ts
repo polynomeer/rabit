@@ -17,6 +17,10 @@ test('records owned CDs and LPs, from a release page and by hand', async ({ page
   await add.getByLabel('매체').selectOption('vinyl');
   await add.getByRole('button', { name: '실물 컬렉션에 추가' }).click();
   await expect(add.getByRole('status')).toHaveText('실물 컬렉션에 추가했습니다.');
+  // The release page now says it is owned physically, separate from playback (PLY-002).
+  await expect(page.getByRole('note')).toHaveText(
+    /실물 소장: LP·바이닐 \(본인 신고 · 재생권과 별개\)/,
+  );
 
   await page.goto('/#/archive');
   const collection = page.getByRole('region', { name: '실물 컬렉션' });
