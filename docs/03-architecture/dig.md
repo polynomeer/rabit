@@ -92,3 +92,17 @@ Hiding is a choice the user makes for their own discovery, not a secret kept fro
 
 Rounds are private, deleted with the account and exported with the DIG history (`blind_digs`).
 
+## Crate Digging, private (DIG-009, V1 part)
+
+`GET /v1/dig/crate?from&to&popularity&size` returns a random crate of up to 24 albums.
+- **Era:** albums released in the given years.
+- **Playable:** every album has at least one track the caller can play.
+- **Popularity:** an album counts as popular as its most popular track; unknown popularity passes.
+- **Hidden:** albums and artists excluded by a reviewed integrity decision.
+
+Nothing is stored; saving uses the library.
+
+Not included:
+- location and genre conditions, which need data the catalog does not have;
+- public crates and crate sharing, which need a moderation policy (OQ-DIG-07, DIG-024).
+

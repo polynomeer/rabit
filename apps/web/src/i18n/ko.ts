@@ -137,6 +137,18 @@ export const ko = {
   'archive.item.delete': '삭제',
   'archive.item.deleteConfirm': '이 오디오를 삭제할까요? 되돌릴 수 없습니다.',
   'archive.item.removeFromLibrary': '라이브러리에서 빼기',
+  'crate.title': 'Crate Digging',
+  'crate.hint':
+    '시대와 인기 조건으로 앨범 상자를 무작위로 뒤져 봅니다. 모두 지금 들을 수 있는 곡이 있는 앨범입니다.',
+  'crate.form': '앨범 상자 조건',
+  'crate.era': '시대',
+  'crate.anyEra': '모든 시대',
+  'crate.decade': '{decade}년대',
+  'crate.dig': '상자 뒤지기',
+  'crate.again': '다시 뒤지기',
+  'crate.list': '상자 속 앨범',
+  'crate.empty': '조건에 맞는 앨범이 없습니다. 시대나 인기 조건을 넓혀 보세요.',
+  'crate.playable': '들을 수 있는 곡 {count}개',
   'blind.title': 'Blind Digging',
   'blind.hint':
     '아티스트·앨범·발매연도·인기를 가린 채 듣고, Keep 또는 Pass를 고르면 정체가 공개됩니다. Keep한 곡은 라이브러리에 저장됩니다.',
