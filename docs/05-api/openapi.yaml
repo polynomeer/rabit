@@ -495,6 +495,23 @@ paths:
       responses:
         '200': { description: Available exploration axes with counts, content: { application/json: { schema: { $ref: '#/components/schemas/DigAxes' } } } }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/dig/crate:
+    get:
+      tags: [dig]
+      operationId: digCrate
+      description: >-
+        Crate Digging, private (DIG-009): a random crate of albums released in the given years, each with
+        at least one track the caller can play, filtered by the popularity of its most popular track.
+        Nothing is stored. Entities excluded by a reviewed integrity decision are omitted. Rate limited
+        (240 per hour).
+      parameters:
+        - { name: from, in: query, schema: { type: integer, minimum: 1900, maximum: 2100 } }
+        - { name: to, in: query, schema: { type: integer, minimum: 1900, maximum: 2100 } }
+        - { name: popularity, in: query, schema: { $ref: '#/components/schemas/PopularityFilter' } }
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 24, default: 12 } }
+      responses:
+        '200': { description: The crate, content: { application/json: { schema: { $ref: '#/components/schemas/Crate' } } } }
+        '400': { $ref: '#/components/responses/Error' }
   /v1/dig/labels/{label_id}/timeline:
     parameters: [ { name: label_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
     get:
@@ -1695,6 +1712,28 @@ components:
                               title: { type: string }
                               release_date: { type: [string, 'null'], format: date }
                       popularity_tier: { type: string }
+    Crate:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [release, artists, label, playable_tracks, popularity_tier]
+            properties:
+              release:
+                type: object
+                required: [release_id, title, release_type, release_date]
+                properties:
+                  release_id: { $ref: '#/components/schemas/Id' }
+                  title: { type: string }
+                  release_type: { type: string, enum: [album, single, ep, compilation] }
+                  release_date: { type: [string, 'null'], format: date }
+              artists: { type: array, items: { $ref: '#/components/schemas/EntitySummary' } }
+              label: { oneOf: [ { type: 'null' }, { $ref: '#/components/schemas/EntitySummary' } ] }
+              playable_tracks: { type: integer, minimum: 1 }
+              popularity_tier: { type: string }
     DigAxes:
       type: object
       required: [entity, axes]
