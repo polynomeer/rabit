@@ -9,6 +9,7 @@ import {
 } from './api';
 import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { BlindDigPanel } from './blind';
+import { CrateDigPanel } from './crate';
 import { usePlayer } from './player';
 import { digSessionHref, entityHref, replaceRoute, tabHref } from './route';
 import { Status } from './views';
@@ -537,6 +538,7 @@ export function DigHome() {
       <h2 id="dig-home-h">DIG</h2>
       <p className="muted">{t('dig.home.hint')}</p>
       <BlindDigPanel />
+      <CrateDigPanel />
       <label>
         <input
           type="checkbox"

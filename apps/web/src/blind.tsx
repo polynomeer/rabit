@@ -26,7 +26,7 @@ interface BlindRound {
   items: BlindItem[];
 }
 
-const TIER_TEXT: Record<string, MessageKey> = {
+export const TIER_TEXT: Record<string, MessageKey> = {
   top: 'blind.tier.top',
   upper: 'blind.tier.upper',
   deep_cut: 'blind.tier.deep_cut',
