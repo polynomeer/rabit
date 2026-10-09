@@ -104,6 +104,9 @@ export const ko = {
   'playlists.new.label': '플레이리스트 이름',
   'playlists.new.submit': '만들기',
   'playlists.itemCount': '{count}곡',
+  'playlists.list': '내 플레이리스트',
+  'playlists.empty': '아직 플레이리스트가 없어요. 위에서 만들거나 곡 화면에서 추가해 보세요.',
+  'playlists.playAll': '전체 재생',
   'playlists.item.up': '위로',
   'playlists.item.remove': '빼기',
   'playlists.more': '더 보기 ({loaded}/{total})',
@@ -111,6 +114,8 @@ export const ko = {
   // ——— Search ———
   'search.placeholder': '아티스트, 곡, 사람, 내 녹음',
   'search.label': '검색어',
+  'search.hint': '아티스트, 곡, 레이블을 찾아보세요. 내 개인 오디오도 함께 찾아요.',
+  'search.results': '검색 결과',
   'search.submit': '검색',
   'search.mine': '내 오디오',
 
