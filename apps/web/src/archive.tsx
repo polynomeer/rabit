@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { api, get, sha256Hex, type LibraryItem } from './api';
-import { formatDateTime, t, type MessageKey } from './i18n';
+import { formatDateTime, formatMonth, t, type MessageKey } from './i18n';
+import { Cover, Icon } from './brand';
 import { PhysicalCollection } from './collection';
 import { AddToPlaylist } from './playlist-add';
 import { Recorder } from './recorder';
@@ -380,6 +381,36 @@ const VIEWS = [
 ] as const satisfies readonly (readonly [string, MessageKey])[];
 type View = (typeof VIEWS)[number][0];
 
+/** Groups items by calendar month, newest first (BRD §10: time as the Archive's axis). */
+function byMonth<T>(
+  list: T[],
+  dateOf: (item: T) => string,
+): { key: string; label: string; items: T[] }[] {
+  const groups = new Map<string, { key: string; label: string; items: T[] }>();
+  const sorted = [...list].sort((a, b) => dateOf(b).localeCompare(dateOf(a)));
+  for (const item of sorted) {
+    const d = new Date(dateOf(item));
+    const key = `${String(d.getFullYear())}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { key, label: formatMonth(d), items: [] };
+      groups.set(key, g);
+    }
+    g.items.push(item);
+  }
+  return [...groups.values()];
+}
+
+/** Catalog items show their stand-in cover; private audio and Audio Logs an icon tile. */
+function ItemMark({ item, isLog }: { item: LibraryItem; isLog: boolean }) {
+  if (item.ref_type !== 'audio_source') return <Cover id={item.ref_id} size={56} round={14} />;
+  return (
+    <span className={isLog ? 'item-tile log' : 'item-tile'} aria-hidden="true">
+      <Icon name={isLog ? 'mic' : 'studio'} size={22} />
+    </span>
+  );
+}
+
 /** Archive: one library mixing private audio, Audio Logs and catalog items (BRD §10). */
 export function Archive() {
   const player = usePlayer();
@@ -413,15 +444,144 @@ export function Archive() {
   const shown = items.filter(inView);
   const playable = shown.filter((i) => i.ref_type !== 'release');
 
+  const renderItem = (i: LibraryItem) => {
+    const log = i.ref_type === 'audio_source' ? logs.get(i.ref_id) : undefined;
+    return (
+      <li key={i.library_item_id}>
+        <ItemMark item={i} isLog={log !== undefined} />
+        <div className="item-main">
+          <strong>
+            <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
+          </strong>{' '}
+          <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
+          <Status p={i.playability} />
+          {log ? (
+            <p className="small muted log-meta">
+              {formatDateTime(log.recorded_at)} ({log.recorded_tz})
+              {log.tags.length > 0 ? ` · #${log.tags.join(' #')}` : ''}
+              {log.note ? <span className="log-note"> · {log.note}</span> : null}
+              {log.linked_recording_id ? (
+                <>
+                  {' · '}
+                  <a href={entityHref(log.linked_recording_id)}>{t('archive.log.linkedTrack')}</a>
+                </>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
+        <div className="actions">
+          {i.ref_type !== 'release' && i.playability.playable ? (
+            <button
+              type="button"
+              onClick={() => {
+                player.play(playable.map(toEntry), playable.indexOf(i));
+              }}
+            >
+              {t('common.play')}
+            </button>
+          ) : null}
+          {log ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(editing === log.audio_log_id ? null : log.audio_log_id);
+              }}
+            >
+              {t('archive.item.edit')}
+            </button>
+          ) : null}
+          {i.ref_type === 'audio_source' && !log ? (
+            <button
+              type="button"
+              onClick={() => {
+                setRenaming(renaming === i.ref_id ? null : i.ref_id);
+              }}
+            >
+              {t('archive.item.rename')}
+            </button>
+          ) : null}
+          {i.ref_type !== 'release' ? (
+            <AddToPlaylist
+              refType={i.ref_type === 'audio_source' ? 'audio_source' : 'recording'}
+              refId={i.ref_id}
+            />
+          ) : null}
+          {i.ref_type === 'audio_source' ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm(t('archive.item.deleteConfirm'))) {
+                  void api('DELETE', `/v1/audio-sources/${i.ref_id}`).then(load);
+                }
+              }}
+            >
+              {t('archive.item.delete')}
+            </button>
+          ) : null}
+          {i.origin === 'saved' ? (
+            // Removing a saved item never revokes an entitlement (domain-model §1).
+            <button
+              type="button"
+              onClick={() => void api('DELETE', `/v1/library/${i.library_item_id}`).then(load)}
+            >
+              {t('archive.item.removeFromLibrary')}
+            </button>
+          ) : null}
+        </div>
+        {renaming === i.ref_id ? (
+          <form
+            className="inline"
+            aria-label={t('archive.item.rename')}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const input = e.currentTarget.elements.namedItem('title') as HTMLInputElement;
+              void api('PATCH', `/v1/audio-sources/${i.ref_id}`, {
+                title: input.value.trim(),
+              }).then(() => {
+                setRenaming(null);
+                load();
+              });
+            }}
+          >
+            <label htmlFor={`rename-${i.ref_id}`} className="visually-hidden">
+              {t('archive.item.renameField')}
+            </label>
+            <input
+              id={`rename-${i.ref_id}`}
+              name="title"
+              defaultValue={i.title ?? ''}
+              maxLength={200}
+              required
+            />{' '}
+            <button type="submit">{t('common.save')}</button>
+          </form>
+        ) : null}
+        {log && editing === log.audio_log_id ? (
+          <AudioLogEditor
+            log={log}
+            onSaved={() => {
+              setEditing(null);
+              load();
+            }}
+            onCancel={() => {
+              setEditing(null);
+            }}
+          />
+        ) : null}
+      </li>
+    );
+  };
+
   return (
     <>
-      <section aria-labelledby="archive-h">
+      <section aria-labelledby="archive-h" className="archive">
         <h2 id="archive-h">Archive</h2>
+        <p className="lede">{t('archive.lede')}</p>
         <p className="muted">
           <a href={tabHref('Studio')}>{t('archive.uploadInStudio')}</a>
         </p>
         {error ? <p className="warn">{error}</p> : null}
-        <fieldset className="views">
+        <fieldset className="views chips">
           <legend>{t('archive.view.label')}</legend>
           {VIEWS.map(([v, key]) => (
             <label key={v}>
@@ -432,147 +592,24 @@ export function Archive() {
                 onChange={() => {
                   setView(v);
                 }}
-              />{' '}
+              />
               {t(key)}
             </label>
           ))}
         </fieldset>
-        <ul className="list">
-          {shown.map((i) => {
-            const log = i.ref_type === 'audio_source' ? logs.get(i.ref_id) : undefined;
-            return (
-              <li key={i.library_item_id}>
-                <div>
-                  <strong>
-                    <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
-                  </strong>{' '}
-                  <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
-                  <Status p={i.playability} />
-                  {log ? (
-                    <p className="small muted log-meta">
-                      {formatDateTime(log.recorded_at)} ({log.recorded_tz})
-                      {log.tags.length > 0 ? ` · #${log.tags.join(' #')}` : ''}
-                      {log.note ? <span className="log-note"> · {log.note}</span> : null}
-                      {log.linked_recording_id ? (
-                        <>
-                          {' · '}
-                          <a href={entityHref(log.linked_recording_id)}>
-                            {t('archive.log.linkedTrack')}
-                          </a>
-                        </>
-                      ) : null}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="actions">
-                  {i.ref_type !== 'release' && i.playability.playable ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        player.play(playable.map(toEntry), playable.indexOf(i));
-                      }}
-                    >
-                      {t('common.play')}
-                    </button>
-                  ) : null}
-                  {log ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditing(editing === log.audio_log_id ? null : log.audio_log_id);
-                      }}
-                    >
-                      {t('archive.item.edit')}
-                    </button>
-                  ) : null}
-                  {i.ref_type === 'audio_source' && !log ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRenaming(renaming === i.ref_id ? null : i.ref_id);
-                      }}
-                    >
-                      {t('archive.item.rename')}
-                    </button>
-                  ) : null}
-                  {i.ref_type !== 'release' ? (
-                    <AddToPlaylist
-                      refType={i.ref_type === 'audio_source' ? 'audio_source' : 'recording'}
-                      refId={i.ref_id}
-                    />
-                  ) : null}
-                  {i.ref_type === 'audio_source' ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm(t('archive.item.deleteConfirm'))) {
-                          void api('DELETE', `/v1/audio-sources/${i.ref_id}`).then(load);
-                        }
-                      }}
-                    >
-                      {t('archive.item.delete')}
-                    </button>
-                  ) : null}
-                  {i.origin === 'saved' ? (
-                    // Removing a saved item never revokes an entitlement (domain-model §1).
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void api('DELETE', `/v1/library/${i.library_item_id}`).then(load)
-                      }
-                    >
-                      {t('archive.item.removeFromLibrary')}
-                    </button>
-                  ) : null}
-                </div>
-                {renaming === i.ref_id ? (
-                  <form
-                    className="inline"
-                    aria-label={t('archive.item.rename')}
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const input = e.currentTarget.elements.namedItem('title') as HTMLInputElement;
-                      void api('PATCH', `/v1/audio-sources/${i.ref_id}`, {
-                        title: input.value.trim(),
-                      }).then(() => {
-                        setRenaming(null);
-                        load();
-                      });
-                    }}
-                  >
-                    <label htmlFor={`rename-${i.ref_id}`} className="visually-hidden">
-                      {t('archive.item.renameField')}
-                    </label>
-                    <input
-                      id={`rename-${i.ref_id}`}
-                      name="title"
-                      defaultValue={i.title ?? ''}
-                      maxLength={200}
-                      required
-                    />{' '}
-                    <button type="submit">{t('common.save')}</button>
-                  </form>
-                ) : null}
-                {log && editing === log.audio_log_id ? (
-                  <AudioLogEditor
-                    log={log}
-                    onSaved={() => {
-                      setEditing(null);
-                      load();
-                    }}
-                    onCancel={() => {
-                      setEditing(null);
-                    }}
-                  />
-                ) : null}
-              </li>
-            );
-          })}
-          {items.length === 0 ? <li className="muted">{t('archive.empty')}</li> : null}
-          {items.length > 0 && shown.length === 0 ? (
-            <li className="muted">{t('archive.view.empty')}</li>
-          ) : null}
-        </ul>
+        {shown.length === 0 ? (
+          <ul className="list">
+            {items.length === 0 ? <li className="muted">{t('archive.empty')}</li> : null}
+            {items.length > 0 ? <li className="muted">{t('archive.view.empty')}</li> : null}
+          </ul>
+        ) : (
+          byMonth(shown, (i) => logs.get(i.ref_id)?.recorded_at ?? i.saved_at).map((m) => (
+            <div key={m.key} className="month">
+              <h3 className="eyebrow month-title">{m.label}</h3>
+              <ul className="list archive-list">{m.items.map(renderItem)}</ul>
+            </div>
+          ))
+        )}
       </section>
       <PhysicalCollection />
     </>

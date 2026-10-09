@@ -120,6 +120,7 @@ export interface LibraryItem {
   origin: string;
   title: string | null;
   subtitle: string | null;
+  saved_at: string;
   ownership: string;
   playability: Playability;
 }
