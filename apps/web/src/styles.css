@@ -1426,24 +1426,82 @@ form[aria-label='Audio Log 편집'] label {
   margin-top: 8px;
 }
 
-/* Operator console. */
+/* Operator console (design C, Studio's "tool" language): section pills, a sticky
+   audit-reason bar, and card rows. */
+.ops {
+  position: relative;
+}
+.ops::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -150px;
+  left: 0;
+  width: min(460px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(89, 97, 91, 0.4) 0%, transparent 68%);
+  pointer-events: none;
+}
 .subnav {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 6px;
   margin: 0 0 12px;
 }
-.subnav [aria-current='page'] {
-  font-weight: 600;
+.subnav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  color: var(--muted);
   text-decoration: none;
 }
+.subnav a:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.subnav [aria-current='page'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--fg);
+  font-weight: 600;
+}
+/* Every action needs a reason (audited): keep the field in view while scrolling. */
 .ops .reason {
-  display: block;
+  position: sticky;
+  top: 72px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
   margin: 8px 0;
+  padding: 10px 12px 10px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.ops .reason.missing {
+  border-color: var(--warn);
+}
+.reason-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.reason-label .icon {
+  color: var(--accent);
 }
 .ops .reason input {
-  width: 100%;
-  max-width: 480px;
+  flex: 1 1 260px;
+  width: auto;
+  max-width: none;
 }
 .ops .row {
   display: flex;
@@ -1458,6 +1516,39 @@ form[aria-label='Audio Log 편집'] label {
 .ops form.card label {
   display: block;
   margin: 8px 0;
+}
+/* Lists in the console read as cards. */
+.ops .list {
+  display: grid;
+  gap: 8px;
+}
+.ops .list > li {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.ops .card .list > li {
+  background: var(--surface-2);
+}
+.ops .list > li.muted {
+  border-style: dashed;
+  background: none;
+}
+.ops table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+.ops table th,
+.ops table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.ops table th {
+  color: var(--muted);
+  font-weight: 500;
 }
 .facts {
   display: grid;
