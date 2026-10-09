@@ -9,12 +9,29 @@ import { entityHref, tabHref } from './route';
 import { usePlayer } from './player';
 import { errorText, ItemTitle, Ownership, Status, toEntry } from './views';
 
+/** The upload's steps as shown to the owner; the status line below stays the spoken text. */
+const STAGES = [
+  'archive.upload.step.check',
+  'archive.upload.step.transfer',
+  'archive.upload.step.process',
+  'archive.upload.step.archive',
+] as const satisfies readonly MessageKey[];
+const STAGE_OF: Partial<Record<MessageKey, number>> = {
+  'archive.upload.hashing': 0,
+  'archive.upload.preparing': 0,
+  'archive.upload.transferring': 1,
+  'archive.upload.processing': 2,
+  'archive.upload.adding': 3,
+};
+
 /** Upload → presigned PUT → finalize → poll (audio-pipeline §2). Shown in Studio. */
 export function Upload({ onDone }: { onDone: () => void }) {
   // `settled` marks a final outcome (failed or cancelled): the form may be submitted again.
   const [busy, setBusy] = useState<{ text: string; settled: boolean } | null>(null);
+  const [stage, setStage] = useState(0);
   const working = (key: MessageKey) => {
     setBusy({ text: t(key), settled: false });
+    setStage(STAGE_OF[key] ?? 0);
   };
   const [intent, setIntent] = useState<'private_upload' | 'audio_log'>('private_upload');
   const [logTitle, setLogTitle] = useState('');
@@ -174,6 +191,15 @@ export function Upload({ onDone }: { onDone: () => void }) {
         ) : null}
       </div>
       <p className="small muted">{t('archive.upload.privacyNote')}</p>
+      {busy && !busy.settled ? (
+        <ol className="steps" aria-hidden="true">
+          {STAGES.map((key, i) => (
+            <li key={key} className={i < stage ? 'done' : i === stage ? 'active' : undefined}>
+              {t(key)}
+            </li>
+          ))}
+        </ol>
+      ) : null}
       {busy ? <p role="status">{busy.text}</p> : null}
     </form>
   );

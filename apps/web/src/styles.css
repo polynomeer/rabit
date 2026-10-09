@@ -1023,6 +1023,44 @@ button.round.big {
   margin-top: 0;
 }
 
+/* ——— Upload steps (Studio): done, current, still to come ——— */
+.steps {
+  list-style: none;
+  margin: 12px 0 4px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.steps li::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+.steps li.done {
+  color: var(--ok);
+}
+.steps li.done::before {
+  background: currentColor;
+}
+.steps li.active {
+  color: var(--fg);
+  font-weight: 600;
+}
+.steps li.active::before {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ——— Rows: search results and playlist items ——— */
 .rows {
   list-style: none;
