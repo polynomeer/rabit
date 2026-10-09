@@ -44,18 +44,35 @@ export function ItemTitle({
 }
 
 /**
- * Saves a catalog item to the library. Once saved (or found already saved) it says so
- * and stays pressed; the library has no lookup by item, so the state starts unknown.
+ * Saves a catalog item to the library. An item already saved shows as saved when the
+ * button appears (`?ref_id=` lookup); after saving it says so and stays pressed.
  */
 export function SaveButton({
   refType,
   refId,
+  checkSaved = true,
 }: {
   refType: 'recording' | 'release';
   refId: string;
+  /** Look up the saved state on mount; lists with many buttons skip it (one request each). */
+  checkSaved?: boolean;
 }) {
   const [state, setState] = useState<'idle' | 'busy' | 'saved' | 'failed'>('idle');
   const [msg, setMsg] = useState<string | null>(null);
+  // Already in the library? Shown as saved from the start (no status line).
+  useEffect(() => {
+    if (!checkSaved) return;
+    let stale = false;
+    get<{ items: unknown[] }>(`/v1/library?ref_id=${refId}&limit=1`).then(
+      (r) => {
+        if (!stale && r.items.length > 0) setState((s) => (s === 'idle' ? 'saved' : s));
+      },
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, [refId, checkSaved]);
   const saved = state === 'saved';
   return (
     <>
@@ -479,7 +496,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
                 </button>
               ) : null}
               {r.kind === 'recording' || r.kind === 'release' ? (
-                <SaveButton refType={r.kind} refId={r.id} />
+                <SaveButton refType={r.kind} refId={r.id} checkSaved={false} />
               ) : null}
             </div>
           </li>
