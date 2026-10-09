@@ -68,6 +68,8 @@ export const ko = {
 
   // ——— Sign-in and navigation (main.tsx) ———
   'signin.tagline': 'Music takes you further.',
+  'signin.heading': '로그인',
+  'signin.lede': '계정으로 로그인하고 듣던 곳에서 이어가세요.',
   'signin.subject': '개발용 로그인 ID',
   'signin.operator': '운영자 (개발용: 운영자 권한과 MFA 포함)',
   'signin.submit': '로그인',

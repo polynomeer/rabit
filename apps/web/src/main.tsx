@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SIGNED_OUT, devSignIn, get, hasToken, setToken } from './api';
 import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from './auth';
@@ -50,18 +50,38 @@ function TabButton({ tab, current }: { tab: Tab; current: boolean }) {
   );
 }
 
+/** The brand panel beside sign-in (identity board, BRD §2): symbol, wordmark, tagline. */
+function SignInShell({ children }: { children: ReactNode }) {
+  return (
+    <main className="signin">
+      <div className="signin-hero">
+        <p className="signin-words" aria-hidden="true">
+          <span>Music</span>
+          <span>People</span>
+          <span>Places</span>
+          <span>Stories</span>
+        </p>
+        <h1>
+          <RabitSymbol size={120} />
+          <span className="wordmark">Rabit</span>
+        </h1>
+        <p className="signin-tagline">{t('signin.tagline')}</p>
+      </div>
+      <div className="signin-panel">{children}</div>
+    </main>
+  );
+}
+
 function SignIn({ onDone, error }: { onDone: () => void; error: string | null }) {
   const [err, setErr] = useState<string | null>(error);
   if (oidcEnabled)
     return (
-      <main className="signin">
-        <h1>
-          <RabitSymbol size={56} />
-          <span className="wordmark">Rabit</span>
-        </h1>
-        <p className="muted">{t('signin.tagline')}</p>
+      <SignInShell>
+        <h2>{t('signin.heading')}</h2>
+        <p className="muted">{t('signin.lede')}</p>
         <button
           type="button"
+          className="primary wide"
           onClick={() => {
             startSignIn().catch((x: unknown) => {
               setErr((x as Error).message);
@@ -84,15 +104,11 @@ function SignIn({ onDone, error }: { onDone: () => void; error: string | null })
           </button>
         ) : null}
         {err ? <p className="warn">{t('signin.failed', { reason: err })}</p> : null}
-      </main>
+      </SignInShell>
     );
   return (
-    <main className="signin">
-      <h1>
-        <RabitSymbol size={56} />
-        <span className="wordmark">Rabit</span>
-      </h1>
-      <p className="muted">{t('signin.tagline')}</p>
+    <SignInShell>
+      <h2>{t('signin.heading')}</h2>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -104,18 +120,20 @@ function SignIn({ onDone, error }: { onDone: () => void; error: string | null })
           });
         }}
       >
-        <label>
-          {t('signin.subject')}{' '}
+        <label className="field">
+          {t('signin.subject')}
           <input name="subject" required maxLength={64} autoComplete="username" />
         </label>
-        <label className="small">
+        <label className="small check">
           <input type="checkbox" name="operator" /> {t('signin.operator')}
         </label>
-        <button type="submit">{t('signin.submit')}</button>
+        <button type="submit" className="wide">
+          {t('signin.submit')}
+        </button>
         <p className="small muted">{t('signin.devNote')}</p>
         {err ? <p className="warn">{err}</p> : null}
       </form>
-    </main>
+    </SignInShell>
   );
 }
 
@@ -166,9 +184,9 @@ function App() {
   }, [signedIn]);
   if (completing)
     return (
-      <main className="signin">
+      <SignInShell>
         <p role="status">{t('signin.completing')}</p>
-      </main>
+      </SignInShell>
     );
   if (!signedIn)
     return (
