@@ -25,7 +25,17 @@ test('plays an album, controls it from Now Playing and digs without stopping', a
   await expect(page).toHaveURL(/#\/now$/);
   await expect(page.getByRole('heading', { level: 2, name: 'Midnight Harbour' })).toBeVisible();
   await expect(page.getByRole('contentinfo', { name: '플레이어' })).toBeHidden();
-  await expect(page.getByRole('slider', { name: '재생 위치' })).toBeEnabled();
+  const slider = page.getByRole('slider', { name: '재생 위치' });
+  await expect(slider).toBeEnabled();
+  // The slider follows playback (a coarse step once pinned it to 0 on short audio).
+  const audioEl = page.getByLabel('오디오 컨트롤');
+  await expect
+    .poll(async () => Number(await slider.inputValue()), { timeout: 10_000 })
+    .toBeGreaterThan(0);
+  const drift =
+    Number(await slider.inputValue()) -
+    Math.floor(await audioEl.evaluate((a: HTMLAudioElement) => a.currentTime));
+  expect(Math.abs(drift)).toBeLessThanOrEqual(1);
 
   // Pause and resume through the custom controls.
   const audio = page.getByLabel('오디오 컨트롤');

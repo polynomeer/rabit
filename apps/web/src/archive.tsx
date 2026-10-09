@@ -476,7 +476,8 @@ export function Archive() {
           <strong>
             <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
           </strong>{' '}
-          <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
+          {/* An Audio Log's subtitle is just "Audio Log": the badge already says it. */}
+          {log ? null : <span className="muted">{i.subtitle}</span>} <Ownership o={i.ownership} />{' '}
           <Status p={i.playability} />
           {log ? (
             <p className="small muted log-meta">

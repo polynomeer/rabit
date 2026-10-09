@@ -1,7 +1,7 @@
 import { OWNERSHIP_TEXT } from './api';
-import { Cover, Icon, RabitSymbol } from './brand';
+import { Icon, RabitSymbol } from './brand';
 import { t, tCode } from './i18n';
-import { coverOf, Progress, usePlayer, Waveform } from './player';
+import { EntryArt, Progress, usePlayer, Waveform } from './player';
 import { digHref, entityHref, tabHref } from './route';
 
 /**
@@ -25,7 +25,7 @@ export function NowPlaying() {
     <section className="now-playing" aria-labelledby="now-h">
       <p className="eyebrow">Now playing</p>
       <div className="now-cover">
-        <Cover id={coverOf(current)} size={320} round={28} />
+        <EntryArt entry={current} size={320} />
       </div>
       <div className="now-title">
         <div>
@@ -40,7 +40,7 @@ export function NowPlaying() {
             ) : null}
           </p>
         </div>
-        {current.ownership ? (
+        {current.ownership && tCode(OWNERSHIP_TEXT, current.ownership) !== current.subtitle ? (
           <span className={`badge own-${current.ownership}`}>
             {tCode(OWNERSHIP_TEXT, current.ownership)}
           </span>

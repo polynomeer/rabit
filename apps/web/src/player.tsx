@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from 'react';
 import { api, ApiError } from './api';
-import { Cover, Icon } from './brand';
+import { Cover, Icon, Mark } from './brand';
 import { t, type MessageKey } from './i18n';
 import { nowPlayingHref, useRoute } from './route';
 
@@ -30,6 +30,23 @@ export interface QueueEntry {
 /** The cover shown for a queue entry: its release when known, else the item itself. */
 export const coverOf = (e: QueueEntry): string =>
   e.cover_id ?? e.recording_id ?? e.audio_source_id ?? e.key;
+
+/**
+ * A queue entry's picture: catalog tracks get their stand-in cover, private audio
+ * and Audio Logs the same icon tile as in Studio and the Archive (never an album look).
+ */
+export function EntryArt({ entry, size }: { entry: QueueEntry; size: number }) {
+  if (entry.audio_source_id)
+    return (
+      <Mark
+        id={entry.audio_source_id}
+        kind={entry.ownership === 'audio_log' ? 'audio_log' : 'private_audio'}
+        name={entry.title}
+        size={size}
+      />
+    );
+  return <Cover id={coverOf(entry)} size={size} round={Math.round(size / 11)} />;
+}
 
 interface Session {
   session_id: string;
@@ -266,7 +283,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       <footer className="player" aria-label={t('player.region')} hidden={onNowPlaying}>
         {current ? (
           <a className="player-now" href={nowPlayingHref}>
-            <Cover id={coverOf(current)} size={44} />
+            <EntryArt entry={current} size={44} />
             <span className="player-text">
               <strong>{current.title}</strong>
               {current.subtitle ? <span className="muted small">{current.subtitle}</span> : null}
@@ -364,7 +381,7 @@ export function clockText(seconds: number): string {
 
 /**
  * Playback position. `thin` is the decorative line in the mini player; the full
- * version is a labelled slider (keyboard: arrows seek by 5 s) with both times.
+ * version is a labelled slider (keyboard: arrows seek by 1 s) with both times.
  */
 export function Progress({
   audio,
@@ -387,7 +404,8 @@ export function Progress({
         type="range"
         min={0}
         max={duration > 0 ? Math.floor(duration) : 0}
-        step={5}
+        // Step 1: with a coarser step the thumb snaps back to 0 on short audio.
+        step={1}
         value={Math.floor(time)}
         disabled={duration <= 0}
         aria-label={t('player.position')}
