@@ -9,7 +9,7 @@ import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
 import { PurchasePanel } from './purchase';
 import { digHref, entityHref } from './route';
-import { Status } from './views';
+import { SaveButton, Status } from './views';
 
 interface Ref {
   entity_id: string;
@@ -210,34 +210,6 @@ function Page({
         </>
       )}
     </section>
-  );
-}
-
-function SaveButton({ refType, refId }: { refType: 'recording' | 'release'; refId: string }) {
-  const [msg, setMsg] = useState<string | null>(null);
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          api('POST', '/v1/library', { ref_type: refType, ref_id: refId }).then(
-            () => {
-              setMsg(t('details.library.saved'));
-            },
-            (e: unknown) => {
-              setMsg(
-                e instanceof ApiError && e.code === 'ALREADY_EXISTS'
-                  ? t('details.library.exists')
-                  : t('details.library.failed'),
-              );
-            },
-          );
-        }}
-      >
-        {t('details.library.save')}
-      </button>
-      {msg ? <span role="status"> {msg}</span> : null}
-    </>
   );
 }
 

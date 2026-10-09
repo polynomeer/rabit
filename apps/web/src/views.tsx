@@ -43,6 +43,53 @@ export function ItemTitle({
   return refType === 'audio_source' ? <>{title}</> : <a href={entityHref(refId)}>{title}</a>;
 }
 
+/**
+ * Saves a catalog item to the library. Once saved (or found already saved) it says so
+ * and stays pressed; the library has no lookup by item, so the state starts unknown.
+ */
+export function SaveButton({
+  refType,
+  refId,
+}: {
+  refType: 'recording' | 'release';
+  refId: string;
+}) {
+  const [state, setState] = useState<'idle' | 'busy' | 'saved' | 'failed'>('idle');
+  const [msg, setMsg] = useState<string | null>(null);
+  const saved = state === 'saved';
+  return (
+    <>
+      <button
+        type="button"
+        aria-pressed={saved}
+        disabled={state === 'busy' || saved}
+        onClick={() => {
+          setState('busy');
+          api('POST', '/v1/library', { ref_type: refType, ref_id: refId }).then(
+            () => {
+              setState('saved');
+              setMsg(t('details.library.saved'));
+            },
+            (e: unknown) => {
+              const exists = e instanceof ApiError && e.code === 'ALREADY_EXISTS';
+              setState(exists ? 'saved' : 'failed');
+              setMsg(exists ? t('details.library.exists') : t('details.library.failed'));
+            },
+          );
+        }}
+      >
+        {saved ? t('details.library.savedLabel') : t('details.library.save')}
+      </button>
+      {msg ? (
+        <span role="status" className="small muted">
+          {' '}
+          {msg}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 export function errorText(e: unknown): string {
   return e instanceof ApiError
     ? t('error.withCode', { message: e.message, code: e.code })
@@ -323,16 +370,28 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
       scope: string;
     }[]
   >([]);
+  const [loading, setLoading] = useState(false);
   // The query lives in the URL, so returning from a detail page shows the same results.
   useEffect(() => {
     if (!query) {
       setResults([]);
+      setLoading(false);
       return;
     }
     let stale = false;
-    void get<{ items: typeof results }>(`/v1/search?q=${encodeURIComponent(query)}`).then((r) => {
-      if (!stale) setResults(r.items);
-    });
+    setLoading(true);
+    get<{ items: typeof results }>(`/v1/search?q=${encodeURIComponent(query)}`).then(
+      (r) => {
+        if (stale) return;
+        setResults(r.items);
+        setLoading(false);
+      },
+      () => {
+        if (stale) return;
+        setResults([]);
+        setLoading(false);
+      },
+    );
     return () => {
       stale = true;
     };
@@ -364,6 +423,16 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
         <button type="submit">{t('search.submit')}</button>
       </form>
       {query ? null : <p className="muted">{t('search.hint')}</p>}
+      {query && loading ? (
+        <p role="status" className="muted">
+          {t('common.loading')}
+        </p>
+      ) : null}
+      {query && !loading && results.length === 0 ? (
+        <p role="status" className="muted">
+          {t('search.empty', { query })}
+        </p>
+      ) : null}
       <ul className="rows" aria-label={t('search.results')}>
         {results.map((r) => (
           <li key={r.id}>
@@ -410,16 +479,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
                 </button>
               ) : null}
               {r.kind === 'recording' || r.kind === 'release' ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    void api('POST', '/v1/library', { ref_type: r.kind, ref_id: r.id }).catch(
-                      () => undefined,
-                    )
-                  }
-                >
-                  {t('common.save')}
-                </button>
+                <SaveButton refType={r.kind} refId={r.id} />
               ) : null}
             </div>
           </li>
