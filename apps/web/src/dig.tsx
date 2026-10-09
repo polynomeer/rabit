@@ -9,6 +9,7 @@ import {
 } from './api';
 import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { BlindDigPanel } from './blind';
+import { Cover, Icon } from './brand';
 import { CrateDigPanel } from './crate';
 import { usePlayer } from './player';
 import { digSessionHref, entityHref, replaceRoute, tabHref } from './route';
@@ -112,7 +113,8 @@ export function EvidenceLine({ e }: { e: Evidence }) {
         ? t('dig.evidence.declared')
         : t('dig.evidence.inferred', { percent: Math.round((e.confidence ?? 0) * 100) });
   return (
-    <span className="small">
+    <span className={`small evidence basis-${e.basis}`}>
+      <Icon name={e.basis === 'ml_inferred' ? 'spark' : 'credits'} size={14} />
       {reasonText(e)} — <em>{basis}</em>
       {e.license_status && e.license_status !== 'not_applicable' ? (
         <span className="muted"> · {t('dig.evidence.license', { status: e.license_status })}</span>
@@ -215,6 +217,7 @@ export function DigSessionView({ id }: { id: string }) {
   const groups = [...new Set(axes.map((a) => a.group))];
   return (
     <section aria-labelledby="dig-h" className="dig">
+      <p className="eyebrow">Rabbit hole</p>
       <h2 id="dig-h">DIG</h2>
       <SessionHeader
         session={session}
@@ -223,6 +226,9 @@ export function DigSessionView({ id }: { id: string }) {
         onEnd={() => void end()}
       />
       <nav aria-label={t('dig.trail')} className="trail">
+        <span className="eyebrow" aria-hidden="true">
+          Trail
+        </span>
         {session.trail.map((n) => (
           <button
             key={n.seq}
@@ -266,7 +272,14 @@ export function DigSessionView({ id }: { id: string }) {
 
       <div className="axes" role="tablist" aria-label={t('dig.axes')}>
         {groups.map((g) => (
-          <div key={g}>
+          <div
+            key={g}
+            className={
+              axes.some((a) => a.group === g && a.axis === axis)
+                ? 'axis-group active'
+                : 'axis-group'
+            }
+          >
             <span className="group">{tCode(GROUP_TEXT, g)}</span>
             {axes
               .filter((a) => a.group === g)
@@ -313,10 +326,14 @@ export function DigSessionView({ id }: { id: string }) {
           {t('dig.filter.inferred')}
         </label>
       </div>
-      <ul className="list" aria-label={t('common.connections')}>
+      <ul className="connections" aria-label={t('common.connections')}>
         {conns.map((c) => (
-          <li key={`${c.entity.entity_id}:${c.via.credit_id ?? c.via.relation_id ?? ''}`}>
-            <div>
+          <li
+            key={`${c.entity.entity_id}:${c.via.credit_id ?? c.via.relation_id ?? ''}`}
+            className={`basis-${c.evidence.basis}`}
+          >
+            <EntityMark entity={c.entity} size={52} />
+            <div className="conn-main">
               <strong>
                 <a href={entityHref(c.entity.entity_id)}>{c.entity.name}</a>
               </strong>{' '}
@@ -349,7 +366,7 @@ export function DigSessionView({ id }: { id: string }) {
                 </button>
               ) : null}
               {ended ? null : (
-                <button type="button" onClick={() => void step(c)}>
+                <button type="button" className="primary" onClick={() => void step(c)}>
                   {t('dig.conn.follow')}
                 </button>
               )}
@@ -357,40 +374,71 @@ export function DigSessionView({ id }: { id: string }) {
           </li>
         ))}
       </ul>
-      <p className="small muted">
-        {t('dig.summary', {
-          nodes: session.summary.nodes,
-          artists: session.summary.distinct_artists,
-          axes: session.summary.axes_used.join(', ') || '-',
-          played: session.summary.played,
-          saved: session.summary.saved,
-        })}
-      </p>
-      <button
-        type="button"
-        onClick={() =>
-          void api<{ title: string }>(
-            'POST',
-            `/v1/dig-sessions/${session.dig_session_id}/playlist`,
-            {},
-          ).then(
-            ({ data }) => {
-              setSaved(t('dig.playlist.saved', { title: data.title }));
-            },
-            () => {
-              setSaved(t('dig.playlist.failed'));
-            },
-          )
-        }
-      >
-        {t('dig.playlist.create')}
-      </button>
-      {saved ? (
-        <p role="status">
-          {saved} <a href={tabHref('Playlists')}>{t('dig.playlist.view')}</a>
+      <div className="card dig-summary">
+        <p className="small muted">
+          {t('dig.summary', {
+            nodes: session.summary.nodes,
+            artists: session.summary.distinct_artists,
+            axes: session.summary.axes_used.join(', ') || '-',
+            played: session.summary.played,
+            saved: session.summary.saved,
+          })}
         </p>
-      ) : null}
+        <button
+          type="button"
+          onClick={() =>
+            void api<{ title: string }>(
+              'POST',
+              `/v1/dig-sessions/${session.dig_session_id}/playlist`,
+              {},
+            ).then(
+              ({ data }) => {
+                setSaved(t('dig.playlist.saved', { title: data.title }));
+              },
+              () => {
+                setSaved(t('dig.playlist.failed'));
+              },
+            )
+          }
+        >
+          {t('dig.playlist.create')}
+        </button>
+        {saved ? (
+          <p role="status">
+            {saved} <a href={tabHref('Playlists')}>{t('dig.playlist.view')}</a>
+          </p>
+        ) : null}
+      </div>
     </section>
+  );
+}
+
+const ENTITY_TEXT: Record<string, MessageKey> = {
+  recording: 'common.recording',
+  release: 'common.release',
+  artist: 'dig.entity.artist',
+  person: 'dig.entity.person',
+  label: 'dig.entity.label',
+};
+
+/** First user-perceived character (grapheme), so Hangul and emoji stay whole. */
+function initial(name: string): string {
+  const first = new Intl.Segmenter().segment(name.trim())[Symbol.iterator]().next();
+  return first.done ? '?' : first.value.segment.toUpperCase();
+}
+
+/** Catalog items get their stand-in cover; people, artists and labels an initial. */
+function EntityMark({ entity, size }: { entity: EntitySummary; size: number }) {
+  if (entity.entity_type === 'recording' || entity.entity_type === 'release')
+    return <Cover id={entity.entity_id} size={size} round={size / 4} />;
+  return (
+    <span
+      className={`entity-initial kind-${entity.entity_type}`}
+      style={{ width: size, height: size, fontSize: size * 0.42 }}
+      aria-hidden="true"
+    >
+      {initial(entity.name)}
+    </span>
   );
 }
 
@@ -407,14 +455,17 @@ function Node({
 }) {
   return (
     <div className="node" aria-live="polite">
-      <span className="badge">{entity.entity_type}</span>{' '}
-      <strong>
+      <div className="node-mark">
+        <EntityMark entity={entity} size={104} />
+      </div>
+      <p className="eyebrow">{tCode(ENTITY_TEXT, entity.entity_type)}</p>
+      <strong className="node-name">
         <a href={entityHref(entity.entity_id)}>{entity.name}</a>
-      </strong>{' '}
-      <span className="muted">{entity.subtitle}</span>
+      </strong>
+      {entity.subtitle ? <span className="muted">{entity.subtitle}</span> : null}
       <div className="actions">
         {onPlay ? (
-          <button type="button" onClick={onPlay}>
+          <button type="button" className="primary" onClick={onPlay}>
             {t('dig.node.play')}
           </button>
         ) : null}
@@ -534,11 +585,16 @@ export function DigHome() {
     };
   }, [onlySaved]);
   return (
-    <section aria-labelledby="dig-home-h">
+    <section aria-labelledby="dig-home-h" className="dig-home">
+      <p className="eyebrow">Rabbit hole</p>
       <h2 id="dig-home-h">DIG</h2>
+      <p className="lede">{t('dig.home.lede')}</p>
       <p className="muted">{t('dig.home.hint')}</p>
-      <BlindDigPanel />
-      <CrateDigPanel />
+      <div className="dig-modes">
+        <BlindDigPanel />
+        <CrateDigPanel />
+      </div>
+      <h3 className="eyebrow section-title">{t('dig.home.history')}</h3>
       <label>
         <input
           type="checkbox"
@@ -549,10 +605,11 @@ export function DigHome() {
         />{' '}
         {t('dig.home.onlySaved')}
       </label>
-      <ul className="list" aria-label={t('dig.home.history')}>
+      <ul className="list history" aria-label={t('dig.home.history')}>
         {(items ?? []).map((s) => (
           <li key={s.dig_session_id}>
-            <div>
+            {s.start_entity ? <EntityMark entity={s.start_entity} size={44} /> : null}
+            <div className="history-main">
               <strong>
                 <a href={digSessionHref(s.dig_session_id)}>
                   {s.title ??
