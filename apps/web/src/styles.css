@@ -22,6 +22,7 @@
   --area-archive: #4a524c;
   --area-studio: #8a4527;
   --glow: rgba(120, 101, 200, 0.32);
+  --glow-sage: rgba(89, 97, 91, 0.45);
   --ok: #8fd19e;
   --warn: #f0a57c;
   --radius: 20px;
@@ -44,6 +45,7 @@
     --area-archive: #4a524c;
     --area-studio: #9a3f12;
     --glow: rgba(120, 101, 200, 0.16);
+    --glow-sage: rgba(89, 97, 91, 0.12);
     --ok: #1f6b33;
     --warn: #9a3f12;
     color-scheme: light;
@@ -730,12 +732,13 @@ button.round.big {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  margin: 24px 0 8px;
+  /* Room for the outer ring (28 px beyond the mark) above and below. */
+  margin: 44px 0 8px;
   text-align: center;
 }
 .node-mark {
   position: relative;
-  margin-bottom: 18px;
+  margin-bottom: 34px;
   border-radius: 50%;
 }
 .node-mark::before,
@@ -917,7 +920,7 @@ button.round.big {
   width: min(480px, 100%);
   aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(89, 97, 91, 0.45) 0%, transparent 68%);
+  background: radial-gradient(circle, var(--glow-sage) 0%, transparent 68%);
   pointer-events: none;
 }
 /* Radio buttons drawn as chips: the input stays the control, laid over its label. */
@@ -1379,6 +1382,14 @@ ol.tracks li.current .track-main > a {
   flex: 1;
   min-width: 0;
 }
+/* Playability gets its own line so a long reason never breaks mid-phrase. */
+.track-main > .ok,
+.track-main > .warn,
+.item-main > .ok,
+.item-main > .warn {
+  display: block;
+  font-size: 0.85rem;
+}
 table.passport {
   width: 100%;
   border-collapse: collapse;
@@ -1478,7 +1489,7 @@ form[aria-label='Audio Log 편집'] label {
   width: min(460px, 100%);
   aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(89, 97, 91, 0.4) 0%, transparent 68%);
+  background: radial-gradient(circle, var(--glow-sage) 0%, transparent 68%);
   pointer-events: none;
 }
 .subnav {
