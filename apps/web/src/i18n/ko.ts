@@ -42,7 +42,10 @@ export const ko = {
   'studio.intro': '나만의 소리를\n만들고 남겨요.',
   'studio.rightsNote':
     '올린 오디오는 기본 비공개예요. 파일을 가지고 있다는 것만으로 권리가 생기지는 않아요.',
-  'studio.toArchive': 'Archive에서 보기',
+  'studio.mine': '내 오디오',
+  'studio.mineAll': 'Archive에서 전체 보기',
+  'studio.mineEmpty': '아직 올린 오디오가 없어요.',
+  'studio.mineMeta': '{kind} · {date}',
 
   // ——— Errors (api.ts) ———
   'error.signInFailed': 'Sign-in failed',
@@ -167,6 +170,10 @@ export const ko = {
 
   // ——— Archive ———
   'archive.upload.cancelled': '업로드를 취소했습니다.',
+  'archive.upload.step.check': '파일 확인',
+  'archive.upload.step.transfer': '전송',
+  'archive.upload.step.process': '변환·검사',
+  'archive.upload.step.archive': '보관',
   'archive.upload.hashing': '체크섬 계산 중…',
   'archive.upload.preparing': '업로드 준비 중…',
   'archive.upload.transferring': '전송 중…',

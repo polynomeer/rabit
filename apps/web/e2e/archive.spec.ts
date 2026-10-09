@@ -26,6 +26,11 @@ test('uploads private audio, plays it, keeps it private, and deletes it', async 
     .setInputFiles({ name: file, mimeType: 'audio/wav', buffer: wavTone(3) });
   await upload.getByRole('button', { name: '업로드' }).click();
   await expect(upload.getByRole('status')).toBeHidden({ timeout: 60_000 });
+  // Studio lists it among the owner's recent audio, marked private.
+  const mine = page.getByRole('list', { name: '내 오디오' }).getByRole('listitem').filter({
+    hasText: name,
+  });
+  await expect(mine).toContainText('Private');
   await openTab(page, 'Archive');
 
   const item = page.getByRole('region', { name: 'Archive' }).getByRole('listitem').filter({
