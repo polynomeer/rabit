@@ -263,6 +263,7 @@ paths:
       operationId: listLibrary
       parameters:
         - { name: ref_type, in: query, schema: { $ref: '#/components/schemas/LibraryRefType' } }
+        - { name: ref_id, in: query, description: "Only the caller's entry for this recording, release or audio source (empty page if not saved)", schema: { $ref: '#/components/schemas/Id' } }
         - { $ref: '#/components/parameters/Limit' }
         - { $ref: '#/components/parameters/Cursor' }
       responses:

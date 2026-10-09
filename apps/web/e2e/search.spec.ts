@@ -20,4 +20,12 @@ test('search explains an empty result and marks a saved item', async ({ page }) 
   await expect(saved).toBeDisabled();
   await expect(saved).toHaveAttribute('aria-pressed', 'true');
   await expect(hit.getByRole('status')).toHaveText('라이브러리에 저장했습니다.');
+
+  // Its own page knows it is saved before any click (GET /v1/library?ref_id=).
+  await hit.getByRole('link', { name: 'Morning Tide' }).click();
+  await expect(page.getByRole('heading', { level: 2, name: 'Morning Tide' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '저장됨' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
 });

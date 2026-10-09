@@ -42,6 +42,8 @@ export const libraryRoutes =
       const q = parse(
         z.object({
           ref_type: z.enum(['audio_source', 'recording', 'release']).optional(),
+          // One item's entry, if saved (e.g. a "saved" state on a detail page).
+          ref_id: z.union([idOf('recording'), idOf('release'), idOf('audioSource')]).optional(),
           limit: limitSchema,
           cursor: z.string().max(512).optional(),
         }),

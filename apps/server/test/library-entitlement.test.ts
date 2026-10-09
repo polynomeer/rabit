@@ -702,6 +702,27 @@ describe('library (LIB-001..004)', () => {
     expect((await playRecording(u, id('r1'))).statusCode).toBe(201);
   });
 
+  it("looks up one saved item by ref_id, only in the caller's library", async () => {
+    const save = await h.api.inject({
+      method: 'POST',
+      url: '/v1/library',
+      headers: u.headers,
+      payload: { ref_type: 'recording', ref_id: id('r2') },
+    });
+    expect(save.statusCode).toBe(201);
+    const lookup = (who: TestUser, ref: string) =>
+      h.api.inject({ url: `/v1/library?ref_id=${ref}&limit=1`, headers: who.headers });
+    const mine = await lookup(u, id('r2'));
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json().items).toHaveLength(1);
+    expect(mine.json().items[0]).toMatchObject({ ref_type: 'recording', ref_id: id('r2') });
+    // Another user sees nothing for the same item, and nothing of the owner's private audio.
+    expect((await lookup(other, id('r2'))).json().items).toEqual([]);
+    expect((await lookup(other, privateId)).json().items).toEqual([]);
+    // Not an item id: rejected, not silently ignored.
+    expect((await lookup(u, 'usr_01ARZ3NDEKTSV4RRFFQ69G5FAV')).statusCode).toBe(400);
+  });
+
   it("never lets another user save or see someone else's private audio", async () => {
     const r = await h.api.inject({
       method: 'POST',

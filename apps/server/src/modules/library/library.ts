@@ -94,12 +94,23 @@ export async function listLibrary(
   ctx: AppContext,
   catalogAccess: CatalogAccess,
   principal: Principal,
-  q: { ref_type?: RefType | undefined; limit: number; cursor?: string | undefined },
+  q: {
+    ref_type?: RefType | undefined;
+    ref_id?: string | undefined;
+    limit: number;
+    cursor?: string | undefined;
+  },
 ) {
-  const scope = { userId: principal.userId, query: `library:${q.ref_type ?? 'all'}` };
+  const scope = {
+    userId: principal.userId,
+    query: `library:${q.ref_type ?? 'all'}:${q.ref_id ?? '*'}`,
+  };
   const pos = ctx.cursors.decode(scope, q.cursor);
   let query = ctx.db.selectFrom('library_item').selectAll().where('user_id', '=', principal.userId);
   if (q.ref_type) query = query.where('ref_type', '=', q.ref_type);
+  // Only the caller's own rows are ever matched (user_id above), so an id the caller
+  // cannot see simply yields an empty page.
+  if (q.ref_id) query = query.where('ref_id', '=', q.ref_id);
   if (pos) {
     const [at, id] = pos as [string, string];
     query = query.where((eb) =>
