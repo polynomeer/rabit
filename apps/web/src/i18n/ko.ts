@@ -121,6 +121,7 @@ export const ko = {
   'search.label': '검색어',
   'search.hint': '아티스트, 곡, 레이블을 찾아보세요. 내 개인 오디오도 함께 찾아요.',
   'search.results': '검색 결과',
+  'search.empty': '‘{query}’에 맞는 결과가 없어요. 다른 이름이나 철자로 찾아보세요.',
   'search.submit': '검색',
   'search.mine': '내 오디오',
 
@@ -386,6 +387,7 @@ export const ko = {
   'details.library.exists': '이미 라이브러리에 있습니다.',
   'details.library.failed': '저장하지 못했습니다.',
   'details.library.save': '라이브러리에 저장',
+  'details.library.savedLabel': '저장됨',
   'details.report.open': '정보가 잘못되었나요? 신고하기',
   'details.report.form': '신고',
   'details.report.received': '신고가 접수되었습니다. 검토 후 처리됩니다.',
