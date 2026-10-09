@@ -33,6 +33,11 @@ export function formatDate(value: string | Date): string {
   return new Date(value).toLocaleDateString(locale);
 }
 
+/** A month and year in the client's locale, e.g. "2026년 10월". */
+export function formatMonth(value: string | Date): string {
+  return new Date(value).toLocaleDateString(locale, { year: 'numeric', month: 'long' });
+}
+
 /** A date and time in the client's locale. */
 export function formatDateTime(value: string | Date): string {
   return new Date(value).toLocaleString(locale);

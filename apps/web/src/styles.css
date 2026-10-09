@@ -686,43 +686,341 @@ button.round.big {
 }
 
 /* ——— DIG ——— */
+.dig,
+.dig-home {
+  position: relative;
+}
+.dig::before,
+.dig-home::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -140px;
+  left: 0;
+  width: min(520px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
+  pointer-events: none;
+}
 .trail {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-bottom: 12px;
+}
+.trail .eyebrow {
+  margin-right: 4px;
+}
+.trail button {
+  min-height: 36px;
+  padding: 4px 12px;
+  border-radius: 12px;
 }
 .trail .current,
 [aria-selected='true'] {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--fg);
+  background: var(--accent-soft);
 }
+/* The current point: a centred mark with rings, its name and actions. */
+.node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 24px 0 8px;
+  text-align: center;
+}
+.node-mark {
+  position: relative;
+  margin-bottom: 18px;
+  border-radius: 50%;
+}
+.node-mark::before,
+.node-mark::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  pointer-events: none;
+}
+.node-mark::before {
+  inset: -12px;
+  opacity: 0.4;
+}
+.node-mark::after {
+  inset: -28px;
+  opacity: 0.18;
+}
+.node-mark .cover,
+.node-mark .entity-initial {
+  border-radius: 50% !important;
+}
+.node-name {
+  font-size: 1.4rem;
+}
+.node-name a {
+  color: var(--fg);
+  text-decoration: none;
+}
+.node .actions {
+  margin-top: 10px;
+  justify-content: center;
+}
+.entity-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--area-dig);
+  color: #ffffff;
+  font-weight: 600;
+}
+.entity-initial.kind-label {
+  background: var(--area-archive);
+}
+.entity-initial.kind-person {
+  background: var(--area-studio);
+}
+/* Axes: one card per group (People / Sound / History / Place). */
 .axes {
   display: grid;
-  gap: 8px;
-  margin: 12px 0;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 20px 0 12px;
 }
-.axes > div {
+.axis-group {
   display: flex;
-  gap: 6px;
   flex-wrap: wrap;
   align-items: center;
+  gap: 6px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
-.group {
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  color: var(--muted);
-  width: 80px;
+.axis-group.active {
+  border-color: var(--accent);
+}
+.axis-group .group {
+  flex-basis: 100%;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--fg);
+}
+.axis-group button {
+  min-height: 36px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
 }
 .filters {
   display: flex;
   gap: 16px;
   align-items: center;
   flex-wrap: wrap;
+  margin-bottom: 8px;
 }
-.node {
-  font-size: 1.1rem;
-  margin: 8px 0;
+/* Connections: why each one is linked is always shown; estimates have a dashed edge. */
+.connections {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.connections li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.connections li.basis-ml_inferred {
+  border-style: dashed;
+  border-color: var(--orange);
+}
+.conn-main {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.conn-main > strong a {
+  color: var(--fg);
+}
+.evidence {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+.evidence .icon {
+  align-self: center;
+}
+.evidence.basis-verified_fact .icon {
+  color: var(--ok);
+}
+.evidence.basis-ml_inferred .icon {
+  color: var(--warn);
+}
+.dig-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.dig-summary p {
+  margin: 0;
+}
+/* DIG home: modes side by side, then history. */
+.dig-home .lede {
+  margin-bottom: 4px;
+}
+.dig-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.dig-modes > .card {
+  margin: 0;
+}
+.section-title {
+  margin: 24px 0 8px;
+}
+.list.history li {
+  justify-content: flex-start;
+  align-items: center;
+}
+.history-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ——— Archive: filter chips, then items grouped by month ——— */
+.archive {
+  position: relative;
+}
+.archive::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -160px;
+  left: 0;
+  width: min(480px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(89, 97, 91, 0.45) 0%, transparent 68%);
+  pointer-events: none;
+}
+/* Radio buttons drawn as chips: the input stays the control, laid over its label. */
+.chips {
+  gap: 6px;
+  margin: 12px 0 8px;
+}
+.chips legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.chips label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.chips label input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.chips label:has(input:checked) {
+  border-color: var(--sage);
+  background: rgba(89, 97, 91, 0.22);
+  color: var(--fg);
+  font-weight: 600;
+}
+.chips label:has(input:focus-visible) {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.month-title {
+  margin: 24px 0 8px;
+}
+.archive-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.archive-list > li {
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.item-main {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.archive-list .actions {
+  flex-basis: 100%;
+  padding-left: 70px;
+}
+@media (max-width: 599px) {
+  .archive-list .actions {
+    padding-left: 0;
+  }
+}
+/* Wide screens: actions sit at the end of the row. */
+@media (min-width: 900px) {
+  .archive-list > li {
+    align-items: center;
+  }
+  .archive-list .actions {
+    flex-basis: auto;
+    padding-left: 0;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+}
+.item-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  color: var(--fg);
+}
+.item-tile.log {
+  background: rgba(235, 123, 76, 0.16);
+  color: var(--warn);
+}
+.card > h3:first-child {
+  margin-top: 0;
 }
 
 /* ——— Sign-in ——— */
