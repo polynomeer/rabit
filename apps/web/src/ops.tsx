@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get } from './api';
+import { Icon } from './brand';
 import { formatDate, formatDateTime, t, type MessageKey } from './i18n';
 import { entityHref, opsHref, OPS_SECTIONS, type OpsSection } from './route';
 
@@ -78,6 +79,7 @@ export function OpsConsole({ section }: { section: OpsSection }) {
   const valid = reason.trim().length >= 3;
   return (
     <section aria-labelledby="ops-h" className="ops">
+      <p className="eyebrow">Operator console</p>
       <h2 id="ops-h">{t('ops.heading')}</h2>
       <nav aria-label={t('ops.menu')} className="subnav">
         {OPS_SECTIONS.map((s) => (
@@ -86,8 +88,11 @@ export function OpsConsole({ section }: { section: OpsSection }) {
           </a>
         ))}
       </nav>
-      <label className="reason">
-        {t('ops.reason')}{' '}
+      <label className={valid ? 'reason' : 'reason missing'}>
+        <span className="reason-label">
+          <Icon name="ops" size={18} />
+          {t('ops.reason')}
+        </span>
         <input
           value={reason}
           onChange={(e) => {
