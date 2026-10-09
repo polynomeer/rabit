@@ -9,7 +9,7 @@ import {
 } from './api';
 import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { BlindDigPanel } from './blind';
-import { Cover, Icon } from './brand';
+import { Icon, Mark } from './brand';
 import { CrateDigPanel } from './crate';
 import { usePlayer } from './player';
 import { digSessionHref, entityHref, replaceRoute, tabHref } from './route';
@@ -421,25 +421,9 @@ const ENTITY_TEXT: Record<string, MessageKey> = {
   label: 'dig.entity.label',
 };
 
-/** First user-perceived character (grapheme), so Hangul and emoji stay whole. */
-function initial(name: string): string {
-  const first = new Intl.Segmenter().segment(name.trim())[Symbol.iterator]().next();
-  return first.done ? '?' : first.value.segment.toUpperCase();
-}
-
 /** Catalog items get their stand-in cover; people, artists and labels an initial. */
 function EntityMark({ entity, size }: { entity: EntitySummary; size: number }) {
-  if (entity.entity_type === 'recording' || entity.entity_type === 'release')
-    return <Cover id={entity.entity_id} size={size} round={size / 4} />;
-  return (
-    <span
-      className={`entity-initial kind-${entity.entity_type}`}
-      style={{ width: size, height: size, fontSize: size * 0.42 }}
-      aria-hidden="true"
-    >
-      {initial(entity.name)}
-    </span>
-  );
+  return <Mark id={entity.entity_id} kind={entity.entity_type} name={entity.name} size={size} />;
 }
 
 function Node({

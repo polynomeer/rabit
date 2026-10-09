@@ -183,3 +183,48 @@ export function Cover({ id, size, round = 12 }: { id: string; size: number; roun
     </svg>
   );
 }
+
+/** First user-perceived character (grapheme), so Hangul and emoji stay whole. */
+function initial(name: string): string {
+  const first = new Intl.Segmenter().segment(name.trim())[Symbol.iterator]().next();
+  return first.done ? '?' : first.value.segment.toUpperCase();
+}
+
+/**
+ * The small picture beside any item: a stand-in cover for catalog recordings and
+ * releases, an icon tile for private audio and Audio Logs, an initial for people,
+ * artists and labels. Always decorative — the item's title names it.
+ */
+export function Mark({
+  id,
+  kind,
+  name,
+  size,
+}: {
+  id: string;
+  kind: string;
+  name: string;
+  size: number;
+}) {
+  if (kind === 'recording' || kind === 'release')
+    return <Cover id={id} size={size} round={size / 4} />;
+  if (kind === 'audio_log' || kind === 'private_audio' || kind === 'audio_source')
+    return (
+      <span
+        className={kind === 'audio_log' ? 'item-tile log' : 'item-tile'}
+        style={{ width: size, height: size, borderRadius: size / 4 }}
+        aria-hidden="true"
+      >
+        <Icon name={kind === 'audio_log' ? 'mic' : 'studio'} size={Math.round(size * 0.4)} />
+      </span>
+    );
+  return (
+    <span
+      className={`entity-initial kind-${kind}`}
+      style={{ width: size, height: size, fontSize: size * 0.42 }}
+      aria-hidden="true"
+    >
+      {initial(name)}
+    </span>
+  );
+}

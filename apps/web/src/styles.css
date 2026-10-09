@@ -1023,6 +1023,152 @@ button.round.big {
   margin-top: 0;
 }
 
+/* ——— Rows: search results and playlist items ——— */
+.rows {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.rows > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-radius: 16px;
+}
+.rows > li:hover {
+  background: var(--surface);
+}
+.row-main {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.row-main > strong a {
+  color: var(--fg);
+}
+
+/* ——— Search ——— */
+.search-field.big {
+  max-width: none;
+  height: 60px;
+  padding: 0 8px 0 20px;
+  border-radius: 30px;
+  margin-bottom: 8px;
+}
+.search-field button[type='submit'] {
+  min-height: 44px;
+}
+
+/* ——— Playlists: list beside the open playlist on wide screens ——— */
+.create {
+  margin-bottom: 16px;
+}
+.pl-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-start;
+}
+.pl-list {
+  flex: 1 1 260px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.pl-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 16px;
+}
+.pl-list li.current {
+  background: var(--accent-soft);
+}
+.pl-name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.pl-name .link {
+  color: var(--fg);
+  font-weight: 600;
+  text-decoration: none;
+  text-align: left;
+}
+.pl-name .link:hover {
+  text-decoration: underline;
+}
+.pl-open {
+  flex: 999 1 420px;
+  min-width: 0;
+  margin: 0;
+}
+.pl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.pl-head h3 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+.pl-head p {
+  margin: 2px 0 10px;
+}
+
+/* ——— Account ——— */
+.profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  align-items: flex-start;
+}
+.profile-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.profile .facts {
+  flex: 1 1 280px;
+  margin: 0;
+  gap: 12px 24px;
+}
+.profile .facts .wide {
+  grid-column: 1 / -1;
+}
+.profile .facts dd {
+  font-weight: 600;
+}
+.profile meter {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: 8px;
+  margin: 4px 0;
+}
+.account .card h3 {
+  font-size: 1.1rem;
+}
+
 /* ——— Sign-in ——— */
 .signin {
   max-width: 420px;

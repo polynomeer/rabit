@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { api, get, sha256Hex, type LibraryItem } from './api';
 import { formatDateTime, formatMonth, t, type MessageKey } from './i18n';
-import { Cover, Icon } from './brand';
+import { Mark } from './brand';
 import { PhysicalCollection } from './collection';
 import { AddToPlaylist } from './playlist-add';
 import { Recorder } from './recorder';
@@ -403,12 +403,9 @@ function byMonth<T>(
 
 /** Catalog items show their stand-in cover; private audio and Audio Logs an icon tile. */
 function ItemMark({ item, isLog }: { item: LibraryItem; isLog: boolean }) {
-  if (item.ref_type !== 'audio_source') return <Cover id={item.ref_id} size={56} round={14} />;
-  return (
-    <span className={isLog ? 'item-tile log' : 'item-tile'} aria-hidden="true">
-      <Icon name={isLog ? 'mic' : 'studio'} size={22} />
-    </span>
-  );
+  const kind =
+    item.ref_type === 'audio_source' ? (isLog ? 'audio_log' : 'private_audio') : item.ref_type;
+  return <Mark id={item.ref_id} kind={kind} name={item.title ?? ''} size={56} />;
 }
 
 /** Archive: one library mixing private audio, Audio Logs and catalog items (BRD §10). */

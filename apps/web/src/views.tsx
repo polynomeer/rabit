@@ -12,6 +12,7 @@ import {
 } from './api';
 import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
+import { Cover, Icon, Mark } from './brand';
 import { Orders, SubscriptionPanel } from './purchase';
 import { entityHref, navigate, searchHref } from './route';
 
@@ -115,9 +116,11 @@ export function Playlists() {
   };
 
   return (
-    <section aria-labelledby="pl-h">
+    <section aria-labelledby="pl-h" className="playlists">
+      <p className="eyebrow">Library</p>
       <h2 id="pl-h">Playlists</h2>
       <form
+        className="inline create"
         onSubmit={(e) => {
           e.preventDefault();
           const title = (e.currentTarget.elements.namedItem('title') as HTMLInputElement).value;
@@ -133,121 +136,180 @@ export function Playlists() {
         />
         <button type="submit">{t('playlists.new.submit')}</button>
       </form>
-      <ul className="list">
-        {list.map((p) => (
-          <li key={p.playlist_id}>
-            <button type="button" className="link" onClick={() => void openPl(p.playlist_id)}>
-              {p.title}
-            </button>{' '}
-            <span className="muted">{t('playlists.itemCount', { count: p.item_count })}</span>
-          </li>
-        ))}
-      </ul>
       {msg ? <p role="status">{msg}</p> : null}
-      {open ? (
-        <div className="card">
-          <h3>{open.title}</h3>
-          <form
-            className="inline"
-            aria-label={t('playlists.rename.label')}
-            onSubmit={(e) => {
-              e.preventDefault();
-              const input = e.currentTarget.elements.namedItem('title') as HTMLInputElement;
-              const title = input.value.trim();
-              if (!title || title === open.title) return;
-              void mutate('PATCH', `/v1/playlists/${open.playlist_id}`, { title }).then(load);
-            }}
-          >
-            <label htmlFor={`pl-title-${open.playlist_id}`} className="visually-hidden">
-              {t('playlists.rename.field')}
-            </label>
-            <input
-              id={`pl-title-${open.playlist_id}`}
-              key={open.title}
-              name="title"
-              defaultValue={open.title}
-              maxLength={200}
-              required
-            />{' '}
-            <button type="submit">{t('playlists.rename.submit')}</button>{' '}
-            <button
-              type="button"
-              onClick={() => {
-                if (!etag || !confirm(t('playlists.delete.confirm', { title: open.title }))) return;
-                api('DELETE', `/v1/playlists/${open.playlist_id}`, undefined, {
-                  'if-match': etag,
-                }).then(
-                  () => {
-                    setOpen(null);
-                    setEtag(null);
-                    setMsg(t('playlists.delete.done'));
-                    load();
-                  },
-                  (e: unknown) => {
-                    setMsg(errorText(e));
-                  },
-                );
+      <div className="pl-layout">
+        <ul className="pl-list" aria-label={t('playlists.list')}>
+          {list.map((p) => (
+            <li
+              key={p.playlist_id}
+              className={open?.playlist_id === p.playlist_id ? 'current' : undefined}
+            >
+              <Cover id={p.playlist_id} size={48} round={12} />
+              <span className="pl-name">
+                <button type="button" className="link" onClick={() => void openPl(p.playlist_id)}>
+                  {p.title}
+                </button>
+                <span className="muted small">
+                  {t('playlists.itemCount', { count: p.item_count })}
+                </span>
+              </span>
+            </li>
+          ))}
+          {list.length === 0 ? <li className="muted">{t('playlists.empty')}</li> : null}
+        </ul>
+        {open ? (
+          <div className="card pl-open">
+            <div className="pl-head">
+              <Cover id={open.playlist_id} size={96} round={20} />
+              <div>
+                <h3>{open.title}</h3>
+                <p className="muted small">
+                  {t('playlists.itemCount', { count: open.item_count })}
+                </p>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={!open.items.some((i) => i.playability.playable)}
+                  onClick={() => {
+                    player.play(
+                      open.items.map(toEntry),
+                      open.items.findIndex((i) => i.playability.playable),
+                    );
+                  }}
+                >
+                  {t('playlists.playAll')}
+                </button>
+              </div>
+            </div>
+            <form
+              className="inline"
+              aria-label={t('playlists.rename.label')}
+              onSubmit={(e) => {
+                e.preventDefault();
+                const input = e.currentTarget.elements.namedItem('title') as HTMLInputElement;
+                const title = input.value.trim();
+                if (!title || title === open.title) return;
+                void mutate('PATCH', `/v1/playlists/${open.playlist_id}`, { title }).then(load);
               }}
             >
-              {t('playlists.delete.submit')}
-            </button>
-          </form>
-          <ol className="list">
-            {open.items.map((i, idx) => (
-              <li key={i.item_id}>
-                <div>
-                  <strong>
-                    <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
-                  </strong>{' '}
-                  <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
-                  <Status p={i.playability} />
-                </div>
-                <div className="actions">
-                  <button
-                    type="button"
-                    disabled={!i.playability.playable}
-                    onClick={() => {
-                      player.play(open.items.map(toEntry), idx);
-                    }}
-                  >
-                    {t('common.play')}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={t('playlists.item.up')}
-                    disabled={i.position === 0}
-                    onClick={() =>
-                      void mutate(
-                        'POST',
-                        `/v1/playlists/${open.playlist_id}/items/${i.item_id}/move`,
-                        { position: i.position - 1 },
-                      )
+              <label htmlFor={`pl-title-${open.playlist_id}`} className="visually-hidden">
+                {t('playlists.rename.field')}
+              </label>
+              <input
+                id={`pl-title-${open.playlist_id}`}
+                key={open.title}
+                name="title"
+                defaultValue={open.title}
+                maxLength={200}
+                required
+              />{' '}
+              <button type="submit">{t('playlists.rename.submit')}</button>{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!etag || !confirm(t('playlists.delete.confirm', { title: open.title })))
+                    return;
+                  api('DELETE', `/v1/playlists/${open.playlist_id}`, undefined, {
+                    'if-match': etag,
+                  }).then(
+                    () => {
+                      setOpen(null);
+                      setEtag(null);
+                      setMsg(t('playlists.delete.done'));
+                      load();
+                    },
+                    (e: unknown) => {
+                      setMsg(errorText(e));
+                    },
+                  );
+                }}
+              >
+                {t('playlists.delete.submit')}
+              </button>
+            </form>
+            <ol className="rows">
+              {open.items.map((i, idx) => (
+                <li key={i.item_id}>
+                  <Mark
+                    id={i.ref_id}
+                    kind={
+                      i.ref_type === 'audio_source'
+                        ? i.ownership === 'audio_log'
+                          ? 'audio_log'
+                          : 'private_audio'
+                        : i.ref_type
                     }
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void mutate('DELETE', `/v1/playlists/${open.playlist_id}/items/${i.item_id}`)
-                    }
-                  >
-                    {t('playlists.item.remove')}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ol>
-          {open.items_next_cursor ? (
-            <button type="button" onClick={() => void loadMore()}>
-              {t('playlists.more', { loaded: open.items.length, total: open.item_count })}
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+                    name={i.title ?? ''}
+                    size={44}
+                  />
+                  <div className="row-main">
+                    <strong>
+                      <ItemTitle refType={i.ref_type} refId={i.ref_id} title={i.title} />
+                    </strong>{' '}
+                    <span className="muted">{i.subtitle}</span> <Ownership o={i.ownership} />{' '}
+                    <Status p={i.playability} />
+                  </div>
+                  <div className="actions">
+                    <button
+                      type="button"
+                      disabled={!i.playability.playable}
+                      onClick={() => {
+                        player.play(open.items.map(toEntry), idx);
+                      }}
+                    >
+                      {t('common.play')}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('playlists.item.up')}
+                      disabled={i.position === 0}
+                      onClick={() =>
+                        void mutate(
+                          'POST',
+                          `/v1/playlists/${open.playlist_id}/items/${i.item_id}/move`,
+                          { position: i.position - 1 },
+                        )
+                      }
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void mutate(
+                          'DELETE',
+                          `/v1/playlists/${open.playlist_id}/items/${i.item_id}`,
+                        )
+                      }
+                    >
+                      {t('playlists.item.remove')}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {open.items_next_cursor ? (
+              <button type="button" onClick={() => void loadMore()}>
+                {t('playlists.more', { loaded: open.items.length, total: open.item_count })}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }
+
+/** Search result kind → label (unknown kinds show as sent). */
+const KIND_TEXT: Record<string, MessageKey> = {
+  recording: 'common.recording',
+  release: 'common.release',
+  artist: 'dig.entity.artist',
+  person: 'dig.entity.person',
+  label: 'dig.entity.label',
+  private_audio: 'ownership.private',
+  audio_log: 'ownership.audio_log',
+};
 
 export function Search({ query, onDig }: { query: string; onDig: (entityId: string) => void }) {
   const player = usePlayer();
@@ -276,18 +338,22 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
     };
   }, [query]);
   return (
-    <section aria-labelledby="search-h">
+    <section aria-labelledby="search-h" className="search">
+      <p className="eyebrow">Listen</p>
       <h2 id="search-h">Search</h2>
       <form
         role="search"
+        className="search-field big"
         onSubmit={(e) => {
           e.preventDefault();
           const q = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim();
           if (q) navigate(searchHref(q));
         }}
       >
+        <Icon name="search" size={20} />
         <input
           name="q"
+          type="search"
           placeholder={t('search.placeholder')}
           required
           maxLength={200}
@@ -297,15 +363,21 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
         />
         <button type="submit">{t('search.submit')}</button>
       </form>
-      <ul className="list">
+      {query ? null : <p className="muted">{t('search.hint')}</p>}
+      <ul className="rows" aria-label={t('search.results')}>
         {results.map((r) => (
           <li key={r.id}>
-            <div>
+            <Mark id={r.id} kind={r.kind} name={r.title} size={52} />
+            <div className="row-main">
               <strong>
                 {r.scope === 'catalog' ? <a href={entityHref(r.id)}>{r.title}</a> : r.title}
-              </strong>{' '}
-              <span className="muted">{r.subtitle}</span>{' '}
-              <span className="badge">{r.scope === 'mine' ? t('search.mine') : r.kind}</span>
+              </strong>
+              <span className="muted small">
+                {r.subtitle}
+                {r.subtitle ? ' · ' : ''}
+                {tCode(KIND_TEXT, r.kind)}
+                {r.scope === 'mine' ? ` · ${t('search.mine')}` : ''}
+              </span>
             </div>
             <div className="actions">
               {r.kind === 'recording' || r.kind === 'private_audio' || r.kind === 'audio_log' ? (
@@ -487,29 +559,52 @@ export function Account() {
   }, []);
   const quota = me?.quota;
   return (
-    <section aria-labelledby="acct-h">
+    <section aria-labelledby="acct-h" className="account">
       <h2 id="acct-h">Account</h2>
       {me ? (
-        <dl className="card">
-          <dt>{t('account.subscription')}</dt>
-          <dd>{tCode(SUB_STATE, me.subscription_state)}</dd>
-          <dt>{t('account.licenseCountry')}</dt>
-          <dd>{me.license_country ?? t('account.licenseCountry.unset')}</dd>
-          <dt>{t('account.supportId')}</dt>
-          <dd>
-            <code>{me.user_id}</code>
-            <span className="small muted"> {t('account.supportId.hint')}</span>
-          </dd>
-          <dt>{t('account.storage')}</dt>
-          <dd>
-            {quota
-              ? t('account.storage.usage', {
-                  used: (quota.used_bytes / 1024 ** 2).toFixed(1),
-                  max: (quota.max_total_bytes / 1024 ** 3).toFixed(1),
-                })
-              : ''}
-          </dd>
-        </dl>
+        <div className="card profile">
+          <span className="profile-mark" aria-hidden="true">
+            <Icon name="account" size={28} />
+          </span>
+          <dl className="facts">
+            <div>
+              <dt>{t('account.subscription')}</dt>
+              <dd>{tCode(SUB_STATE, me.subscription_state)}</dd>
+            </div>
+            <div>
+              <dt>{t('account.licenseCountry')}</dt>
+              <dd>{me.license_country ?? t('account.licenseCountry.unset')}</dd>
+            </div>
+            <div>
+              <dt>{t('account.storage')}</dt>
+              <dd>
+                {quota ? (
+                  <>
+                    <meter
+                      min={0}
+                      max={quota.max_total_bytes}
+                      value={quota.used_bytes}
+                      aria-label={t('account.storage')}
+                    />
+                    <span className="small">
+                      {t('account.storage.usage', {
+                        used: (quota.used_bytes / 1024 ** 2).toFixed(1),
+                        max: (quota.max_total_bytes / 1024 ** 3).toFixed(1),
+                      })}
+                    </span>
+                  </>
+                ) : null}
+              </dd>
+            </div>
+            <div className="wide">
+              <dt>{t('account.supportId')}</dt>
+              <dd>
+                <code>{me.user_id}</code>
+                <span className="small muted"> {t('account.supportId.hint')}</span>
+              </dd>
+            </div>
+          </dl>
+        </div>
       ) : null}
       <Entitlements />
       <SubscriptionPanel />
