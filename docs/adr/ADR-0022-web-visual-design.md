@@ -32,7 +32,11 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 ## Consequences
 - Browser E2E tests open Studio to upload and the Archive to inspect the result; the mobile test covers all seven entries.
 - Screen-specific redesigns follow on the same tokens. Done: Now Playing (`#/now`) with custom controls (play/pause, previous/next, a labelled position slider) driving a control-less `<audio>` element; album and recording pages with covers; DIG (centred current point, one card per axis group, connection cards where estimates have a dashed edge and every card states its reason); Archive (view chips that remain radio buttons, items grouped by month of `saved_at` or an Audio Log's `recorded_at`).
-- The catalog has no artwork yet; covers are deterministic brand-palette compositions per release (`Cover`), decorative only. Real artwork replaces them when the catalog carries images.
+- The catalog has no artwork yet; covers are deterministic brand-palette compositions per release (`Cover`), decorative only. A track's cover is its **primary release**'s (`primary_release_id`: earliest-dated release, undated last, ties by id), returned on recording summaries, search results and library/playlist items, so a track looks the same on every screen. Real artwork should use the same key when the catalog carries images.
+- Private audio and Audio Logs never get an album-style cover: they show an icon tile (`Mark`), also in the player.
+- Queue entries can be `hidden` (Blind Digging, DIG-010): the player then shows a neutral tile and no album, DIG or credits links, so playing a blind track never reveals it before Keep/Pass. New player surfaces must honour this flag.
+- Save buttons on detail pages show the saved state on load via `GET /v1/library?ref_id=`; list views (search results) skip that lookup to stay within the per-user rate limit.
+- Studio shows upload steps (decorative; the status line remains the announced text) and the owner's five newest private items.
 - Ownership badges carry a per-source class (`own-<code>`); the text label stays the primary signal (NFR-A11Y-003).
 
 ## Revisit trigger
