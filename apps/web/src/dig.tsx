@@ -260,6 +260,7 @@ export function DigSessionView({ id }: { id: string }) {
                       title: node.entity.name,
                       subtitle: node.entity.subtitle,
                       recording_id: node.entity.entity_id,
+                      cover_id: node.entity.primary_release_id ?? undefined,
                     },
                   ]);
                   void act(node.seq, 'played');
@@ -358,6 +359,7 @@ export function DigSessionView({ id }: { id: string }) {
                         title: c.entity.name,
                         subtitle: c.entity.subtitle,
                         recording_id: c.entity.entity_id,
+                        cover_id: c.entity.primary_release_id ?? undefined,
                       },
                     ]);
                   }}
@@ -423,7 +425,14 @@ const ENTITY_TEXT: Record<string, MessageKey> = {
 
 /** Catalog items get their stand-in cover; people, artists and labels an initial. */
 function EntityMark({ entity, size }: { entity: EntitySummary; size: number }) {
-  return <Mark id={entity.entity_id} kind={entity.entity_type} name={entity.name} size={size} />;
+  return (
+    <Mark
+      id={entity.primary_release_id ?? entity.entity_id}
+      kind={entity.entity_type}
+      name={entity.name}
+      size={size}
+    />
+  );
 }
 
 function Node({

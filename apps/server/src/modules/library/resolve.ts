@@ -15,6 +15,8 @@ export type Ownership = 'private' | 'audio_log' | 'streaming' | 'purchased' | 'g
 export interface ResolvedRef {
   title: string | null;
   subtitle: string | null;
+  /** Catalog recordings only: their primary release (the artwork key). */
+  primary_release_id?: string | null;
   ownership: Ownership | null;
   playability: { playable: boolean; reason: DenyReason | 'no_audio' | 'deleted' | null };
 }
@@ -24,6 +26,9 @@ const ORIGIN_LABEL = {
   purchase: 'purchased',
   grant: 'granted',
 } as const;
+
+const primaryOf = (s: { primary_release_id?: string | null }) =>
+  s.primary_release_id === undefined ? {} : { primary_release_id: s.primary_release_id };
 
 const UNRESOLVED = (reason: 'not_found' | 'deleted'): ResolvedRef => ({
   title: null,
@@ -121,6 +126,7 @@ export async function resolveRefs(
         return {
           title: summary.name,
           subtitle: summary.subtitle,
+          ...primaryOf(summary),
           ownership: d.entitlement ? ORIGIN_LABEL[d.entitlement.origin] : 'streaming',
           playability: { playable: true, reason: null },
         };
@@ -130,6 +136,7 @@ export async function resolveRefs(
     return {
       title: summary.name,
       subtitle: summary.subtitle,
+      ...primaryOf(summary),
       ownership: 'streaming',
       playability: { playable: false, reason: firstDenial },
     };

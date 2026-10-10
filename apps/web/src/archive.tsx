@@ -431,7 +431,14 @@ function byMonth<T>(
 function ItemMark({ item, isLog }: { item: LibraryItem; isLog: boolean }) {
   const kind =
     item.ref_type === 'audio_source' ? (isLog ? 'audio_log' : 'private_audio') : item.ref_type;
-  return <Mark id={item.ref_id} kind={kind} name={item.title ?? ''} size={56} />;
+  return (
+    <Mark
+      id={item.primary_release_id ?? item.ref_id}
+      kind={kind}
+      name={item.title ?? ''}
+      size={56}
+    />
+  );
 }
 
 /** Archive: one library mixing private audio, Audio Logs and catalog items (BRD §10). */

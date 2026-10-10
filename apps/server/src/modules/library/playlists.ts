@@ -71,6 +71,7 @@ async function itemsPage(
         ref_id: i.ref_id,
         title: r.title,
         subtitle: r.subtitle,
+        ...(r.primary_release_id === undefined ? {} : { primary_release_id: r.primary_release_id }),
         ownership: r.ownership,
         playability: r.playability,
         added_at: i.added_at.toISOString(),

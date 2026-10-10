@@ -1,6 +1,7 @@
 import { sql } from 'kysely';
 import type { AppContext } from '../../app/context.js';
 import type { Principal } from '../../platform/http/principal.js';
+import { primaryReleases } from '../catalog/index.js';
 import { workspaceIdsOf } from '../identity/index.js';
 import { normalize } from './indexer.js';
 
@@ -87,6 +88,10 @@ export async function search(
     .limit(q.limit + 1)
     .execute();
   const page = rows.slice(0, q.limit);
+  const primary = await primaryReleases(
+    ctx.db,
+    page.filter((r) => r.doc_kind === 'recording').map((r) => r.id),
+  );
   return {
     items: page.map((r) => ({
       kind: r.doc_kind,
@@ -95,6 +100,7 @@ export async function search(
       subtitle: r.subtitle,
       match: r.exact ? 'exact' : r.text_hit ? 'text' : 'fuzzy',
       scope: r.visibility === 'private' ? 'mine' : 'catalog',
+      ...(r.doc_kind === 'recording' ? { primary_release_id: primary.get(r.id) ?? null } : {}),
     })),
     next_cursor: rows.length > q.limit ? ctx.cursors.encode(scopeKey, [offset + q.limit]) : null,
   };

@@ -119,11 +119,13 @@ export const toEntry = (i: {
   title: string | null;
   subtitle: string | null;
   ownership: string | null;
+  primary_release_id?: string | null;
 }): QueueEntry => ({
   key: `${i.ref_type}:${i.ref_id}`,
   title: i.title ?? t('common.untitled'),
   subtitle: i.subtitle,
   ownership: i.ownership,
+  cover_id: i.primary_release_id ?? undefined,
   ...(i.ref_type === 'audio_source' ? { audio_source_id: i.ref_id } : { recording_id: i.ref_id }),
 });
 
@@ -295,7 +297,7 @@ export function Playlists() {
               {open.items.map((i, idx) => (
                 <li key={i.item_id}>
                   <Mark
-                    id={i.ref_id}
+                    id={i.primary_release_id ?? i.ref_id}
                     kind={
                       i.ref_type === 'audio_source'
                         ? i.ownership === 'audio_log'
@@ -385,6 +387,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
       subtitle: string | null;
       match: string;
       scope: string;
+      primary_release_id?: string | null;
     }[]
   >([]);
   const [loading, setLoading] = useState(false);
@@ -453,7 +456,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
       <ul className="rows" aria-label={t('search.results')}>
         {results.map((r) => (
           <li key={r.id}>
-            <Mark id={r.id} kind={r.kind} name={r.title} size={52} />
+            <Mark id={r.primary_release_id ?? r.id} kind={r.kind} name={r.title} size={52} />
             <div className="row-main">
               <strong>
                 {r.scope === 'catalog' ? <a href={entityHref(r.id)}>{r.title}</a> : r.title}
@@ -476,7 +479,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
                         title: r.title,
                         subtitle: r.subtitle,
                         ...(r.kind === 'recording'
-                          ? { recording_id: r.id }
+                          ? { recording_id: r.id, cover_id: r.primary_release_id ?? undefined }
                           : { audio_source_id: r.id }),
                       },
                     ]);

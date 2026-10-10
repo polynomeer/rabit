@@ -1,3 +1,4 @@
+import { sql } from 'kysely';
 import type { DbOrTx } from '../../platform/db/db.js';
 import type { EntityType } from '../../platform/db/schema.js';
 import { errors } from '../../platform/errors.js';
@@ -7,6 +8,32 @@ export interface EntitySummary {
   entity_type: EntityType;
   name: string;
   subtitle: string | null;
+  /** Recordings only: the release whose artwork represents the track (see primaryReleases). */
+  primary_release_id?: string | null;
+}
+
+/**
+ * A recording's primary release: its earliest-dated release, ties (and undated ones,
+ * last) broken by id. Used wherever a track needs one album, e.g. for its artwork.
+ */
+export async function primaryReleases(
+  db: DbOrTx,
+  recordingIds: string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(recordingIds)];
+  if (unique.length === 0) return new Map();
+  const rows = await db
+    .selectFrom('release_track as t')
+    .innerJoin('release as r', 'r.id', 't.release_id')
+    .select(['t.recording_id', 'r.id as release_id'])
+    .where('t.recording_id', 'in', unique)
+    .orderBy('t.recording_id')
+    .orderBy(sql`r.release_date asc nulls last`)
+    .orderBy('r.id')
+    .execute();
+  const out = new Map<string, string>();
+  for (const r of rows) if (!out.has(r.recording_id)) out.set(r.recording_id, r.release_id);
+  return out;
 }
 
 /** Ordered artist names for recordings/releases, keyed by subject id. */
@@ -55,9 +82,10 @@ export async function entitySummaries(
     .execute();
   const recs = rows.filter((r) => r.entity_type === 'recording').map((r) => r.id);
   const rels = rows.filter((r) => r.entity_type === 'release').map((r) => r.id);
-  const [ra, la] = await Promise.all([
+  const [ra, la, primary] = await Promise.all([
     artistNames(db, 'recording', recs),
     artistNames(db, 'release', rels),
+    primaryReleases(db, recs),
   ]);
   const out = new Map<string, EntitySummary>();
   for (const r of rows) {
@@ -72,6 +100,7 @@ export async function entitySummaries(
       entity_type: r.entity_type,
       name: r.display_name,
       subtitle: artists && artists.length > 0 ? artists.map((a) => a.name).join(', ') : null,
+      ...(r.entity_type === 'recording' ? { primary_release_id: primary.get(r.id) ?? null } : {}),
     });
   }
   return out;
@@ -124,9 +153,12 @@ export async function getRecording(db: DbOrTx, id: string) {
   const releases = await db
     .selectFrom('release_track as t')
     .innerJoin('release as r', 'r.id', 't.release_id')
-    .select(['r.id as release_id', 'r.title'])
+    .select(['r.id as release_id', 'r.title', 'r.release_date'])
     .where('t.recording_id', '=', id)
     .distinct()
+    // Primary release first (same order as primaryReleases).
+    .orderBy(sql`r.release_date asc nulls last`)
+    .orderBy('r.id')
     .execute();
   return {
     recording_id: rec.id,
@@ -134,7 +166,7 @@ export async function getRecording(db: DbOrTx, id: string) {
     artists: await artistsOf(db, 'recording', id),
     duration_ms: rec.duration_ms,
     isrc: rec.isrc,
-    releases,
+    releases: releases.map((r) => ({ release_id: r.release_id, title: r.title })),
     catalog_audio_source_id: rec.catalog_audio_source_id,
   };
 }

@@ -1542,6 +1542,7 @@ components:
         isrc: { type: [string, 'null'] }
         releases:
           type: array
+          description: Primary release first (earliest date; undated last; ties by id), the same choice as primary_release_id elsewhere.
           items: { type: object, required: [release_id, title], properties: { release_id: { $ref: '#/components/schemas/Id' }, title: { type: string } } }
         playability: { $ref: '#/components/schemas/Playability' }
     Release:
@@ -1574,6 +1575,7 @@ components:
         entity_type: { type: string, enum: [artist, person, label, release, recording] }
         name: { type: string }
         subtitle: { type: [string, 'null'] }
+        primary_release_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ], description: "Recordings only: the earliest-dated release carrying the track (ties and undated last, by id); the album whose artwork represents it" }
 
     Passport:
       type: object
@@ -1646,6 +1648,7 @@ components:
         origin: { type: string, enum: [uploaded, logged, saved] }
         title: { type: [string, 'null'] }
         subtitle: { type: [string, 'null'] }
+        primary_release_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ], description: "Catalog recordings only: see EntitySummary.primary_release_id" }
         note: { type: [string, 'null'] }
         saved_at: { $ref: '#/components/schemas/Timestamp' }
         ownership: { type: string, enum: [private, audio_log, streaming, purchased, granted], description: Ownership/source status label (BRD Ownership Visible) }
@@ -1753,6 +1756,7 @@ components:
         ref_id: { $ref: '#/components/schemas/Id' }
         title: { type: [string, 'null'] }
         subtitle: { type: [string, 'null'] }
+        primary_release_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ], description: "Catalog recordings only: see EntitySummary.primary_release_id" }
         ownership: { type: [string, 'null'], enum: [null, private, audio_log, streaming, purchased, granted] }
         playability: { $ref: '#/components/schemas/Playability' }
         added_at: { $ref: '#/components/schemas/Timestamp' }
@@ -2234,6 +2238,7 @@ components:
         subtitle: { type: [string, 'null'] }
         match: { type: string, enum: [exact, text, fuzzy] }
         scope: { type: string, enum: [catalog, mine] }
+        primary_release_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ], description: "kind=recording only: see EntitySummary.primary_release_id" }
     SearchPage:
       type: object
       required: [items, next_cursor]
