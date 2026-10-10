@@ -14,6 +14,7 @@ import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
 import { Cover, Icon, Mark } from './brand';
 import { Orders, SubscriptionPanel } from './purchase';
+import { setTheme, storedTheme, THEMES, type Theme } from './theme';
 import { entityHref, navigate, searchHref } from './route';
 
 export function Status({ p }: { p: Playability }) {
@@ -686,6 +687,7 @@ export function Account() {
           </dl>
         </div>
       ) : null}
+      <ThemeChoice />
       <Entitlements />
       <SubscriptionPanel />
       <Orders />
@@ -727,6 +729,40 @@ export function Account() {
         ) : null}
       </div>
       <DeleteAccount />
+    </section>
+  );
+}
+
+const THEME_TEXT: Record<Theme, MessageKey> = {
+  system: 'account.theme.system',
+  dark: 'account.theme.dark',
+  light: 'account.theme.light',
+};
+
+/** Dark, light or the device setting; stored on this device only. */
+function ThemeChoice() {
+  const [theme, setChoice] = useState<Theme>(storedTheme);
+  return (
+    <section className="card" aria-labelledby="theme-h">
+      <h3 id="theme-h">{t('account.theme.heading')}</h3>
+      <fieldset className="chips">
+        <legend>{t('account.theme.heading')}</legend>
+        {THEMES.map((v) => (
+          <label key={v}>
+            <input
+              type="radio"
+              name="theme"
+              checked={theme === v}
+              onChange={() => {
+                setChoice(v);
+                setTheme(v);
+              }}
+            />
+            {t(THEME_TEXT[v])}
+          </label>
+        ))}
+      </fieldset>
+      <p className="small muted">{t('account.theme.note')}</p>
     </section>
   );
 }
