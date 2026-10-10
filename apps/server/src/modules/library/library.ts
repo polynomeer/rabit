@@ -41,6 +41,7 @@ function itemView(row: ItemRow, r: ResolvedRef) {
     origin: row.origin,
     title: r.title,
     subtitle: r.subtitle,
+    ...(r.primary_release_id === undefined ? {} : { primary_release_id: r.primary_release_id }),
     note: row.note,
     saved_at: row.saved_at.toISOString(),
     ownership: r.ownership ?? 'private',

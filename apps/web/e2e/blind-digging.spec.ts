@@ -43,4 +43,11 @@ test('plays a track with its identity hidden, then reveals it after Keep or Pass
     await expect(revealed.getByRole('listitem')).toHaveCount(2);
     await expect(revealed.getByRole('listitem').nth(1)).toContainText('Pass');
   }
+
+  // The player still holds the blind entry: Now Playing shows no cover of the track and
+  // no links to its DIG, credits or album page.
+  await page.getByRole('link', { name: /재생 화면 열기/ }).click();
+  const now = page.getByRole('region', { name: '블라인드 곡' });
+  await expect(now).toBeVisible();
+  await expect(now.getByRole('link')).toHaveCount(0);
 });

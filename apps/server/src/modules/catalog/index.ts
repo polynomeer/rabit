@@ -13,6 +13,7 @@ export {
   getRelease,
   creditsOf,
   artistsOf,
+  primaryReleases,
   type EntitySummary,
 } from './entities.js';
 export { activeGrant, activeGrants, createGrant } from './rights.js';

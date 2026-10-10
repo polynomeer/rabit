@@ -32,7 +32,7 @@ export function NowPlaying() {
           <h2 id="now-h">{current.title}</h2>
           <p className="muted">
             {current.subtitle}
-            {current.cover_id?.startsWith('rel_') ? (
+            {!current.hidden && current.cover_id?.startsWith('rel_') ? (
               <>
                 {current.subtitle ? ' · ' : ''}
                 <a href={entityHref(current.cover_id)}>{t('now.album')}</a>
@@ -83,7 +83,7 @@ export function NowPlaying() {
           {player.message}
         </p>
       ) : null}
-      {current.recording_id ? (
+      {current.recording_id && !current.hidden ? (
         <div className="now-actions">
           <a className="dig-cta" href={digHref(current.recording_id)}>
             <RabitSymbol size={22} />

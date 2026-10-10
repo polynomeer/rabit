@@ -88,6 +88,34 @@ describe('catalog and playability (ADR-0016)', () => {
     expect(await reason(subscriber, id('r4'))).toEqual({ playable: false, reason: 'no_audio' });
   });
 
+  it("names a recording's primary release the same way everywhere (artwork key)", async () => {
+    const u = await listener({ country: 'KR', subscribe: true });
+    const get = (url: string) => h.api.inject({ url, headers: u.headers });
+    const rec = (await get(`/v1/recordings/${id('r1')}`)).json();
+    expect(rec.releases[0].release_id).toBe(id('album'));
+    const ent = (await get(`/v1/entities/${id('r1')}`)).json();
+    expect(ent.primary_release_id).toBe(id('album'));
+    // An undated release still counts; non-recordings carry no such field.
+    expect((await get(`/v1/entities/${id('r3')}`)).json().primary_release_id).toBe(id('single'));
+    expect((await get(`/v1/entities/${id('album')}`)).json()).not.toHaveProperty(
+      'primary_release_id',
+    );
+    const hits = (await get(`/v1/search?q=${encodeURIComponent(rec.title)}&types=recording`)).json()
+      .items;
+    expect(hits.find((i: { id: string }) => i.id === id('r1'))?.primary_release_id).toBe(
+      id('album'),
+    );
+    // Library items carry it too (Archive and playlists show the same cover).
+    await h.api.inject({
+      method: 'POST',
+      url: '/v1/library',
+      headers: u.headers,
+      payload: { ref_type: 'recording', ref_id: id('r1') },
+    });
+    const saved = (await get(`/v1/library?ref_id=${id('r1')}`)).json().items[0];
+    expect(saved.primary_release_id).toBe(id('album'));
+  });
+
   it('returns releases with ordered tracks and per-track playability', async () => {
     const u = await listener({ country: 'KR', subscribe: true });
     const rel = (

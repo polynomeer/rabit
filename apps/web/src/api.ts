@@ -120,6 +120,7 @@ export interface LibraryItem {
   origin: string;
   title: string | null;
   subtitle: string | null;
+  primary_release_id?: string | null;
   saved_at: string;
   ownership: string;
   playability: Playability;
@@ -131,6 +132,7 @@ export interface PlaylistItem {
   ref_id: string;
   title: string | null;
   subtitle: string | null;
+  primary_release_id?: string | null;
   ownership: string | null;
   playability: Playability;
 }
@@ -147,6 +149,8 @@ export interface EntitySummary {
   entity_type: 'artist' | 'person' | 'label' | 'release' | 'recording';
   name: string;
   subtitle: string | null;
+  /** Recordings: the album whose (stand-in) cover represents the track. */
+  primary_release_id?: string | null;
 }
 export interface Evidence {
   basis: 'verified_fact' | 'declared' | 'ml_inferred';
