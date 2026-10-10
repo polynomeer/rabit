@@ -23,7 +23,11 @@ import { NowPlaying } from './nowplaying';
 import { Studio } from './studio';
 import { t } from './i18n';
 import { Account, Playlists, Search } from './views';
+import { applyTheme, storedTheme } from './theme';
 import './styles.css';
+
+// Before the first render, so a chosen theme never flashes the OS one.
+applyTheme(storedTheme());
 
 const TAB_ICON: Record<Tab, IconName> = {
   Home: 'home',

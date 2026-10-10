@@ -31,8 +31,11 @@
     system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
   color-scheme: dark;
 }
+/* Light Canvas tokens: from the OS setting unless the viewer chose a theme (Account),
+   in which case <html data-theme> wins. Kept in two blocks: a media query cannot
+   share a rule with a plain selector. */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme='dark']) {
     --bg: var(--canvas);
     --fg: var(--ink);
     --muted: #5b5852;
@@ -50,6 +53,24 @@
     --warn: #9a3f12;
     color-scheme: light;
   }
+}
+:root[data-theme='light'] {
+  --bg: var(--canvas);
+  --fg: var(--ink);
+  --muted: #5b5852;
+  --surface: #ffffff;
+  --surface-2: #ebe7e0;
+  --line: #dcd7cf;
+  --accent: #5a48aa;
+  --accent-soft: rgba(120, 101, 200, 0.14);
+  --area-dig: #4b3f8f;
+  --area-archive: #4a524c;
+  --area-studio: #9a3f12;
+  --glow: rgba(120, 101, 200, 0.16);
+  --glow-sage: rgba(89, 97, 91, 0.12);
+  --ok: #1f6b33;
+  --warn: #9a3f12;
+  color-scheme: light;
 }
 * {
   box-sizing: border-box;

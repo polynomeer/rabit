@@ -26,6 +26,7 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - **Studio** (`#/studio`) holds the upload form and the Audio Log recorder that used to sit at the top of the Archive. The Archive keeps the library list and links to Studio.
 - **Atlas** is not shown anywhere until its P2 work starts.
 - **Theme.** Dark is the default (BRD §15 "dark premium"); the light Canvas scheme follows `prefers-color-scheme`. Tokens live in `apps/web/src/styles.css`; `--accent` is the AA text/outline colour per scheme and filled controls use Rabit Purple with white text (4.7:1).
+  - *Amended 2026-10-10 (owner request):* viewers can choose 기기 설정 / 다크 / 라이트 under Account. The choice is stored per device (`localStorage`, no account setting yet) and applied as `<html data-theme>`, which overrides `prefers-color-scheme`; the default stays the device setting.
 - **Fonts.** The system stack (`system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif`). No web fonts, no CSP change. OQ-BRD-01 stays open.
 - **Symbol.** `RabitSymbol` in `apps/web/src/brand.tsx` is a working SVG redraw of the identity board (the eye is an even-odd hole, so it needs no element ids). It is replaced when the final vector is delivered (OQ-BRD-05).
 

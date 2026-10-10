@@ -150,6 +150,11 @@ export const ko = {
   'account.entitlements.empty': '이용권이 없습니다.',
   'account.entitlements.note':
     'CD나 파일을 갖고 있어도 카탈로그 음원 이용권이 생기지 않습니다. 이용권은 구독·구매·부여로만 생깁니다.',
+  'account.theme.heading': '화면 테마',
+  'account.theme.system': '기기 설정',
+  'account.theme.dark': '다크',
+  'account.theme.light': '라이트',
+  'account.theme.note': '이 기기에만 저장돼요.',
   'account.subscription': '구독',
   'account.licenseCountry': '라이선스 지역',
   'account.licenseCountry.unset': '미설정',
