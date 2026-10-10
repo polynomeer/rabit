@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p e2e/tsconfig.json",
-    "test": "echo 'web: no unit tests (verified via API contract + manual smoke)'",
+    "test": "node scripts/contrast.mjs",
+    "contrast": "node scripts/contrast.mjs",
     "e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "dependencies": {
