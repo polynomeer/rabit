@@ -25,6 +25,11 @@ export interface QueueEntry {
   recording_id?: string | undefined;
   /** Which stand-in cover to show (the release's, when known). */
   cover_id?: string | undefined;
+  /**
+   * Blind Digging: the track's identity is hidden until Keep/Pass, so the player shows
+   * no cover and no links that would reveal it (DIG-010).
+   */
+  hidden?: boolean | undefined;
 }
 
 /** The cover shown for a queue entry: its release when known, else the item itself. */
@@ -36,6 +41,7 @@ export const coverOf = (e: QueueEntry): string =>
  * and Audio Logs the same icon tile as in Studio and the Archive (never an album look).
  */
 export function EntryArt({ entry, size }: { entry: QueueEntry; size: number }) {
+  if (entry.hidden) return <Mark id="hidden" kind="hidden" name="?" size={size} />;
   if (entry.audio_source_id)
     return (
       <Mark

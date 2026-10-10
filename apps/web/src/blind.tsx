@@ -113,6 +113,7 @@ export function BlindDigPanel({ startEntityId }: { startEntityId?: string }) {
                     title: t('blind.hiddenTitle'),
                     subtitle: null,
                     recording_id: current.recording_id,
+                    hidden: true,
                   },
                 ]);
               }}
