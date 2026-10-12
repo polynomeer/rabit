@@ -66,6 +66,14 @@ export function Recorder({ onRecorded }: { onRecorded: (file: File | null) => vo
       stream.getTracks().forEach((tr) => {
         tr.stop();
       });
+      // No audio frames reached the recorder (e.g. the browser's audio clock never
+      // ran): an empty file would only be rejected by the upload, so say so here.
+      if (!chunks.some((c) => c.size > 0)) {
+        setError(t('recorder.empty'));
+        setState('idle');
+        onRecorded(null);
+        return;
+      }
       const type = format.mime.split(';')[0] ?? format.mime;
       const stamp = new Date(startedAt).toISOString().replace(/[:.]/g, '-');
       // lastModified carries the start time: the Audio Log's recorded_at (LOG-005).

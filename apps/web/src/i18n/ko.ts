@@ -188,6 +188,7 @@ export const ko = {
   'archive.upload.processingFailed': '처리 실패: {code}',
   'archive.upload.adding': '보관함에 추가하는 중…',
   'archive.upload.failed': '실패: {error}',
+  'archive.upload.empty': '빈 파일은 올릴 수 없습니다.',
   'archive.upload.form': '오디오 업로드',
   'archive.upload.title': '업로드',
   'archive.upload.kind': '종류',
@@ -204,6 +205,7 @@ export const ko = {
   'recorder.discard': '다시 녹음',
   'recorder.denied':
     '마이크를 쓸 수 없습니다. 브라우저에서 마이크 권한을 허용한 뒤 다시 시도하세요. 파일 업로드는 그대로 쓸 수 있습니다.',
+  'recorder.empty': '녹음된 소리가 없습니다. 마이크와 오디오 장치를 확인한 뒤 다시 녹음하세요.',
   'recorder.unsupported':
     '이 브라우저는 지원하는 형식(MP4·Ogg)으로 녹음할 수 없습니다. 녹음 파일을 직접 올려 주세요.',
   'archive.log.linked': '연결 곡 (선택)',
