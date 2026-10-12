@@ -25,6 +25,10 @@
 ### Running the browser E2E tests
 `pnpm infra:up`, then `pnpm e2e`. Playwright starts `apps/web/e2e/stack.ts`: it recreates `rabit_e2e`, migrates, ingests the demo catalog, and starts the four processes on ports 18080/18081/15173 (dev servers can keep running). It reports ready only when catalog processing and all event consumers are done. Logs go to `apps/web/e2e-results/stack.log`; traces and screenshots of failures go to `apps/web/e2e-results/artifacts/`.
 
+When a default port is taken, override it, e.g. `E2E_API_PORT=28080 E2E_MEDIA_PORT=28081 E2E_METRICS_PORT=29464 E2E_OIDC_PORT=28090 E2E_OIDC_API_PORT=28082 pnpm e2e` (see `apps/web/e2e/config.ts`).
+
+**Local troubleshooting: every playback test stalls at `currentTime ≈ 0.023`.** That is one AAC frame (1024 samples / 44.1 kHz): the browser decoded the first frame but its audio clock never advanced. If the trace shows the HLS manifest, init segment and segments all answered 200, the stack is fine and the host's audio output is most likely stuck (headless Chromium on macOS still renders through Core Audio). The same stall makes an `AudioContext` produce no samples, so `recorder.spec.ts` records nothing; the Studio then says the recording is empty (before 2026-10-12 it sent `size_bytes: 0` and showed `VALIDATION_FAILED`). Observed on 2026-10-10 after a Docker Desktop restart; it cleared without any repo change. Fix the host, not the tests: check that `system_profiler SPAudioDataType` lists a default output device, switch the output device once, or restart Core Audio (`sudo killall coreaudiod`) or the machine, then rerun. CI (Linux) is unaffected.
+
 Defects the first runs found (all fixed, each with a regression test or an E2E assertion):
 - The Archive upload form overflowed a 375 px screen (file input width).
 - DIG kept a stale axis after a quick click (out-of-order responses).

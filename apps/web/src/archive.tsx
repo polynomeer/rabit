@@ -56,6 +56,10 @@ export function Upload({ onDone }: { onDone: () => void }) {
     const input = e.currentTarget.elements.namedItem('file') as HTMLInputElement;
     const file = (intent === 'audio_log' ? recorded : null) ?? input.files?.[0];
     if (!file) return;
+    if (file.size === 0) {
+      setBusy({ text: t('archive.upload.empty'), settled: true });
+      return;
+    }
     const run = { abort: new AbortController(), uploadId: null as string | null };
     cancel.current = run;
     const cancelled = () => run.abort.signal.aborted;
