@@ -35,31 +35,59 @@ docs/                 product, architecture, API, security, rights, ADRs
 ```bash
 corepack enable
 pnpm install
-pnpm infra:up                           # Postgres :55440, S3 (SeaweedFS) :59000, buckets
-cp .env.example apps/server/.env
+pnpm bootstrap      # apps/server/.env with fresh local secrets, Postgres + S3, migrations, demo catalog
+pnpm dev            # api + worker + media + web in one terminal; Ctrl-C stops all
+```
+
+Open http://localhost:5173, sign in with any ID, then give that account a region and a
+subscription so catalog tracks play:
+
+```bash
+pnpm demo:user <ID>             # add --operator for the operator console
+```
+
+### Developer commands
+
+| Command | What it does |
+|---|---|
+| `pnpm preflight` | Checks Node, pnpm, dependencies, Docker, ffmpeg/ffprobe, `.env`, the infra containers and port conflicts, with a fix for each problem |
+| `pnpm bootstrap` | One-time setup (above). Safe to re-run: keeps an existing `.env` and does not ingest the catalog twice |
+| `pnpm dev` | Brings infra up if needed, migrates, seeds the demo catalog if absent, runs all four processes with prefixed logs. `-- --no-web`, `-- --no-seed` |
+| `pnpm status` | Containers and every service's health endpoint |
+| `pnpm demo:seed` | Generates and ingests the demo catalog once (`--force` to ingest another copy; ingest is not idempotent) |
+| `pnpm demo:user <ID>` | Region KR + a 30-day Listen subscription for a local account, through the operator API (needs `pnpm dev`) |
+| `pnpm db:reset` | Drops and recreates the **local** `rabit` database, migrates and re-seeds. Asks for confirmation (`--yes` to skip); refuses a non-local `DATABASE_URL` |
+| `pnpm infra:up` / `pnpm infra:down` | Start / stop Postgres and S3 (`infra:down -- -v` also deletes their data) |
+| `pnpm check` | lint + typecheck + build + test (CI's quality gate) |
+| `pnpm e2e` | Browser tests against an isolated stack (see Quality gates) |
+
+**Ports.** Defaults: api 8080, media 8081, web 5173, metrics 9464–9466. When another program
+uses one, choose others for every command of that session:
+
+```bash
+RABIT_API_PORT=28080 RABIT_MEDIA_PORT=28081 RABIT_METRICS_PORT=29464 RABIT_WEB_PORT=5180 pnpm dev
+RABIT_API_PORT=28080 RABIT_WEB_PORT=5180 pnpm demo:user alice
+```
+
+### Running pieces by hand
+
+`pnpm dev` wraps these; they still work on their own:
+
+```bash
+cp .env.example apps/server/.env                     # then change the three secrets
+pnpm infra:up                                        # Postgres :55440, S3 (SeaweedFS) :59000, buckets
 pnpm db:migrate
-pnpm check                              # lint + typecheck + build + test
-```
-
-> **Upgrading from the MinIO setup (before 2026-10-05):** object storage moved to SeaweedFS (ADR-0004 amendment). Objects stored in the old MinIO volume are not migrated. Re-create local data with `pnpm infra:up`, then reset the dev database (`pnpm --filter @rabit/server migrate:down` repeatedly, or drop the `rabit` database) and re-run the demo catalog ingest. The old `rabit_miniodata` volume can be removed with `docker volume rm rabit_miniodata` when no longer needed.
-
-Start the three process roles (separate terminals):
-
-```bash
-pnpm --filter @rabit/server dev:api      # http://localhost:8080  (control plane)
-pnpm --filter @rabit/server dev:worker   # jobs, transcoding
-pnpm --filter @rabit/server dev:media    # http://localhost:8081  (media gateway)
-```
-
-Web reference client (ADR-0011) and a fictional demo catalog (self-made tones):
-
-```bash
+pnpm --filter @rabit/server dev:api                  # http://localhost:8080  (control plane)
+pnpm --filter @rabit/server dev:worker               # jobs, transcoding
+pnpm --filter @rabit/server dev:media                # http://localhost:8081  (media gateway)
 sh infra/demo/generate-catalog.sh
 pnpm --filter @rabit/server catalog:ingest ../../infra/demo/out/manifest.json
-pnpm --filter @rabit/web dev             # http://localhost:5173
+pnpm --filter @rabit/web dev                         # http://localhost:5173
 ```
 
-Catalog playback needs a license country and a subscription on the account; set them with the operator API (`PUT /v1/ops/users/{id}/license-country`, `PUT /v1/ops/users/{id}/subscription`) using a dev token issued with `"operator": true`.
+> **Upgrading from the MinIO setup (before 2026-10-05):** object storage moved to SeaweedFS (ADR-0004 amendment). Objects stored in the old MinIO volume are not migrated: run `pnpm db:reset` to re-create the dev database and catalog. The old `rabit_miniodata` volume can be removed with `docker volume rm rabit_miniodata` when no longer needed.
+
+Catalog playback needs a license country and a subscription on the account: `pnpm demo:user <ID>` sets both through the operator API (`PUT /v1/ops/users/{id}/license-country`, `PUT /v1/ops/users/{id}/subscription`) with a dev token issued with `"operator": true`.
 
 Health: `GET /healthz` (liveness), `GET /readyz` (database + storage). Metrics: `:9464/metrics` (api), `:9465/metrics` (worker), `:9466/metrics` (media) — internal only.
 
@@ -82,6 +110,8 @@ It listens on port 8090 (`RABIT_OIDC_PORT` to change); the URLs below assume the
 
 ## Troubleshooting (local)
 
+- **Catalog tracks do not play; the media gateway answers 404 for `index.m3u8`:** the database still lists audio whose files are no longer in the local S3 (storage reset, the MinIO → SeaweedFS move, or an S3 volume removed). Run `pnpm db:reset` to rebuild the dev database and catalog together.
+- **A port is already in use:** `pnpm preflight` names the program; stop it or set `RABIT_*_PORT` (see Developer commands).
 - **Uploads stay "처리 중" / processing jobs time out:** if Docker ran out of memory, SeaweedFS may have been OOM-killed. It can come back with server-side copies hanging (`FILER LOCK ... no lock server found` in `docker logs rabit-s3-1`). Restart it with `docker compose restart s3`. Storage calls now fail after 30 s of silence instead of hanging, so stuck jobs retry and then reach the DLQ.
 - **E2E ports in use:** set `E2E_API_PORT`, `E2E_MEDIA_PORT`, `E2E_WEB_PORT`, `E2E_METRICS_PORT`.
 

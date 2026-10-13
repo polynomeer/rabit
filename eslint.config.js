@@ -41,5 +41,20 @@ export default tseslint.config(
       '@typescript-eslint/no-unnecessary-type-parameters': 'off',
     },
   },
-  { files: ['eslint.config.js', 'apps/web/scripts/*.mjs'], ...tseslint.configs.disableTypeChecked },
+  {
+    files: ['eslint.config.js', 'apps/web/scripts/*.mjs', 'scripts/*.mjs'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    // Plain Node scripts (no type info): the web-platform globals Node provides.
+    files: ['scripts/*.mjs', 'apps/web/scripts/*.mjs'],
+    languageOptions: {
+      globals: {
+        fetch: 'readonly',
+        URL: 'readonly',
+        AbortSignal: 'readonly',
+        setTimeout: 'readonly',
+      },
+    },
+  },
 );

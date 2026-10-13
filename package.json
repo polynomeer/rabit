@@ -7,6 +7,13 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "preflight": "node scripts/preflight.mjs",
+    "dev": "node scripts/dev.mjs",
+    "status": "node scripts/status.mjs",
+    "demo:seed": "node scripts/demo.mjs seed",
+    "demo:user": "node scripts/demo.mjs user",
+    "db:reset": "node scripts/db-reset.mjs",
     "infra:up": "docker compose up -d --wait postgres s3 && docker compose run --rm s3-init",
     "infra:down": "docker compose down",
     "build": "pnpm -r build",
