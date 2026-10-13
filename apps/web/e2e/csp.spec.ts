@@ -35,6 +35,18 @@ test('the core flows run under the production Content-Security-Policy', async ({
   });
   expect(fontLoaded).toBe(true);
 
+  // Favicon and installable icons ship with the build (brand guide §5).
+  await expect(page.locator('link[rel="icon"][type="image/svg+xml"]')).toHaveAttribute(
+    'href',
+    '/favicon.svg',
+  );
+  const manifest = await page.request.get(`${E2E.cspWebUrl}/manifest.webmanifest`);
+  expect(manifest.status()).toBe(200);
+  const icons = ((await manifest.json()) as { icons: { src: string }[] }).icons;
+  expect(icons.length).toBeGreaterThanOrEqual(3);
+  for (const icon of icons)
+    expect((await page.request.get(`${E2E.cspWebUrl}${icon.src}`)).status()).toBe(200);
+
   // Upload straight to object storage with a presigned PUT.
   const name = `e2e-csp-${Date.now().toString(36)}`;
   await openTab(page, 'Studio');

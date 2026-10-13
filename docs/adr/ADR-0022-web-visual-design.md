@@ -39,6 +39,7 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - Private audio and Audio Logs never get an album-style cover: they show an icon tile (`Mark`), also in the player.
 - Queue entries can be `hidden` (Blind Digging, DIG-010): the player then shows a neutral tile and no album, DIG or credits links, so playing a blind track never reveals it before Keep/Pass. New player surfaces must honour this flag.
 - Save buttons on detail pages show the saved state on load via `GET /v1/library?ref_id=`; list views (search results) skip that lookup to stay within the per-user rate limit.
+- Favicon and installable icons (`apps/web/public`): the symbol alone on Ink (BRD §5), rendered from `apps/web/icons/*.svg` by `pnpm --filter @rabit/web icons`; re-run when the final symbol vector lands (OQ-BRD-05).
 - Studio shows upload steps (decorative; the status line remains the announced text) and the owner's five newest private items.
 - Ownership badges carry a per-source class (`own-<code>`); the text label stays the primary signal (NFR-A11Y-003).
 
