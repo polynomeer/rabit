@@ -1,5 +1,5 @@
 // Renders the PNG icons in public/ from the SVG sources (brand guide §5: the symbol
-// alone on Ink). Re-run after the symbol changes (final vector: OQ-BRD-05):
+// alone on Ink). Re-run whenever the symbol changes (brand.tsx, favicon.svg, icons/*.svg):
 //   pnpm --filter @rabit/web icons
 import { chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';

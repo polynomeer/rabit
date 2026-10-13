@@ -1,6 +1,6 @@
 # ADR-0022: Visual design and menu structure of the web reference client
 
-- Status: Accepted (structure, theming, font loading, typeface Noto Sans KR, colour tokens) / Proposed (symbol vector — OQ-BRD-05)
+- Status: Accepted (structure, theming, font loading, typeface Noto Sans KR, colour tokens) / Proposed (clear space and minimum size — OQ-BRD-05)
 - Date: 2026-10-09
 - Deciders: product owner (menu, typeface approach, theme), engineering
 - Related: ADR-0011 (web reference client), BRD §2–§7 and its identity board, DIG PRD §13, OQ-BRD-01/03/04/05, NFR-A11Y-*, `infra/web/csp.json`
@@ -31,6 +31,7 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - **Fonts.** The system stack (`system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif`). No web fonts, no CSP change. OQ-BRD-01 stays open.
   - *Amended 2026-10-13 (owner decision, OQ-BRD-01):* the UI typeface is **Noto Sans KR**, self-hosted from `@fontsource-variable/noto-sans-kr` (OFL-1.1): one variable font (weights 100–900) split into 124 unicode-range slices served from `'self'`, so the CSP is unchanged and a page downloads only the slices its text uses. System fonts remain the fallback while it loads (`font-display: swap`) or if it fails. The wordmark stays text next to the SVG symbol until a vector wordmark exists.
 - **Symbol.** `RabitSymbol` in `apps/web/src/brand.tsx` is a working SVG redraw of the identity board (the eye is an even-odd hole, so it needs no element ids). It is replaced when the final vector is delivered (OQ-BRD-05).
+  - *Amended 2026-10-13 (owner decision):* the symbol shape is **S2** (ears set apart, larger eye; compared on the design canvas, page "E · 심볼 후보"). It is used by `RabitSymbol`, `public/favicon.svg` and `icons/*.svg`. A trademark similarity review is still recommended before public launch. OQ-BRD-05 (clear space and minimum size) can now be settled on this shape: proposed minimum 16 px (tested legible) and clear space of at least ¼ of the symbol's height.
 
 ## Consequences
 - Browser E2E tests open Studio to upload and the Archive to inspect the result; the mobile test covers all seven entries.
@@ -39,7 +40,7 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - Private audio and Audio Logs never get an album-style cover: they show an icon tile (`Mark`), also in the player.
 - Queue entries can be `hidden` (Blind Digging, DIG-010): the player then shows a neutral tile and no album, DIG or credits links, so playing a blind track never reveals it before Keep/Pass. New player surfaces must honour this flag.
 - Save buttons on detail pages show the saved state on load via `GET /v1/library?ref_id=`; list views (search results) skip that lookup to stay within the per-user rate limit.
-- Favicon and installable icons (`apps/web/public`): the symbol alone on Ink (BRD §5), rendered from `apps/web/icons/*.svg` by `pnpm --filter @rabit/web icons`; re-run when the final symbol vector lands (OQ-BRD-05).
+- Favicon and installable icons (`apps/web/public`): the symbol alone on Ink (BRD §5), rendered from `apps/web/icons/*.svg` by `pnpm --filter @rabit/web icons`; re-run whenever the symbol changes.
 - Studio shows upload steps (decorative; the status line remains the announced text) and the owner's five newest private items.
 - Ownership badges carry a per-source class (`own-<code>`); the text label stays the primary signal (NFR-A11Y-003).
 
