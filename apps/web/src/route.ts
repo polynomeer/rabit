@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 export const TABS = ['Home', 'Search', 'DIG', 'Archive', 'Studio', 'Playlists', 'Account'] as const;
 export type Tab = (typeof TABS)[number];
 
-/** The main menu (ADR-0020): bottom bar on phones, header on wide screens. */
+/** The main menu (ADR-0022): bottom bar on phones, header on wide screens. */
 export const PRIMARY_TABS = [
   'Home',
   'Search',
