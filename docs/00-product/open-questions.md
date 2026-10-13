@@ -50,7 +50,7 @@
 |---|---|---|
 | OQ-BRD-01 | UI Typeface (플랫폼 네이티브 산세리프 vs Noto Sans 계열) | **decided** 2026-10-13 (product owner): Noto Sans KR. 웹은 자체 호스팅 가변 폰트로 적용 ([ADR-0022](../adr/ADR-0022-web-visual-design.md)) |
 | OQ-BRD-02 | Tagline (Primary candidate: "Music takes you further.") — 상표·마케팅 검토 필요 | open |
-| OQ-BRD-03 | 컬러 HEX 확정 (WCAG 대비·OLED/다크모드 테스트 후) | open — WCAG 대비 감사 완료, 결정 자료: [brand-contrast-audit](brand-contrast-audit.md) |
+| OQ-BRD-03 | 컬러 HEX 확정 (WCAG 대비·OLED/다크모드 테스트 후) | **decided** 2026-10-13 (product owner): 브랜드 5색은 브랜드·채움색으로, 글자에는 감사 문서의 파생 토큰을 공식 채택 ([brand-contrast-audit](brand-contrast-audit.md)). OLED 실기기 확인은 남음 |
 | OQ-BRD-04 | 서브브랜드 명칭 (DIG / Atlas / Studio / Archive / Trust — Working) | open |
 | OQ-BRD-05 | 로고 clear-space 단위·최소 크기 수치 (최종 벡터 확정 후) | open |
 

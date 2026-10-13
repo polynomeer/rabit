@@ -1,6 +1,6 @@
 # Brand colour contrast audit (input to OQ-BRD-03)
 
-- Status: evidence for a pending decision — the working palette (BRD §3) is not final.
+- Status: **decided 2026-10-13** (product owner, OQ-BRD-03): suggestion 1 below is adopted — the brand colours stay as brand and fill colours, and the derived text tokens in §1 are the official text colours per theme. OLED device checks (§3.3) remain to be done.
 - Date: 2026-10-10
 - Method: WCAG 2.1 relative-luminance contrast. Re-run with `pnpm --filter @rabit/web contrast`
   (`apps/web/scripts/contrast.mjs`); it reads the tokens from `apps/web/src/styles.css`,

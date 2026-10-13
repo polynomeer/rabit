@@ -1,7 +1,8 @@
 /*
- * Visual design C (ADR-0020). Brand working tokens (BRD §3) — HEX values stay
- * working until the WCAG/OLED review (OQ-BRD-03). Dark is the default; a light
- * Canvas scheme follows the OS setting.
+ * Visual design C (ADR-0022). Colour tokens decided 2026-10-13 (OQ-BRD-03): brand
+ * colours for brand and fills, the derived tokens for text and field edges
+ * (docs/00-product/brand-contrast-audit.md; CI checks them: scripts/contrast.mjs).
+ * Dark is the default; the light Canvas scheme follows the OS or the viewer's choice.
  */
 :root {
   --ink: #111111;
