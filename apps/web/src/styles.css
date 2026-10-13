@@ -1666,4 +1666,11 @@ form.inline {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
+  /* Never wider than the screen: a text field's intrinsic width (size=20) grows with
+     the typeface, and Noto Sans KR is wider than the system fonts. */
+  max-width: 100%;
+}
+form.inline input:not([type='checkbox']):not([type='radio']) {
+  flex: 1 1 160px;
+  min-width: 0;
 }
