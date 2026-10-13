@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p e2e/tsconfig.json",
     "test": "node scripts/contrast.mjs",
     "contrast": "node scripts/contrast.mjs",
+    "icons": "node scripts/icons.mjs",
     "e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "dependencies": {
