@@ -1,6 +1,6 @@
 # ADR-0022: Visual design and menu structure of the web reference client
 
-- Status: Accepted (structure, theming, font loading) / Proposed (final typeface, colour values, symbol vector — OQ-BRD-01/03/05)
+- Status: Accepted (structure, theming, font loading, typeface Noto Sans KR) / Proposed (colour values, symbol vector — OQ-BRD-03/05)
 - Date: 2026-10-09
 - Deciders: product owner (menu, typeface approach, theme), engineering
 - Related: ADR-0011 (web reference client), BRD §2–§7 and its identity board, DIG PRD §13, OQ-BRD-01/03/04/05, NFR-A11Y-*, `infra/web/csp.json`
@@ -28,6 +28,7 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - **Theme.** Dark is the default (BRD §15 "dark premium"); the light Canvas scheme follows `prefers-color-scheme`. Tokens live in `apps/web/src/styles.css`; `--accent` is the AA text/outline colour per scheme and filled controls use Rabit Purple with white text (4.7:1).
   - *Amended 2026-10-10 (owner request):* viewers can choose 기기 설정 / 다크 / 라이트 under Account. The choice is stored per device (`localStorage`, no account setting yet) and applied as `<html data-theme>`, which overrides `prefers-color-scheme`; the default stays the device setting.
 - **Fonts.** The system stack (`system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif`). No web fonts, no CSP change. OQ-BRD-01 stays open.
+  - *Amended 2026-10-13 (owner decision, OQ-BRD-01):* the UI typeface is **Noto Sans KR**, self-hosted from `@fontsource-variable/noto-sans-kr` (OFL-1.1): one variable font (weights 100–900) split into 124 unicode-range slices served from `'self'`, so the CSP is unchanged and a page downloads only the slices its text uses. System fonts remain the fallback while it loads (`font-display: swap`) or if it fails. The wordmark stays text next to the SVG symbol until a vector wordmark exists.
 - **Symbol.** `RabitSymbol` in `apps/web/src/brand.tsx` is a working SVG redraw of the identity board (the eye is an even-odd hole, so it needs no element ids). It is replaced when the final vector is delivered (OQ-BRD-05).
 
 ## Consequences
@@ -41,4 +42,4 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - Ownership badges carry a per-source class (`own-<code>`); the text label stays the primary signal (NFR-A11Y-003).
 
 ## Revisit trigger
-OQ-BRD-01/03/05 decided; Atlas (P2) or Studio public releases (Q07) open; a native client (Q06) needs shared tokens.
+OQ-BRD-03/05 decided; Atlas (P2) or Studio public releases (Q07) open; a native client (Q06) needs shared tokens.

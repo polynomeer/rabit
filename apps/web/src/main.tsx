@@ -24,6 +24,9 @@ import { Studio } from './studio';
 import { t } from './i18n';
 import { Account, Playlists, Search } from './views';
 import { applyTheme, storedTheme } from './theme';
+// UI typeface (OQ-BRD-01, decided 2026-10-13): Noto Sans KR, self-hosted (CSP font-src 'self').
+// One variable font split by unicode-range; browsers fetch only the slices a page uses.
+import '@fontsource-variable/noto-sans-kr';
 import './styles.css';
 
 // Before the first render, so a chosen theme never flashes the OS one.

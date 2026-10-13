@@ -99,6 +99,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@fontsource-variable/noto-sans-kr':
+        specifier: 5.3.1
+        version: 5.3.1
       hls.js:
         specifier: ^1.7.3
         version: 1.7.3
@@ -455,6 +458,9 @@ packages:
 
   '@fastify/rate-limit@11.2.0':
     resolution: {integrity: sha512-X7osJd4XSvMoejYrnJkSZYYjY1eNYoBqhjlzf1RakC2204qExFqZFTKj5+T7VuzA/iUI9Z3UoSqQRkB2HpG0oQ==}
+
+  '@fontsource-variable/noto-sans-kr@5.3.1':
+    resolution: {integrity: sha512-f5aty6Qgk2LVU5TjCtXHxiYHqUWYW8f75ll0Chn8ucCqoOlIomcACUwf1V47yUt6wTdWZiGr3dcbQk+zlOspMA==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -2105,6 +2111,8 @@ snapshots:
       fastify-plugin: 6.0.0
       ip-address: 10.7.3
       toad-cache: 3.7.4
+
+  '@fontsource-variable/noto-sans-kr@5.3.1': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

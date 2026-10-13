@@ -28,6 +28,13 @@ test('the core flows run under the production Content-Security-Policy', async ({
   await page.getByRole('button', { name: '로그인' }).click();
   await expect(page.getByRole('navigation', { name: '주 메뉴' })).toBeVisible();
 
+  // The UI typeface (Noto Sans KR, self-hosted) loads under font-src 'self'.
+  const fontLoaded = await page.evaluate(async () => {
+    await document.fonts.load('16px "Noto Sans KR Variable"', '좋은 음악');
+    return document.fonts.check('16px "Noto Sans KR Variable"', '좋은 음악');
+  });
+  expect(fontLoaded).toBe(true);
+
   // Upload straight to object storage with a presigned PUT.
   const name = `e2e-csp-${Date.now().toString(36)}`;
   await openTab(page, 'Studio');

@@ -29,8 +29,10 @@
   --warn: #f0a57c;
   --radius: 20px;
   --tabbar-h: 64px;
+  /* Noto Sans KR (OQ-BRD-01); system fonts only until it loads or if it fails. */
   --font:
-    system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    'Noto Sans KR Variable', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic',
+    sans-serif;
   color-scheme: dark;
 }
 /* Light Canvas tokens: from the OS setting unless the viewer chose a theme (Account),
