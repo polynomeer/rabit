@@ -6,12 +6,20 @@ import type { ReactNode } from 'react';
  * both ears and the eye stay distinct down to 16 px. The eye is a cut-out, so the
  * mark sits on any surface. Keep in sync with public/favicon.svg and icons/*.svg.
  */
+/**
+ * OQ-BRD-05 (decided 2026-10-13): the symbol is never drawn below 16 px, and it keeps
+ * clear space of at least a quarter of its height on every side (around the symbol or
+ * the symbol+wordmark lockup; the gap inside the lockup is not clear space).
+ */
+export const SYMBOL_MIN_PX = 16;
+
 export function RabitSymbol({ size = 28, title }: { size?: number; title?: string }) {
+  const px = Math.max(SYMBOL_MIN_PX, size);
   return (
     <svg
       className="symbol"
-      width={size}
-      height={size}
+      width={px}
+      height={px}
       viewBox="0 0 100 100"
       role={title ? 'img' : undefined}
       aria-label={title}

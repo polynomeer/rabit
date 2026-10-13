@@ -52,7 +52,7 @@
 | OQ-BRD-02 | Tagline (Primary candidate: "Music takes you further.") — 상표·마케팅 검토 필요 | open |
 | OQ-BRD-03 | 컬러 HEX 확정 (WCAG 대비·OLED/다크모드 테스트 후) | **decided** 2026-10-13 (product owner): 브랜드 5색은 브랜드·채움색으로, 글자에는 감사 문서의 파생 토큰을 공식 채택 ([brand-contrast-audit](brand-contrast-audit.md)). OLED 실기기 확인은 남음 |
 | OQ-BRD-04 | 서브브랜드 명칭 (DIG / Atlas / Studio / Archive / Trust — Working) | open |
-| OQ-BRD-05 | 로고 clear-space 단위·최소 크기 수치 (최종 벡터 확정 후) | open — 심볼 형태는 2026-10-13 S2로 결정. 제안: 최소 16px(가독성 확인), 여백은 심볼 높이의 ¼ 이상 ([ADR-0022](../adr/ADR-0022-web-visual-design.md)) |
+| OQ-BRD-05 | 로고 clear-space 단위·최소 크기 수치 (최종 벡터 확정 후) | **decided** 2026-10-13 (product owner): 심볼 S2 기준 최소 16px, 보호 여백은 심볼(또는 심볼+워드마크 조합) 높이의 ¼ 이상. 조합 내부 간격은 여백에 포함하지 않음 ([ADR-0022](../adr/ADR-0022-web-visual-design.md)) |
 
 ## 4. 원문 간 충돌 (Phase 0 C1–C20 → CNF)
 

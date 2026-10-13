@@ -1,6 +1,6 @@
 # ADR-0022: Visual design and menu structure of the web reference client
 
-- Status: Accepted (structure, theming, font loading, typeface Noto Sans KR, colour tokens) / Proposed (clear space and minimum size — OQ-BRD-05)
+- Status: Accepted — structure, theming, font loading, typeface Noto Sans KR (OQ-BRD-01), colour tokens (OQ-BRD-03), symbol S2 with its clear space and minimum size (OQ-BRD-05)
 - Date: 2026-10-09
 - Deciders: product owner (menu, typeface approach, theme), engineering
 - Related: ADR-0011 (web reference client), BRD §2–§7 and its identity board, DIG PRD §13, OQ-BRD-01/03/04/05, NFR-A11Y-*, `infra/web/csp.json`
@@ -31,7 +31,7 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - **Fonts.** The system stack (`system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif`). No web fonts, no CSP change. OQ-BRD-01 stays open.
   - *Amended 2026-10-13 (owner decision, OQ-BRD-01):* the UI typeface is **Noto Sans KR**, self-hosted from `@fontsource-variable/noto-sans-kr` (OFL-1.1): one variable font (weights 100–900) split into 124 unicode-range slices served from `'self'`, so the CSP is unchanged and a page downloads only the slices its text uses. System fonts remain the fallback while it loads (`font-display: swap`) or if it fails. The wordmark stays text next to the SVG symbol until a vector wordmark exists.
 - **Symbol.** `RabitSymbol` in `apps/web/src/brand.tsx` is a working SVG redraw of the identity board (the eye is an even-odd hole, so it needs no element ids). It is replaced when the final vector is delivered (OQ-BRD-05).
-  - *Amended 2026-10-13 (owner decision):* the symbol shape is **S2** (ears set apart, larger eye; compared on the design canvas, page "E · 심볼 후보"). It is used by `RabitSymbol`, `public/favicon.svg` and `icons/*.svg`. A trademark similarity review is still recommended before public launch. OQ-BRD-05 (clear space and minimum size) can now be settled on this shape: proposed minimum 16 px (tested legible) and clear space of at least ¼ of the symbol's height.
+  - *Amended 2026-10-13 (owner decision):* the symbol shape is **S2** (ears set apart, larger eye; compared on the design canvas, page "E · 심볼 후보"). It is used by `RabitSymbol`, `public/favicon.svg` and `icons/*.svg`. A trademark similarity review is still recommended before public launch. OQ-BRD-05 decided the same day: minimum 16 px (`SYMBOL_MIN_PX`, enforced by `RabitSymbol`) and clear space of at least ¼ of the symbol's — or the symbol+wordmark lockup's — height on every side; the gap inside the lockup is not clear space.
 
 ## Consequences
 - Browser E2E tests open Studio to upload and the Archive to inspect the result; the mobile test covers all seven entries.
@@ -45,4 +45,4 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - Ownership badges carry a per-source class (`own-<code>`); the text label stays the primary signal (NFR-A11Y-003).
 
 ## Revisit trigger
-OQ-BRD-05 decided; OLED device checks change a colour; Atlas (P2) or Studio public releases (Q07) open; a native client (Q06) needs shared tokens.
+OLED device checks change a colour; a trademark review changes the symbol; Atlas (P2) or Studio public releases (Q07) open; a native client (Q06) needs shared tokens.
