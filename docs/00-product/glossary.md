@@ -20,6 +20,16 @@
 | Personal Audio Archive | Listen/Own/Create/Collect/Remember/Trust를 통합하는 제품 지향점 | AP-00 |
 | PLAY / DIG / ARCHIVE | 최종 구조: 듣기 / 탐험 / 기억과 소유 | DIG §13 |
 
+### 1.1 서브브랜드 표기 (OQ-BRD-04, 2026-10-13 확정)
+
+| 명칭 | 표기 규칙 |
+|---|---|
+| Listen, Atlas, Studio, Archive, Trust | 영문 그대로, 첫 글자만 대문자. 한국어 문장 안에서도 번역·음차하지 않음 (예: "Studio에서 올리기", "아카이브" ✗) |
+| DIG | 항상 대문자 DIG. 기능 이름의 일부일 때는 동사형 Digging (Blind Digging, Crate Digging, Credits Digging) |
+| Rabbit Hole | DIG 경험의 이름. 두 단어, 각 첫 글자 대문자 |
+
+상표 등록 가능성 검토는 별도 항목(출시 전)으로 남김.
+
 ## 2. 오디오 객체와 카탈로그
 
 | 용어 | 정의 | 출처 / 비고 |
