@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 
 /**
- * The rabbit symbol (BRD §2.1): a side profile with two ears and an eye.
- * A working redraw of the identity board until the final vector lands (OQ-BRD-05);
- * the eye is a cut-out so the mark sits on any surface.
+ * The rabbit symbol (BRD §2.1): a side profile with two ears and an eye. Shape S2,
+ * chosen 2026-10-13 from the canvas candidates: ears set apart and a larger eye, so
+ * both ears and the eye stay distinct down to 16 px. The eye is a cut-out, so the
+ * mark sits on any surface. Keep in sync with public/favicon.svg and icons/*.svg.
  */
 export function RabitSymbol({ size = 28, title }: { size?: number; title?: string }) {
   return (
@@ -17,12 +18,12 @@ export function RabitSymbol({ size = 28, title }: { size?: number; title?: strin
       aria-hidden={title ? undefined : true}
     >
       <g fill="currentColor">
-        <ellipse cx="57" cy="27" rx="8.5" ry="25" transform="rotate(28 57 27)" />
-        <ellipse cx="73" cy="44" rx="7.5" ry="20" transform="rotate(64 73 44)" />
+        <ellipse cx="55" cy="25" rx="7" ry="24" transform="rotate(22 55 25)" />
+        <ellipse cx="75" cy="42" rx="6.5" ry="19" transform="rotate(68 75 42)" />
         {/* The eye is a hole in the head (even-odd), so no id-bearing mask is needed. */}
         <path
           fillRule="evenodd"
-          d="M18 72C15 58 28 47 44 47c16 0 23 13 17 26-4 8-11 11-14 20-7-8-25-9-29-21zM28.4 63a3.6 3.6 0 1 0 7.2 0 3.6 3.6 0 1 0-7.2 0z"
+          d="M17 70C15 56 27 47 42 47c16 0 24 12 19 25-4 8-11 12-14 21-8-8-28-9-30-23zM27.5 62a4.6 4.6 0 1 0 9.2 0 4.6 4.6 0 1 0-9.2 0z"
         />
       </g>
     </svg>
