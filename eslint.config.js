@@ -41,5 +41,5 @@ export default tseslint.config(
       '@typescript-eslint/no-unnecessary-type-parameters': 'off',
     },
   },
-  { files: ['eslint.config.js'], ...tseslint.configs.disableTypeChecked },
+  { files: ['eslint.config.js', 'apps/web/scripts/*.mjs'], ...tseslint.configs.disableTypeChecked },
 );

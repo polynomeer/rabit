@@ -15,6 +15,8 @@
   --surface: #1a191e;
   --surface-2: #232229;
   --line: #2a2830;
+  /* Boundary of text fields: 3:1 against every surface (WCAG 1.4.11). */
+  --control-line: #706b77;
   /* Accent for text and outlines (AA on the surfaces); fills use --purple with white text. */
   --accent: #a898ee;
   --accent-soft: rgba(120, 101, 200, 0.18);
@@ -42,6 +44,7 @@
     --surface: #ffffff;
     --surface-2: #ebe7e0;
     --line: #dcd7cf;
+    --control-line: #857f77;
     --accent: #5a48aa;
     --accent-soft: rgba(120, 101, 200, 0.14);
     --area-dig: #4b3f8f;
@@ -61,6 +64,7 @@
   --surface: #ffffff;
   --surface-2: #ebe7e0;
   --line: #dcd7cf;
+  --control-line: #857f77;
   --accent: #5a48aa;
   --accent-soft: rgba(120, 101, 200, 0.14);
   --area-dig: #4b3f8f;
@@ -148,7 +152,7 @@ input,
 select {
   min-height: 40px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 12px;
   padding: 6px 12px;
   /* File inputs have a wide intrinsic size; never wider than their container. */
@@ -412,7 +416,7 @@ ol.list {
   padding: 0 18px;
   border-radius: 26px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   color: var(--muted);
   max-width: 560px;
 }
@@ -1445,7 +1449,7 @@ textarea {
   max-width: 100%;
   box-sizing: border-box;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 12px;
   padding: 8px 12px;
 }
