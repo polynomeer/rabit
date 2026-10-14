@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    # The AWS SDK packages share internal types: bumping one alone breaks the
+    # typecheck (S3Client vs the presigner), so they move together.
+    groups:
+      aws-sdk:
+        patterns: ['@aws-sdk/*']
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
