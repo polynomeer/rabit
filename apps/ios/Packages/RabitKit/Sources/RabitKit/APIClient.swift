@@ -16,7 +16,7 @@ public enum APIError: Error, Equatable, Sendable {
 public final class APIClient: Sendable {
   public let baseURL: URL
   private let tokens: any TokenStore
-  private let transport: any HTTPTransport
+  let transport: any HTTPTransport
   /// Called when the API rejects the token; the app shows sign-in again.
   private let onUnauthorized: @Sendable () -> Void
 
@@ -117,11 +117,16 @@ struct ErrorEnvelope: Decodable {
 /// The network seam: `URLSession` in the app, a stub in tests.
 public protocol HTTPTransport: Sendable {
   func data(for request: URLRequest) async throws -> (Data, URLResponse)
+  /// Sends a file as the body without loading it into memory.
+  func upload(for request: URLRequest, fromFile file: URL) async throws -> (Data, URLResponse)
 }
 
 extension URLSession: HTTPTransport {
   public func data(for request: URLRequest) async throws -> (Data, URLResponse) {
     try await data(for: request, delegate: nil)
+  }
+  public func upload(for request: URLRequest, fromFile file: URL) async throws -> (Data, URLResponse) {
+    try await upload(for: request, fromFile: file, delegate: nil)
   }
 }
 

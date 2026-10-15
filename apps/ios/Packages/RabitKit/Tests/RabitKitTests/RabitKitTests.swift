@@ -14,6 +14,11 @@ final class StubTransport: HTTPTransport, @unchecked Sendable {
     let res = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
     return (Data(body.utf8), res)
   }
+  var uploadedFiles: [URL] = []
+  func upload(for request: URLRequest, fromFile file: URL) async throws -> (Data, URLResponse) {
+    uploadedFiles.append(file)
+    return try await data(for: request)
+  }
 }
 
 let base = URL(string: "http://localhost:8080")!
@@ -219,4 +224,62 @@ func evidence(_ basis: String, confidence: String = "null", reason: String = "nu
   #expect(t.requests[0].value(forHTTPHeaderField: "Idempotency-Key") != nil)
   let sent = try JSONSerialization.jsonObject(with: t.requests[0].httpBody!) as! [String: String]
   #expect(sent == ["entity_id": "rec_2", "axis": "sampled_by", "relation_id": "rel_9"])
+}
+
+func tempFile(_ text: String, name: String = "rec.m4a") throws -> URL {
+  let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString)-\(name)")
+  try Data(text.utf8).write(to: url)
+  return url
+}
+
+@Test func sha256MatchesKnownDigest() throws {
+  #expect(try UploadService.sha256Hex(of: tempFile("abc")) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+}
+
+@Test func audioLogUploadRunsAllStepsInOrder() async throws {
+  let file = try tempFile("RIFF....")
+  let t = StubTransport([
+    (201, #"{"upload":{"upload_id":"upl_1","state":"created","audio_source_id":null,"failure_code":null},"upload_url":"http://localhost:59000/bucket/key?sig=1","upload_method":"PUT","upload_headers":{"content-type":"application/octet-stream"},"expires_at":"2026-10-15T10:00:00Z"}"#),
+    (200, ""),
+    (202, #"{"upload_id":"upl_1","state":"processing","audio_source_id":"aus_1","failure_code":null}"#),
+    (200, #"{"status":"processing","failure_code":null}"#),
+    (200, #"{"status":"ready","failure_code":null}"#),
+    (201, #"{"audio_log_id":"alg_1"}"#),
+    (200, #"{"items":[],"next_cursor":null}"#),
+    (200, #"{"items":[{"library_item_id":"lib_1","ref_type":"audio_source","ref_id":"aus_1","origin":"logged","title":"x","subtitle":null,"note":null,"saved_at":"2026-10-15T10:00:00Z","ownership":"audio_log","playability":{"playable":true,"reason":null}}],"next_cursor":null}"#),
+  ])
+  let stages = Mutex<[UploadService.Stage]>([])
+  let uploads = UploadService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t), pause: { _ in })
+  let source = try await uploads.upload(
+    file: file, intent: .audioLog, logTitle: "  한강 새벽  ", recordedAt: Date(timeIntervalSince1970: 0),
+    timeZone: TimeZone(identifier: "Asia/Seoul")!, stage: { s in stages.withLock { $0.append(s) } })
+  #expect(source == AudioSourceID("aus_1"))
+  #expect(stages.withLock { $0 } == [.check, .transfer, .process, .archive])
+  #expect(t.requests[1].httpMethod == "PUT")
+  #expect(t.requests[1].value(forHTTPHeaderField: "content-type") == "application/octet-stream")
+  #expect(t.requests[1].value(forHTTPHeaderField: "authorization") == nil)
+  #expect(t.uploadedFiles == [file])
+  #expect(t.requests[2].value(forHTTPHeaderField: "Idempotency-Key") == "fin-upl_1")
+  let log = try JSONSerialization.jsonObject(with: t.requests[5].httpBody!) as! [String: String]
+  #expect(log == ["audio_source_id": "aus_1", "title": "한강 새벽", "recorded_at": "1970-01-01T00:00:00.000Z", "recorded_tz": "Asia/Seoul"])
+  let create = try JSONSerialization.jsonObject(with: t.requests[0].httpBody!) as! [String: Any]
+  #expect(create["intent"] as? String == "audio_log")
+  #expect(create["size_bytes"] as? Int == 8)
+}
+
+@Test func emptyFilesAndFailedProcessingAreReported() async throws {
+  let uploads = UploadService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: StubTransport([])), pause: { _ in })
+  await #expect(throws: UploadService.Failure.empty) {
+    _ = try await uploads.upload(file: try tempFile(""), intent: .privateUpload)
+  }
+  let t = StubTransport([
+    (201, #"{"upload":{"upload_id":"upl_2","state":"created","audio_source_id":null,"failure_code":null},"upload_url":"http://localhost:59000/b/k","upload_method":"PUT","upload_headers":{},"expires_at":"2026-10-15T10:00:00Z"}"#),
+    (200, ""),
+    (202, #"{"upload_id":"upl_2","state":"processing","audio_source_id":"aus_2","failure_code":null}"#),
+    (200, #"{"status":"failed","failure_code":"unsupported_format"}"#),
+  ])
+  let failing = UploadService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t), pause: { _ in })
+  await #expect(throws: UploadService.Failure.processing(code: "unsupported_format")) {
+    _ = try await failing.upload(file: try tempFile("data", name: "a.wav"), intent: .privateUpload)
+  }
 }
