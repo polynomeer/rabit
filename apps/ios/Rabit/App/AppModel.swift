@@ -13,6 +13,7 @@ final class AppModel {
   let catalog: CatalogService
   let dig: DigService
   let uploads: UploadService
+  let collection: CollectionService
   let player: PlayerController
   private(set) var signedIn: Bool
 
@@ -33,6 +34,7 @@ final class AppModel {
     catalog = CatalogService(api: api)
     dig = DigService(api: api)
     uploads = UploadService(api: api)
+    collection = CollectionService(api: api)
     player = PlayerController(playback: PlaybackService(api: api, deviceId: DeviceID.current))
     signedIn = tokens.accessToken != nil
   }

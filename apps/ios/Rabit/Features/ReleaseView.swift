@@ -24,6 +24,7 @@ struct ReleaseView: View {
     .background(Palette.background)
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
+      ToolbarItem(placement: .topBarTrailing) { SaveButton(ref: .release(id)) }
       ToolbarItem(placement: .topBarTrailing) {
         NavigationLink(value: DigRoute.start(EntityID(id.rawValue))) {
           Image(systemName: "point.3.connected.trianglepath.dotted")
@@ -77,6 +78,7 @@ struct ReleaseView: View {
           TrackRow(track: track, number: index + 1, isCurrent: player.visibleTarget == .recording(track.recordingId)) {
             play(release, startAt: index)
           }
+          .itemActions(.recording(track.recordingId), title: track.title)
           Divider().overlay(Palette.line)
         }
       }

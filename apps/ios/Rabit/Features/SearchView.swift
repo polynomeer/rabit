@@ -36,6 +36,23 @@ struct SearchView: View {
   }
 
   @ViewBuilder private func row(_ result: SearchResult) -> some View {
+    if let ref = Self.ref(result) {
+      rowContent(result).itemActions(ref, title: result.title)
+    } else {
+      rowContent(result)
+    }
+  }
+
+  private static func ref(_ result: SearchResult) -> ItemRef? {
+    switch result.kind {
+    case .recording: .recording(RecordingID(result.id))
+    case .release: .release(ReleaseID(result.id))
+    case .privateAudio, .audioLog: .audioSource(AudioSourceID(result.id))
+    case .artist, .person, .label: nil
+    }
+  }
+
+  @ViewBuilder private func rowContent(_ result: SearchResult) -> some View {
     let content = HStack(spacing: 12) {
       mark(result).frame(width: 48, height: 48)
       VStack(alignment: .leading, spacing: 2) {

@@ -6,6 +6,8 @@ struct PlaylistsView: View {
   @Environment(AppModel.self) private var model
   @State private var lists: [PlaylistSummary]?
   @State private var failed = false
+  @State private var naming = false
+  @State private var newTitle = ""
 
   var body: some View {
     List {
@@ -30,8 +32,30 @@ struct PlaylistsView: View {
       }
     }
     .navigationTitle("플레이리스트")
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        Button {
+          newTitle = ""
+          naming = true
+        } label: {
+          Image(systemName: "plus")
+        }
+        .accessibilityLabel("새 플레이리스트")
+      }
+    }
+    .alert("새 플레이리스트", isPresented: $naming) {
+      TextField("이름", text: $newTitle)
+      Button("만들기") { Task { await create() } }
+      Button("취소", role: .cancel) {}
+    }
     .task { await load() }
     .refreshable { await load() }
+  }
+
+  private func create() async {
+    let name = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty else { return }
+    if (try? await model.collection.createPlaylist(title: name)) != nil { await load() }
   }
 
   private func load() async {
@@ -89,6 +113,9 @@ struct PlaylistView: View {
             }
             .foregroundStyle(Palette.text)
             .disabled(!item.playability.playable)
+            .swipeActions {
+              Button("삭제", systemImage: "trash", role: .destructive) { Task { await remove(item) } }
+            }
           }
           if playlist.itemsNextCursor != nil {
             Button(loadingMore ? "불러오는 중…" : "더 보기") { Task { await loadMore() } }
@@ -131,6 +158,15 @@ struct PlaylistView: View {
     } catch let e as URLError where e.code == .cancelled {
     } catch {
       failed = true
+    }
+  }
+
+  private func remove(_ item: PlaylistItem) async {
+    do {
+      _ = try await model.collection.remove(item.itemId, from: id)
+      playlist?.items.removeAll { $0.id == item.id }
+    } catch {
+      await load()
     }
   }
 

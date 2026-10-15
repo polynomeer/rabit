@@ -68,6 +68,13 @@ public final class APIClient: Sendable {
   public func send<T: Decodable, B: Encodable>(
     _ method: String, _ path: String, body: B?, headers: [String: String] = [:]
   ) async throws -> T {
+    try await sendWithETag(method, path, body: body, headers: headers).value
+  }
+
+  /// Like `send`, also returning the response's ETag (versioned resources such as playlists).
+  public func sendWithETag<T: Decodable, B: Encodable>(
+    _ method: String, _ path: String, body: B?, headers: [String: String] = [:]
+  ) async throws -> (value: T, etag: String?) {
     guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.invalidResponse }
     let payload = try body.map { try Self.encoder.encode($0) }
     func request() -> URLRequest {
@@ -103,8 +110,9 @@ public final class APIClient: Sendable {
         status: http.statusCode, code: envelope?.error.code ?? "UNKNOWN",
         message: envelope?.error.message ?? "Request failed (\(http.statusCode))")
     }
-    if T.self == Empty.self { return Empty() as! T }
-    return try Self.decoder.decode(T.self, from: data)
+    let etag = http.value(forHTTPHeaderField: "etag")
+    if T.self == Empty.self { return (Empty() as! T, etag) }
+    return (try Self.decoder.decode(T.self, from: data), etag)
   }
 
   /// Development sign-in against the built-in dev issuer (ADR-0009); never in production builds.
