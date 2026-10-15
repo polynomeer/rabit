@@ -14,7 +14,12 @@ const jobs = [
   ['icons/app-icon.svg', 512, 'public/icon-512.png', false],
   ['icons/app-icon-maskable.svg', 512, 'public/icon-maskable-512.png', false],
   // iOS masks the corners itself and needs an opaque square (ADR-0023).
-  ['icons/app-icon.svg', 1024, '../ios/Rabit/Assets.xcassets/AppIcon.appiconset/icon-1024.png', false],
+  [
+    'icons/app-icon.svg',
+    1024,
+    '../ios/Rabit/Assets.xcassets/AppIcon.appiconset/icon-1024.png',
+    false,
+  ],
 ];
 
 const browser = await chromium.launch();
