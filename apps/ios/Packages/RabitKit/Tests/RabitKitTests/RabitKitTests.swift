@@ -8,10 +8,14 @@ final class StubTransport: HTTPTransport, @unchecked Sendable {
   var requests: [URLRequest] = []
   var responses: [(Int, String)]
   init(_ responses: [(Int, String)]) { self.responses = responses }
+  /// Response headers by status-and-path, e.g. the ETag of a playlist read.
+  var headers: [String: [String: String]] = [:]
   func data(for request: URLRequest) async throws -> (Data, URLResponse) {
     requests.append(request)
     let (status, body) = responses.removeFirst()
-    let res = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!
+    let res = HTTPURLResponse(
+      url: request.url!, statusCode: status, httpVersion: nil,
+      headerFields: headers["\(request.httpMethod ?? "GET") \(request.url!.path)"])!
     return (Data(body.utf8), res)
   }
   var uploadedFiles: [URL] = []
@@ -406,4 +410,30 @@ let oidcConfig = OIDCConfig(
   #expect(DigText.span(first: tl.artists[0].firstYear, last: tl.artists[0].lastYear) == "2019–2025")
   #expect(DigText.span(first: 2020, last: 2020) == "2020")
   #expect(DigText.span(first: nil, last: nil) == "발매일 미상")
+}
+
+let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null,"visibility":"private","version":3,"item_count":0,"items":[],"items_next_cursor":null,"created_at":"2026-10-15T09:00:00Z","updated_at":"2026-10-15T09:00:00Z"}"#
+
+@Test func addingToAPlaylistSendsItsETagAndRetriesOnceOn412() async throws {
+  let t = StubTransport([(200, emptyPlaylist), (412, #"{"error":{"code":"PRECONDITION_FAILED","message":"changed"}}"#), (200, emptyPlaylist), (201, emptyPlaylist)])
+  t.headers = ["GET /v1/playlists/pls_1": ["ETag": "\"v3\""]]
+  let c = CollectionService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  _ = try await c.add(.recording(RecordingID("rec_1")), to: PlaylistID("pls_1"))
+  #expect(t.requests.map { "\($0.httpMethod!) \($0.url!.path)" } == [
+    "GET /v1/playlists/pls_1", "POST /v1/playlists/pls_1/items", "GET /v1/playlists/pls_1", "POST /v1/playlists/pls_1/items",
+  ])
+  #expect(t.requests[1].value(forHTTPHeaderField: "If-Match") == "\"v3\"")
+  let body = try JSONSerialization.jsonObject(with: t.requests[3].httpBody!) as! [String: String]
+  #expect(body == ["ref_type": "recording", "ref_id": "rec_1"])
+}
+
+@Test func savingTwiceReturnsTheExistingEntry() async throws {
+  let entry = #"{"library_item_id":"lib_1","ref_type":"release","ref_id":"rel_1","origin":"saved","title":"Harbour Lights","subtitle":null,"note":null,"saved_at":"2026-10-15T09:00:00Z","ownership":"streaming","playability":{"playable":true,"reason":null}}"#
+  let t = StubTransport([(409, #"{"error":{"code":"CONFLICT","message":"exists"}}"#), (200, "{\"items\":[\(entry)],\"next_cursor\":null}"), (204, "")])
+  let c = CollectionService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let saved = try await c.save(.release(ReleaseID("rel_1")))
+  #expect(saved.libraryItemId == LibraryItemID("lib_1"))
+  #expect(t.requests[1].url?.query == "ref_id=rel_1&limit=1")
+  try await c.unsave(saved.libraryItemId)
+  #expect(t.requests[2].httpMethod == "DELETE")
 }

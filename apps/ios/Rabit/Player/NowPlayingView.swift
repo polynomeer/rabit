@@ -5,6 +5,7 @@ import SwiftUI
 struct NowPlayingView: View {
   @Environment(PlayerController.self) private var player
   @State private var scrub: Double?
+  @State private var addingToPlaylist = false
 
   var body: some View {
     VStack(spacing: 0) {
@@ -24,6 +25,24 @@ struct NowPlayingView: View {
         Text(player.current?.artist ?? "").font(.title3).foregroundStyle(Palette.muted).lineLimit(1)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
+      .overlay(alignment: .trailing) {
+        // Nothing for a Blind Digging track: saving would reveal it.
+        if let entry = player.current, !entry.hidden {
+          HStack(spacing: 8) {
+            SaveButton(ref: entry.target.itemRef)
+            Button {
+              addingToPlaylist = true
+            } label: {
+              Image(systemName: "text.badge.plus")
+            }
+            .accessibilityLabel("플레이리스트에 추가")
+          }
+          .font(.title3)
+          .buttonStyle(.glass)
+          .buttonBorderShape(.circle)
+          .sheet(isPresented: $addingToPlaylist) { AddToPlaylistSheet(ref: entry.target.itemRef, title: entry.title) }
+        }
+      }
       .padding(.top, 30)
 
       VStack(spacing: 6) {

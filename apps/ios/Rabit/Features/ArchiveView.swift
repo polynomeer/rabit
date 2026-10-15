@@ -168,7 +168,12 @@ struct LibraryListView: View {
 
   var body: some View {
     List {
-      ForEach(items ?? []) { item in LibraryRow(item: item, queue: items ?? []) }
+      ForEach(items ?? []) { item in
+        LibraryRow(item: item, queue: items ?? [])
+          .swipeActions {
+            Button("빼기", systemImage: "minus.circle", role: .destructive) { Task { await unsave(item) } }
+          }
+      }
     }
     .overlay {
       if failed {
@@ -189,6 +194,16 @@ struct LibraryListView: View {
     case .release: "음반"
     case .recording: "곡"
     case .audioSource: "내 오디오"
+    }
+  }
+
+  /// Removing from the library never revokes a purchase or other entitlement.
+  private func unsave(_ item: RabitKit.LibraryItem) async {
+    do {
+      try await model.collection.unsave(item.libraryItemId)
+      items?.removeAll { $0.id == item.id }
+    } catch {
+      failed = items == nil
     }
   }
 
