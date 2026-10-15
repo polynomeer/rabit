@@ -17,6 +17,7 @@ apps/server/          TypeScript modular monolith (api | worker | media roles)
   src/entry/          process entry points
   test/               integration and unit tests (real Postgres + S3 via SeaweedFS)
 apps/web/             web reference client
+apps/ios/             iOS client (SwiftUI, iOS 26+; see apps/ios/README.md)
 infra/                local infrastructure init scripts
 docs/                 product, architecture, API, security, rights, ADRs
 ```

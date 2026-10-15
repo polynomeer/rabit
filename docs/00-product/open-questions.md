@@ -14,7 +14,7 @@
 | Q03 | 무료 용량·길이·프로젝트·분석 예산·초과 유예는? | 제품·재무 | M0 | ACC-004, ACC-006 | open |
 | Q04 | Listen/Studio/Archive 가격·세금·결제·수수료는? | 재무·제품 | M1 결제 전 | COM-008, COM-017 | open |
 | Q05 | 구매권의 다운로드·재다운로드·종료·환불 범위는? | 법무·제품 | Offer 출시 전 | COM-011, COM-012 | open |
-| Q06 | 지원 모바일·웹·desktop·기기와 offline 범위는? | 기술·제품 | player 구현 전 | PLY-001, PLY-012, ADR(client) | open |
+| Q06 | 지원 모바일·웹·desktop·기기와 offline 범위는? | 기술·제품 | player 구현 전 | PLY-001, PLY-012, ADR(client) | 일부 decided — **iOS 네이티브 (SwiftUI, iOS 26 이상)** (2026-10-15, 소유자 결정, [ADR-0023](../adr/ADR-0023-ios-client.md)). Android·desktop·offline은 open |
 | Q07 | 무료 공개 Studio 재생·공개 릴리스 심사·판매자 자격은? | 제품·권리 | 공개 기능 전 | STU-006, STU-009 | open |
 | Q08 | Human Only의 assisted·unknown·증거 충족 기준은? | Trust·제품 | M1 추천 전 | TRU-003, TRU-006 | open |
 | Q09 | 지역 차트의 현지인 정의·기여 동의·k threshold는? | 데이터·개인정보 | M2 수집 전 | ATL-010, ATL-012 | open |

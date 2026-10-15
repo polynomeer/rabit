@@ -35,6 +35,7 @@
 | [0020](ADR-0020-shared-rate-limits.md) | Rate-limit counters shared in Postgres | Accepted | R13 |
 | [0021](ADR-0021-workspace-key-scope.md) | Per-workspace encryption scope through envelope encryption | Proposed | NFR-SEC-004 |
 | [0022](ADR-0022-web-visual-design.md) | Visual design and menu structure of the web reference client | Accepted (structure, theme, typeface, colours, symbol) | — (BRD) |
+| [0023](ADR-0023-ios-client.md) | Native iOS client in SwiftUI, iOS 26 and later | Accepted (platform, stack, playback) / Proposed (sign-in, offline, Android) | — (Q06) |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 
