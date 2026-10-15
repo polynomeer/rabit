@@ -7,7 +7,7 @@ struct HomeView: View {
   @Environment(PlayerController.self) private var player
   let openAccount: () -> Void
 
-  @State private var library: [LibraryItem]?
+  @State private var library: [RabitKit.LibraryItem]?
   @State private var digs: [DigSessionSummary] = []
   @State private var failed = false
 
@@ -101,7 +101,7 @@ struct HomeView: View {
 /// One saved item: releases and catalog tracks open their album; own audio plays.
 private struct LibraryCard: View {
   @Environment(PlayerController.self) private var player
-  let item: LibraryItem
+  let item: RabitKit.LibraryItem
 
   var body: some View {
     let label = VStack(alignment: .leading, spacing: 8) {
