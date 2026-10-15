@@ -23,6 +23,13 @@ public enum DigText {
     ][role] ?? role
   }
 
+  /// An artist's years on a label: "2019", "2019–2024", or "발매일 미상".
+  public static func span(first: Int?, last: Int?) -> String {
+    guard let first else { return "발매일 미상" }
+    guard let last, last != first else { return String(first) }
+    return "\(first)–\(last)"
+  }
+
   public static func tier(_ tier: String) -> String {
     [
       "top": "인기 상위", "upper": "인기 중상위", "deep_cut": "Deep Cut", "obscure": "희귀",

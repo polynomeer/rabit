@@ -84,12 +84,14 @@ struct ReleaseView: View {
       .padding(.top, 18)
 
       if let label = release.label {
-        Text(label.name)
-          .font(.footnote)
-          .foregroundStyle(Palette.muted)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .padding(.horizontal, 20)
-          .padding(.top, 14)
+        NavigationLink(value: DigRoute.label(label.entityId)) {
+          Label(label.name, systemImage: "calendar")
+            .font(.footnote)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityHint("레이블 타임라인을 열어요")
+        .padding(.horizontal, 20)
+        .padding(.top, 14)
       }
     }
     .padding(.bottom, 32)
