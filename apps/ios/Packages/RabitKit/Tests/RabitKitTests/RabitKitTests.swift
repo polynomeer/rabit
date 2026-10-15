@@ -174,3 +174,49 @@ let base = URL(string: "http://localhost:8080")!
   #expect(p.items.first?.playability.reason == .subscriptionRequired)
   #expect(p.items.first?.target == .recording(RecordingID("rec_1")))
 }
+
+func evidence(_ basis: String, confidence: String = "null", reason: String = "null") throws -> Evidence {
+  let json = """
+    {"basis":"\(basis)","verification_state":"self_declared","source":"catalog","confidence":\(confidence),
+     "license_status":null,"explanation":"Same producer: M","reason":\(reason)}
+    """
+  return try APIClient.decoder.decode(Evidence.self, from: Data(json.utf8))
+}
+
+@Test func inferredEvidenceNeverReadsAsFact() throws {
+  #expect(DigText.basis(try evidence("ml_inferred", confidence: "0.58")) == "추정 (신뢰도 58%)")
+  #expect(DigText.basis(try evidence("verified_fact")) == "검증된 사실")
+}
+
+@Test func reasonCodesRenderInKoreanAndFallBack() throws {
+  #expect(DigText.reason(try evidence("declared", reason: #"{"code":"credit","params":{"role":"producer","name":"Marguerite Okonkwo"}}"#)) == "프로듀서: Marguerite Okonkwo")
+  #expect(DigText.reason(try evidence("verified_fact", reason: #"{"code":"relation.sampled_by","params":{"subject":"A","object":"Ember"}}"#)) == "이 곡을 샘플링: Ember")
+  #expect(DigText.reason(try evidence("declared", reason: #"{"code":"brand_new_code","params":{}}"#)) == "Same producer: M")
+  #expect(DigText.reason(try evidence("declared")) == "Same producer: M")
+  #expect(DigText.axis(DigAxis(rawValue: "future_axis")) == "future_axis")
+}
+
+@Test func stepSendsViaIdsOnlyWhenPresentWithIdempotencyKey() async throws {
+  let session = """
+    {"dig_session_id":"dgs_1","state":"active","title":null,"saved":false,"current_seq":1,"empty_state":null,
+     "trail":[{"seq":0,"parent_seq":null,"entity":{"entity_id":"rec_1","entity_type":"recording","name":"Midnight Harbour","subtitle":null},
+               "via_axis":null,"evidence":null,"played":false,"saved":false,"created_at":"2026-10-15T09:00:00Z"},
+              {"seq":1,"parent_seq":0,"entity":{"entity_id":"rec_2","entity_type":"recording","name":"Ember","subtitle":null},
+               "via_axis":"sampled_by","evidence":null,"played":false,"saved":false,"created_at":"2026-10-15T09:01:00Z"}],
+     "summary":{"nodes":2,"distinct_artists":2,"axes_used":["sampled_by"],"played":0,"saved":0}}
+    """
+  let connection = """
+    {"entity":{"entity_id":"rec_2","entity_type":"recording","name":"Ember","subtitle":null},"axis":"sampled_by",
+     "via":{"relation_id":"rel_9","credit_id":null},"popularity_tier":"unknown","playability":null,
+     "evidence":{"basis":"verified_fact","verification_state":"rights_reviewed","source":"catalog","confidence":null,
+                 "license_status":"licensed","explanation":"x","reason":null}}
+    """
+  let t = StubTransport([(201, session)])
+  let dig = DigService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let c = try APIClient.decoder.decode(DigConnection.self, from: Data(connection.utf8))
+  let s = try await dig.step(DigSessionID("dgs_1"), along: c)
+  #expect(s.current?.entity.name == "Ember")
+  #expect(t.requests[0].value(forHTTPHeaderField: "Idempotency-Key") != nil)
+  let sent = try JSONSerialization.jsonObject(with: t.requests[0].httpBody!) as! [String: String]
+  #expect(sent == ["entity_id": "rec_2", "axis": "sampled_by", "relation_id": "rel_9"])
+}

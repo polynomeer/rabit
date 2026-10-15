@@ -43,4 +43,4 @@ If the API runs on another port (`RABIT_API_PORT`), change `RABIT_API_BASE` unde
 
 ## What works now
 
-Development sign-in, home (saved items, recent DIG sessions), search, album detail, playback with the tab-bar mini player and the full player, theme choice and sign-out. DIG, Archive and Studio tabs come next; production sign-in (Cognito, PKCE) is not wired yet, so release builds cannot sign in.
+Development sign-in, home (saved items, recent DIG sessions), search, album detail, archive (saved items, playlists), DIG (resume sessions, start from search or an album, follow connections by axis with their evidence, move back along the trail, save, end, make a playlist from the trail), playback with the tab-bar mini player and the full player, theme choice and sign-out. Studio comes next; production sign-in (Cognito, PKCE) is not wired yet, so release builds cannot sign in.

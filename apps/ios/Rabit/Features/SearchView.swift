@@ -29,7 +29,7 @@ struct SearchView: View {
         }
       }
       .navigationTitle("검색")
-      .navigationDestination(for: ReleaseID.self) { ReleaseView(id: $0) }
+      .rabitDestinations()
       .searchable(text: $query, prompt: "아티스트, 곡, 크레딧")
       .task(id: query) { await search() }
     }
@@ -54,8 +54,8 @@ struct SearchView: View {
       }
       .foregroundStyle(Palette.text)
     } else {
-      // Artists, people and labels open in DIG, which arrives in a later step.
-      content
+      // Artists, people and labels open a DIG exploration.
+      NavigationLink(value: DigRoute.start(EntityID(result.id))) { content }
     }
   }
 
