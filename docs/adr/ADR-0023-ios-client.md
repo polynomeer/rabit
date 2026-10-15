@@ -30,6 +30,10 @@ Token rotation under AVPlayer: (a) **resource loader on a custom scheme** (chose
 - Colours are the web tokens (ADR-0022) resolved per colour scheme; theme choice 기기 설정 / 다크 / 라이트 per device, default the device setting. Text uses the system font for now.
 - CI: `.github/workflows/ios.yml` on `macos-26` (path-filtered) runs the RabitKit tests, generates the project and runs the app tests on an iOS 26 simulator.
 
+## Amendment 2026-10-15: lock screen and icon
+- The player publishes title, artist, duration, position and the stand-in cover to the lock screen and Control Center, and answers play, pause, next, previous and scrubbing there.
+- The app icon is the brand symbol on Ink, rendered at 1024 px (opaque) by `apps/web/scripts/icons.mjs` from the same SVG as the web icons.
+
 ## Consequences
 - Models are written by hand and can drift from `openapi.yaml`; decoding tests pin the shapes the app reads. Generating them (swift-openapi-generator) stays an option.
 - Redirect-based segment loading depends on AVFoundation behaviour that unit tests cannot cover; it must be checked on a simulator or device against the local stack.
@@ -39,7 +43,6 @@ Token rotation under AVPlayer: (a) **resource loader on a custom scheme** (chose
 - Production sign-in: OIDC Authorization Code + PKCE through `ASWebAuthenticationSession` against Cognito, refresh token in the Keychain.
 - Offline (PLY-012, P2), DRM (contract-dependent), Android, iPad layout.
 - Typeface on iOS: system font (SF Pro / Apple SD Gothic Neo) or bundled Noto Sans KR as on the web (OQ-BRD-01).
-- Lock-screen controls (Now Playing info, remote commands), app icon assets.
 
 ## Revisit trigger
 Q06 for other platforms; a server change to segment authorisation; DRM requirements.

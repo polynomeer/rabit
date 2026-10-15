@@ -1,5 +1,6 @@
-// Renders the PNG icons in public/ from the SVG sources (brand guide §5: the symbol
-// alone on Ink). Re-run whenever the symbol changes (brand.tsx, favicon.svg, icons/*.svg):
+// Renders the PNG icons in public/ (and the iOS app icon) from the SVG sources (brand
+// guide §5: the symbol alone on Ink). Re-run whenever the symbol changes (brand.tsx,
+// favicon.svg, icons/*.svg):
 //   pnpm --filter @rabit/web icons
 import { chromium } from '@playwright/test';
 import { readFileSync } from 'node:fs';
@@ -12,6 +13,8 @@ const jobs = [
   ['icons/app-icon.svg', 192, 'public/icon-192.png', false],
   ['icons/app-icon.svg', 512, 'public/icon-512.png', false],
   ['icons/app-icon-maskable.svg', 512, 'public/icon-maskable-512.png', false],
+  // iOS masks the corners itself and needs an opaque square (ADR-0023).
+  ['icons/app-icon.svg', 1024, '../ios/Rabit/Assets.xcassets/AppIcon.appiconset/icon-1024.png', false],
 ];
 
 const browser = await chromium.launch();
