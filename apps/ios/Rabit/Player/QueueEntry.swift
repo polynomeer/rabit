@@ -48,4 +48,15 @@ struct QueueEntry: Hashable, Identifiable {
     title = result.title
     artist = result.subtitle ?? ""
   }
+
+  /// Playlist items are recordings or the user's own audio.
+  init(item: PlaylistItem) {
+    target = item.target
+    title = item.title ?? "제목 없음"
+    artist = item.subtitle ?? ""
+    switch item.refType {
+    case .recording: coverId = item.primaryReleaseId?.rawValue ?? item.refId
+    case .audioSource: coverId = nil
+    }
+  }
 }

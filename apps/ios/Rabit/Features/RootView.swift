@@ -32,7 +32,7 @@ struct MainTabs: View {
         ComingSoonView(title: "DIG", systemImage: "point.3.connected.trianglepath.dotted")
       }
       Tab("보관함", systemImage: "archivebox", value: AppTab.archive) {
-        ComingSoonView(title: "보관함", systemImage: "archivebox")
+        ArchiveView()
       }
       Tab("Studio", systemImage: "slider.vertical.3", value: AppTab.studio) {
         ComingSoonView(title: "Studio", systemImage: "slider.vertical.3")

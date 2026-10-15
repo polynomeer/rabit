@@ -23,6 +23,8 @@ public enum EntityTag {}
 public enum PlaybackSessionTag {}
 public enum LibraryItemTag {}
 public enum DigSessionTag {}
+public enum PlaylistTag {}
+public enum PlaylistItemTag {}
 
 public typealias ReleaseID = Identifier<ReleaseTag>
 public typealias RecordingID = Identifier<RecordingTag>
@@ -31,6 +33,8 @@ public typealias EntityID = Identifier<EntityTag>
 public typealias PlaybackSessionID = Identifier<PlaybackSessionTag>
 public typealias LibraryItemID = Identifier<LibraryItemTag>
 public typealias DigSessionID = Identifier<DigSessionTag>
+public typealias PlaylistID = Identifier<PlaylistTag>
+public typealias PlaylistItemID = Identifier<PlaylistItemTag>
 
 /// Whether the caller may play an item now, and why not (server-decided, ADR-0016).
 public struct Playability: Codable, Hashable, Sendable {
@@ -193,4 +197,45 @@ public struct SearchResult: Codable, Hashable, Sendable, Identifiable {
   public let subtitle: String?
   public let scope: String
   public let primaryReleaseId: ReleaseID?
+}
+
+public struct PlaylistSummary: Codable, Hashable, Sendable, Identifiable {
+  public let playlistId: PlaylistID
+  public let title: String
+  public let itemCount: Int
+  public let updatedAt: Date
+  public var id: PlaylistID { playlistId }
+}
+
+public struct PlaylistItem: Codable, Hashable, Sendable, Identifiable {
+  public enum RefType: String, Codable, Sendable {
+    case audioSource = "audio_source"
+    case recording
+  }
+  public let itemId: PlaylistItemID
+  public let position: Int
+  public let refType: RefType
+  public let refId: String
+  public let title: String?
+  public let subtitle: String?
+  public let primaryReleaseId: ReleaseID?
+  public let ownership: String?
+  public let playability: Playability
+  public var id: PlaylistItemID { itemId }
+
+  public var target: PlayTarget {
+    switch refType {
+    case .recording: .recording(RecordingID(refId))
+    case .audioSource: .audioSource(AudioSourceID(refId))
+    }
+  }
+}
+
+public struct Playlist: Codable, Hashable, Sendable {
+  public let playlistId: PlaylistID
+  public let title: String
+  public let description: String?
+  public let itemCount: Int
+  public var items: [PlaylistItem]
+  public var itemsNextCursor: String?
 }
