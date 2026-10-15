@@ -117,6 +117,39 @@ resource "aws_cognito_user_pool_client" "web" {
   }
 }
 
+# The iOS app (ADR-0023): its own public client in the user pool, so it can be revoked
+# and measured apart from the web. PKCE through ASWebAuthenticationSession; the callback
+# is the app's custom scheme. Operators sign in on the web only.
+resource "aws_cognito_user_pool_client" "ios" {
+  name                                 = "${local.name}-users-ios"
+  user_pool_id                         = aws_cognito_user_pool.users.id
+  generate_secret                      = false
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["openid", "email"]
+  supported_identity_providers         = ["COGNITO"]
+  callback_urls                        = [local.ios_redirect]
+  logout_urls                          = [local.ios_redirect]
+  explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH"]
+  prevent_user_existence_errors        = "ENABLED"
+  enable_token_revocation              = true
+  access_token_validity                = 60
+  id_token_validity                    = 60
+  refresh_token_validity               = local.cognito_clients.users.refresh_hours
+
+  token_validity_units {
+    access_token  = "minutes"
+    id_token      = "minutes"
+    refresh_token = "hours"
+  }
+}
+
+locals {
+  ios_redirect = "app.rabit.ios://auth/callback"
+  # App clients whose user-pool access tokens the api accepts (AUTH_AUDIENCE).
+  user_client_ids = [aws_cognito_user_pool_client.web["users"].id, aws_cognito_user_pool_client.ios.id]
+}
+
 locals {
   cognito_issuer = {
     users     = "https://${aws_cognito_user_pool.users.endpoint}"

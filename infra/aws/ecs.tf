@@ -35,7 +35,7 @@ locals {
     { name = "AUTH_PROFILE", value = "cognito" },
     { name = "AUTH_ISSUER", value = local.cognito_issuer.users },
     { name = "AUTH_JWKS_URL", value = "${local.cognito_issuer.users}/.well-known/jwks.json" },
-    { name = "AUTH_AUDIENCE", value = aws_cognito_user_pool_client.web["users"].id },
+    { name = "AUTH_AUDIENCE", value = join(",", local.user_client_ids) },
     { name = "AUTH_OPERATOR_ISSUER", value = local.cognito_issuer.operators },
     { name = "AUTH_OPERATOR_JWKS_URL", value = "${local.cognito_issuer.operators}/.well-known/jwks.json" },
     { name = "AUTH_OPERATOR_AUDIENCE", value = aws_cognito_user_pool_client.web["operators"].id },

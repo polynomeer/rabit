@@ -55,7 +55,7 @@ export async function buildApiApp(
   const issuers: TrustedIssuer[] = [
     {
       issuer: auth.issuer,
-      audience: auth.audience,
+      audiences: auth.audiences,
       keys,
       // The development issuer always mints standard tokens.
       profile: devIssuer ? 'standard' : auth.profile,
@@ -65,7 +65,7 @@ export async function buildApiApp(
   if (auth.operator) {
     issuers.push({
       issuer: auth.operator.issuer,
-      audience: auth.operator.audience,
+      audiences: [auth.operator.audience],
       keys: remoteKeys(auth.operator.jwksUrl),
       profile: auth.profile,
       operators: true,

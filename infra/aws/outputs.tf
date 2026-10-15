@@ -60,6 +60,14 @@ output "oidc" {
   }
 }
 
+output "ios_oidc" {
+  description = "Build settings for the iOS app (RABIT_OIDC_ISSUER, RABIT_OIDC_CLIENT_ID; ADR-0023)."
+  value = {
+    RABIT_OIDC_ISSUER    = local.cognito_issuer.users
+    RABIT_OIDC_CLIENT_ID = aws_cognito_user_pool_client.ios.id
+  }
+}
+
 output "operator_pool_id" {
   description = "Create operators here (owner-actions O-03)."
   value       = aws_cognito_user_pool.operators.id

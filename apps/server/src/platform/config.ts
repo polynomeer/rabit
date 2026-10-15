@@ -49,7 +49,20 @@ const envSchema = z
     S3_SSE_KMS_KEY_ID: z.string().min(1).optional(),
 
     AUTH_ISSUER: z.url(),
-    AUTH_AUDIENCE: z.string().min(1),
+    /**
+     * The API audience (`standard`) or the accepted app client ids (`cognito`): one value
+     * or several separated by commas (web and iOS clients, ADR-0009).
+     */
+    AUTH_AUDIENCE: z
+      .string()
+      .min(1)
+      .transform((v) =>
+        v
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0),
+      )
+      .pipe(z.array(z.string()).min(1)),
     AUTH_JWKS_URL: z.union([z.url(), z.literal('')]).optional(),
     AUTH_DEV_ISSUER_ENABLED: bool.default(false),
     /**
@@ -212,7 +225,8 @@ export interface Config {
   };
   auth: {
     issuer: string;
-    audience: string;
+    /** Accepted audiences or Cognito app client ids; the first is the dev issuer's. */
+    audiences: string[];
     jwksUrl: string | undefined;
     devIssuerEnabled: boolean;
     profile: 'standard' | 'cognito';
@@ -281,7 +295,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     auth: {
       issuer: e.AUTH_ISSUER,
-      audience: e.AUTH_AUDIENCE,
+      audiences: e.AUTH_AUDIENCE,
       jwksUrl: e.AUTH_JWKS_URL === '' ? undefined : e.AUTH_JWKS_URL,
       devIssuerEnabled: e.AUTH_DEV_ISSUER_ENABLED,
       profile: e.AUTH_PROFILE,
