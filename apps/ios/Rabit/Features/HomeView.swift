@@ -33,7 +33,7 @@ struct HomeView: View {
             .accessibilityLabel("계정")
         }
       }
-      .navigationDestination(for: ReleaseID.self) { ReleaseView(id: $0) }
+      .rabitDestinations()
       .task { await load() }
       .refreshable { await load() }
     }

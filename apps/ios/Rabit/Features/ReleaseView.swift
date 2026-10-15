@@ -23,6 +23,14 @@ struct ReleaseView: View {
     }
     .background(Palette.background)
     .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        NavigationLink(value: DigRoute.start(EntityID(id.rawValue))) {
+          Image(systemName: "point.3.connected.trianglepath.dotted")
+        }
+        .accessibilityLabel("이 앨범에서 DIG 시작")
+      }
+    }
     .task { await load() }
   }
 

@@ -29,7 +29,7 @@ struct MainTabs: View {
         HomeView(openAccount: { account = true })
       }
       Tab("DIG", systemImage: "point.3.connected.trianglepath.dotted", value: AppTab.dig) {
-        ComingSoonView(title: "DIG", systemImage: "point.3.connected.trianglepath.dotted")
+        DigHomeView()
       }
       Tab("보관함", systemImage: "archivebox", value: AppTab.archive) {
         ArchiveView()

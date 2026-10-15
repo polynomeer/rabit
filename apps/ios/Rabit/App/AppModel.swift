@@ -11,6 +11,7 @@ nonisolated extension Notification.Name {
 final class AppModel {
   let config: AppConfig
   let catalog: CatalogService
+  let dig: DigService
   let player: PlayerController
   private(set) var signedIn: Bool
 
@@ -25,6 +26,7 @@ final class AppModel {
       onUnauthorized: { NotificationCenter.default.post(name: .rabitSignedOut, object: nil) })
     self.api = api
     catalog = CatalogService(api: api)
+    dig = DigService(api: api)
     player = PlayerController(playback: PlaybackService(api: api, deviceId: DeviceID.current))
     signedIn = tokens.accessToken != nil
   }

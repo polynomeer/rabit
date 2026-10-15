@@ -51,7 +51,7 @@ struct ArchiveView: View {
         case .library(let kind): LibraryListView(kind: kind)
         }
       }
-      .navigationDestination(for: ReleaseID.self) { ReleaseView(id: $0) }
+      .rabitDestinations()
       .task { await load() }
       .refreshable { await load() }
     }
