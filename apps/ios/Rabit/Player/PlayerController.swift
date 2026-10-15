@@ -30,6 +30,7 @@ final class PlayerController {
 
   init(playback: PlaybackService) {
     self.playback = playback
+    NowPlayingCenter.connect(self)
     timeObserver = player.addPeriodicTimeObserver(
       forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main
     ) { [weak self] time in
@@ -44,15 +45,25 @@ final class PlayerController {
   }
 
   func toggle() {
-    if isPlaying {
-      player.pause()
-      isPlaying = false
-      record(.paused, wasPlaying: true)
-    } else if session != nil {
+    if isPlaying { pause() } else { resume() }
+  }
+
+  func pause() {
+    guard isPlaying else { return }
+    player.pause()
+    isPlaying = false
+    record(.paused, wasPlaying: true)
+    publishNowPlaying()
+  }
+
+  func resume() {
+    guard !isPlaying else { return }
+    if session != nil {
       activateAudioSession()
       log?.resume()
       player.play()
       isPlaying = true
+      publishNowPlaying()
     } else if current != nil {
       jump(to: index)
     }
@@ -75,6 +86,7 @@ final class PlayerController {
     player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600))
     position = seconds
     record(.seek, wasPlaying: isPlaying)
+    publishNowPlaying()
   }
 
   func stop() {
@@ -83,6 +95,7 @@ final class PlayerController {
     queue = []
     index = -1
     message = nil
+    publishNowPlaying()
   }
 
   // MARK: - Session lifecycle
@@ -121,6 +134,7 @@ final class PlayerController {
       isPlaying = true
       record(.started, wasPlaying: false)
       startTimers()
+      publishNowPlaying()
     } catch is CancellationError {
     } catch {
       isPlaying = false
@@ -182,7 +196,10 @@ final class PlayerController {
 
   private func tick(_ time: CMTime) {
     if time.isNumeric { position = time.seconds }
-    if let d = player.currentItem?.duration, d.isNumeric { duration = d.seconds }
+    if let d = player.currentItem?.duration, d.isNumeric, d.seconds != duration {
+      duration = d.seconds
+      publishNowPlaying()
+    }
     if player.currentItem?.status == .failed, session != nil {
       endSession(reporting: .paused)
       message = "재생하지 못했어요. 잠시 후 다시 시도해 주세요."
@@ -201,9 +218,15 @@ final class PlayerController {
         } else {
           self.endSession(reporting: .ended)
           self.position = 0
+          self.publishNowPlaying()
         }
       }
     }
+  }
+
+  private func publishNowPlaying() {
+    NowPlayingCenter.update(
+      entry: current, isPlaying: isPlaying, position: position, duration: duration, hasNext: hasNext)
   }
 
   private func activateAudioSession() {
