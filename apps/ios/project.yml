@@ -38,6 +38,9 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # Provider sign-in (`tofu output ios_oidc`); empty: not configured.
+        RABIT_OIDC_ISSUER: ''
+        RABIT_OIDC_CLIENT_ID: ''
       configs:
         Debug:
           RABIT_API_BASE_URL: http://localhost:8080
@@ -47,6 +50,8 @@ targets:
       path: Config/Rabit-Info.plist
       properties:
         RabitAPIBaseURL: $(RABIT_API_BASE_URL)
+        RabitOIDCIssuer: $(RABIT_OIDC_ISSUER)
+        RabitOIDCClientID: $(RABIT_OIDC_CLIENT_ID)
         UIBackgroundModes: [audio]
         NSMicrophoneUsageDescription: 지금 이 자리의 소리를 Audio Log로 녹음해요. 녹음은 비공개로 저장돼요.
         ITSAppUsesNonExemptEncryption: false
@@ -73,7 +78,16 @@ schemes:
       config: Debug
       environmentVariables:
         # Change when the local API runs on another port (RABIT_API_PORT).
-        RABIT_API_BASE: http://localhost:8080
+        - variable: RABIT_API_BASE
+          value: http://localhost:8080
+          isEnabled: true
+        # Enable both to sign in through the local mock provider (docker compose --profile oidc).
+        - variable: RABIT_OIDC_ISSUER
+          value: http://localhost:8090/rabit
+          isEnabled: false
+        - variable: RABIT_OIDC_CLIENT_ID
+          value: rabit-ios
+          isEnabled: false
     test:
       config: Debug
       targets:

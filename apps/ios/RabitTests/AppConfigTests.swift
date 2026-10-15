@@ -19,6 +19,26 @@ struct AppConfigTests {
     #expect(ftp.apiBaseURL == AppConfig.fallbackBaseURL)
   }
 
+  @Test func providerSignInNeedsIssuerAndClient() throws {
+    #expect(AppConfig.load(info: ["RabitOIDCIssuer": "", "RabitOIDCClientID": ""], environment: [:]).oidc == nil)
+    let cognito = try #require(
+      AppConfig.load(
+        info: [
+          "RabitOIDCIssuer": "https://cognito-idp.ap-northeast-2.amazonaws.com/ap-northeast-2_x",
+          "RabitOIDCClientID": "abc",
+        ], environment: [:]
+      ).oidc)
+    #expect(cognito.clientId == "abc")
+    #expect(cognito.redirectURI.absoluteString == "app.rabit.ios://auth/callback")
+    // Plain HTTP only for the local mock provider.
+    let mock = AppConfig.load(
+      info: [:], environment: ["RABIT_OIDC_ISSUER": "http://localhost:8090/rabit", "RABIT_OIDC_CLIENT_ID": "rabit-ios"])
+    #expect(mock.oidc?.issuer.absoluteString == "http://localhost:8090/rabit")
+    let plain = AppConfig.load(
+      info: [:], environment: ["RABIT_OIDC_ISSUER": "http://idp.example/pool", "RABIT_OIDC_CLIENT_ID": "x"])
+    #expect(plain.oidc == nil)
+  }
+
   @Test func debugBuildsOfferDevSignIn() {
     #expect(AppConfig.load(info: [:], environment: [:]).devSignIn)
   }
