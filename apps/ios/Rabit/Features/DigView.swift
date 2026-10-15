@@ -254,6 +254,7 @@ struct DigSessionView: View {
       switch route {
       case .start(let entity): session = try await model.dig.start(from: entity)
       case .session(let id): session = try await model.dig.session(id)
+      case .blind, .crate: return  // routed to their own screens
       }
       await loadAxes()
     } catch {
