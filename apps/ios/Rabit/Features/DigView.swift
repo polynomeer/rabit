@@ -71,6 +71,7 @@ struct DigSessionView: View {
   @State private var includeInferred = true
   @State private var busy = false
   @State private var message: String?
+  @State private var notice: String?
   var body: some View {
     ScrollView {
       if let session {
