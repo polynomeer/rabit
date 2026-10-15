@@ -124,6 +124,7 @@ private struct ItemActions: ViewModifier {
   let ref: ItemRef
   let title: String
   @State private var addingToPlaylist = false
+  @State private var showingCredits = false
 
   func body(content: Content) -> some View {
     content
@@ -135,8 +136,12 @@ private struct ItemActions: ViewModifier {
         if ref.fitsPlaylist {
           Button("플레이리스트에 추가", systemImage: "text.badge.plus") { addingToPlaylist = true }
         }
+        if ref.type == .recording {
+          Button("크레딧과 출처", systemImage: "checkmark.shield") { showingCredits = true }
+        }
       }
       .sheet(isPresented: $addingToPlaylist) { AddToPlaylistSheet(ref: ref, title: title) }
+      .sheet(isPresented: $showingCredits) { PassportView(recording: RecordingID(ref.id), title: title) }
   }
 }
 
