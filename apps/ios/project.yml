@@ -1,0 +1,78 @@
+# XcodeGen spec for the iOS client (ADR-0023). Generate the project with
+#   xcodegen generate --spec apps/ios/project.yml
+# The generated Rabit.xcodeproj is not committed.
+name: Rabit
+options:
+  bundleIdPrefix: app.rabit
+  deploymentTarget:
+    iOS: '26.0'
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_TEAM: ''
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+packages:
+  RabitKit:
+    path: Packages/RabitKit
+targets:
+  Rabit:
+    type: application
+    platform: iOS
+    sources: [Rabit]
+    dependencies:
+      - package: RabitKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.rabit.ios
+        MARKETING_VERSION: '0.1.0'
+        CURRENT_PROJECT_VERSION: '1'
+        TARGETED_DEVICE_FAMILY: '1'
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Rabit
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+      configs:
+        Debug:
+          RABIT_API_BASE_URL: http://localhost:8080
+        Release:
+          RABIT_API_BASE_URL: ''
+    info:
+      path: Config/Rabit-Info.plist
+      properties:
+        RabitAPIBaseURL: $(RABIT_API_BASE_URL)
+        UIBackgroundModes: [audio]
+        ITSAppUsesNonExemptEncryption: false
+        # Plain HTTP only to localhost (local stack); everything else needs TLS.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+  RabitTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [RabitTests]
+    dependencies:
+      - target: Rabit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.rabit.ios.tests
+schemes:
+  Rabit:
+    build:
+      targets:
+        Rabit: all
+        RabitTests: [test]
+    run:
+      config: Debug
+      environmentVariables:
+        # Change when the local API runs on another port (RABIT_API_PORT).
+        RABIT_API_BASE: http://localhost:8080
+    test:
+      config: Debug
+      targets:
+        - RabitTests
