@@ -131,6 +131,34 @@ public struct CrateItem: Codable, Hashable, Sendable {
   public let popularityTier: String
 }
 
+/// Label Digging (DIG-011): a label's releases by year and each artist's span on it.
+public struct LabelTimeline: Codable, Hashable, Sendable {
+  public struct Release: Codable, Hashable, Sendable, Identifiable {
+    public let releaseId: ReleaseID
+    public let title: String
+    public let releaseType: String
+    public let releaseDate: String?
+    public let artists: [EntitySummary]
+    public var id: ReleaseID { releaseId }
+  }
+  public struct Year: Codable, Hashable, Sendable {
+    /// Nil for undated releases (listed last).
+    public let year: Int?
+    public let releases: [Release]
+  }
+  public struct Artist: Codable, Hashable, Sendable {
+    public let artist: EntitySummary
+    public let firstYear: Int?
+    public let lastYear: Int?
+    public let releases: Int
+  }
+  public let label: EntitySummary
+  public let years: [Year]
+  public let artists: [Artist]
+  /// More than 1000 releases: only the first 1000 are listed.
+  public let truncated: Bool
+}
+
 public enum PopularityFilter: String, CaseIterable, Sendable {
   case any
   case belowTop50 = "below_top_50"
@@ -255,6 +283,10 @@ public struct DigService: Sendable {
     struct Crate: Decodable { let items: [CrateItem] }
     let crate: Crate = try await api.get(CatalogService.path("/v1/dig/crate", query))
     return crate.items
+  }
+
+  public func labelTimeline(_ label: EntityID) async throws -> LabelTimeline {
+    try await api.get("/v1/dig/labels/\(label.rawValue)/timeline")
   }
 
   /// A new playlist with the trail's recordings in order.

@@ -8,6 +8,8 @@ nonisolated enum DigRoute: Hashable {
   /// Blind Digging, from an entity's connections or from the whole catalog.
   case blind(EntityID?)
   case crate
+  /// Label Digging: a label's releases by year and its artists' spans.
+  case label(EntityID)
 }
 
 extension View {
@@ -19,6 +21,7 @@ extension View {
         case .start, .session: DigSessionView(route: route)
         case .blind(let entity): BlindDigView(start: entity)
         case .crate: CrateDigView()
+        case .label(let label): LabelTimelineView(label: label)
         }
       }
   }

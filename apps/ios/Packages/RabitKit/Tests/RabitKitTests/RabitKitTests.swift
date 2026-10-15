@@ -395,3 +395,15 @@ let oidcConfig = OIDCConfig(
   _ = try await dig.crate(years: nil, popularity: .obscure)
   #expect(t.requests[1].url?.absoluteString == "http://localhost:8080/v1/dig/crate?popularity=obscure&size=12")
 }
+
+@Test func labelTimelineDecodesYearsWithUndatedLast() async throws {
+  let json = #"{"label":{"entity_id":"lab_1","entity_type":"label","name":"Tidal Room Records","subtitle":null},"years":[{"year":2025,"releases":[{"release_id":"rel_2","title":"Paper Sky","release_type":"ep","release_date":"2025-09-12","artists":[{"entity_id":"art_2","entity_type":"artist","name":"Lumen Avenue","subtitle":null}]}]},{"year":null,"releases":[{"release_id":"rel_3","title":"Untitled","release_type":"single","release_date":null,"artists":[]}]}],"artists":[{"artist":{"entity_id":"art_2","entity_type":"artist","name":"Lumen Avenue","subtitle":null},"first_year":2019,"last_year":2025,"releases":3}],"truncated":false}"#
+  let t = StubTransport([(200, json)])
+  let tl = try await DigService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)).labelTimeline(EntityID("lab_1"))
+  #expect(t.requests[0].url?.path == "/v1/dig/labels/lab_1/timeline")
+  #expect(tl.years.map(\.year) == [2025, nil])
+  #expect(tl.years[1].releases.first?.releaseDate == nil)
+  #expect(DigText.span(first: tl.artists[0].firstYear, last: tl.artists[0].lastYear) == "2019–2025")
+  #expect(DigText.span(first: 2020, last: 2020) == "2020")
+  #expect(DigText.span(first: nil, last: nil) == "발매일 미상")
+}

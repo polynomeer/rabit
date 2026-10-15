@@ -54,8 +54,10 @@ struct SearchView: View {
       }
       .foregroundStyle(Palette.text)
     } else {
-      // Artists, people and labels open a DIG exploration.
-      NavigationLink(value: DigRoute.start(EntityID(result.id))) { content }
+      // Labels open their timeline; artists and people a DIG exploration.
+      NavigationLink(
+        value: result.kind == .label ? DigRoute.label(EntityID(result.id)) : DigRoute.start(EntityID(result.id))
+      ) { content }
     }
   }
 
