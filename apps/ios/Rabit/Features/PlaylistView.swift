@@ -85,7 +85,7 @@ struct PlaylistView: View {
             Button {
               play(from: item)
             } label: {
-              ItemLine(item: item, isCurrent: player.current?.target == item.target)
+              ItemLine(item: item, isCurrent: player.visibleTarget == item.target)
             }
             .foregroundStyle(Palette.text)
             .disabled(!item.playability.playable)

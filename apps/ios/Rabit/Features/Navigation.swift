@@ -5,13 +5,22 @@ import SwiftUI
 nonisolated enum DigRoute: Hashable {
   case start(EntityID)
   case session(DigSessionID)
+  /// Blind Digging, from an entity's connections or from the whole catalog.
+  case blind(EntityID?)
+  case crate
 }
 
 extension View {
   /// Album and DIG pages can open from any tab's navigation stack.
   func rabitDestinations() -> some View {
     navigationDestination(for: ReleaseID.self) { ReleaseView(id: $0) }
-      .navigationDestination(for: DigRoute.self) { DigSessionView(route: $0) }
+      .navigationDestination(for: DigRoute.self) { route in
+        switch route {
+        case .start, .session: DigSessionView(route: route)
+        case .blind(let entity): BlindDigView(start: entity)
+        case .crate: CrateDigView()
+        }
+      }
   }
 }
 

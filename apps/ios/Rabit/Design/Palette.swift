@@ -69,9 +69,17 @@ struct CoverView: View {
 struct ItemMark: View {
   let coverId: String?
   var corner: CGFloat = 8
+  /// A Blind Digging track: a question mark instead of anything that identifies it.
+  var hidden = false
 
   var body: some View {
-    if let coverId {
+    if hidden {
+      RoundedRectangle(cornerRadius: corner)
+        .fill(Palette.prominent)
+        .aspectRatio(1, contentMode: .fit)
+        .overlay { Image(systemName: "questionmark").font(.title3.bold()).foregroundStyle(.white) }
+        .accessibilityHidden(true)
+    } else if let coverId {
       CoverView(id: coverId, corner: corner)
     } else {
       RoundedRectangle(cornerRadius: corner)

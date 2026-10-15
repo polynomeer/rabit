@@ -12,7 +12,7 @@ struct NowPlayingView: View {
         if let coverId = player.current?.coverId {
           CoverView(id: coverId, corner: 18)
         } else {
-          ItemMark(coverId: nil, corner: 18)
+          ItemMark(coverId: nil, corner: 18, hidden: player.current?.hidden == true)
         }
       }
       .frame(maxWidth: 346)

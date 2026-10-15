@@ -10,18 +10,46 @@ struct DigHomeView: View {
   var body: some View {
     NavigationStack {
       List {
-        ForEach(sessions ?? []) { s in
-          NavigationLink(value: DigRoute.session(s.digSessionId)) {
-            HStack(spacing: 12) {
-              if let entity = s.startEntity { EntityMark(entity: entity).frame(width: 44, height: 44) }
+        Section {
+          NavigationLink(value: DigRoute.blind(nil)) {
+            Label {
               VStack(alignment: .leading, spacing: 2) {
-                Text(s.title ?? s.startEntity?.name ?? "이름 없는 탐험").font(.body.weight(.medium))
-                Text("\(s.nodes)곳 · \(s.state == "active" ? "진행 중" : "끝남")")
-                  .font(.footnote).foregroundStyle(Palette.muted)
+                Text("Blind Digging").font(.body.weight(.semibold))
+                Text("정보를 가린 채 듣고 Keep 또는 Pass").font(.footnote).foregroundStyle(Palette.muted)
               }
-              Spacer(minLength: 0)
-              if s.saved {
-                Image(systemName: "bookmark.fill").foregroundStyle(Palette.accent).accessibilityLabel("저장됨")
+            } icon: {
+              Image(systemName: "eye.slash")
+            }
+          }
+          NavigationLink(value: DigRoute.crate) {
+            Label {
+              VStack(alignment: .leading, spacing: 2) {
+                Text("Crate Digging").font(.body.weight(.semibold))
+                Text("시대와 인기로 앨범 상자 뒤지기").font(.footnote).foregroundStyle(Palette.muted)
+              }
+            } icon: {
+              Image(systemName: "shippingbox")
+            }
+          }
+        }
+        Section("이전 탐험") {
+          if sessions?.isEmpty == true {
+            Text("아직 탐험이 없어요. 검색에서 아티스트를 고르거나 앨범의 DIG 버튼으로 시작해 보세요.")
+              .font(.footnote).foregroundStyle(Palette.muted)
+          }
+          ForEach(sessions ?? []) { s in
+            NavigationLink(value: DigRoute.session(s.digSessionId)) {
+              HStack(spacing: 12) {
+                if let entity = s.startEntity { EntityMark(entity: entity).frame(width: 44, height: 44) }
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(s.title ?? s.startEntity?.name ?? "이름 없는 탐험").font(.body.weight(.medium))
+                  Text("\(s.nodes)곳 · \(s.state == "active" ? "진행 중" : "끝남")")
+                    .font(.footnote).foregroundStyle(Palette.muted)
+                }
+                Spacer(minLength: 0)
+                if s.saved {
+                  Image(systemName: "bookmark.fill").foregroundStyle(Palette.accent).accessibilityLabel("저장됨")
+                }
               }
             }
           }
@@ -30,10 +58,6 @@ struct DigHomeView: View {
       .overlay {
         if failed {
           ContentUnavailableView("불러오지 못했어요", systemImage: "exclamationmark.triangle")
-        } else if sessions?.isEmpty == true {
-          ContentUnavailableView(
-            "아직 탐험이 없어요", systemImage: "point.3.connected.trianglepath.dotted",
-            description: Text("검색에서 아티스트를 고르거나 앨범의 DIG 버튼으로 시작해 보세요."))
         } else if sessions == nil {
           ProgressView()
         }
@@ -72,6 +96,7 @@ struct DigSessionView: View {
   @State private var busy = false
   @State private var message: String?
   @State private var notice: String?
+  @State private var blindFrom: EntityID?
   var body: some View {
     ScrollView {
       if let session {
@@ -101,6 +126,7 @@ struct DigSessionView: View {
     .navigationTitle("DIG")
     .navigationBarTitleDisplayMode(.inline)
     .toolbar { toolbar }
+    .navigationDestination(item: $blindFrom) { BlindDigView(start: $0) }
     .disabled(busy)
     .task { await open() }
     .onChange(of: popularity) { Task { await loadConnections() } }
@@ -200,6 +226,9 @@ struct DigSessionView: View {
             ForEach(PopularityFilter.allCases, id: \.self) { Text(Self.popularityText($0)).tag($0) }
           }
           Toggle("추정 연결 포함", isOn: $includeInferred)
+          if let entity = session.current?.entity.entityId {
+            Button("여기서 Blind Digging", systemImage: "eye.slash") { blindFrom = entity }
+          }
           Divider()
           Button("Trail로 플레이리스트 만들기", systemImage: "music.note.list") {
             Task { await makePlaylist(session) }

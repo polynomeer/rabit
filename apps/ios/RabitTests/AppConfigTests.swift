@@ -39,6 +39,14 @@ struct AppConfigTests {
     #expect(plain.oidc == nil)
   }
 
+  @Test func blindEntriesCarryNothingThatIdentifiesTheTrack() {
+    let entry = QueueEntry.blind(RecordingID("rec_1"))
+    #expect(entry.hidden)
+    #expect(entry.coverId == nil)
+    #expect(entry.artist.isEmpty)
+    #expect(!entry.title.contains("rec_1"))
+  }
+
   @Test func debugBuildsOfferDevSignIn() {
     #expect(AppConfig.load(info: [:], environment: [:]).devSignIn)
   }
