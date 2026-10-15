@@ -437,3 +437,17 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   try await c.unsave(saved.libraryItemId)
   #expect(t.requests[2].httpMethod == "DELETE")
 }
+
+@Test func passportDecodesAndReportsSkipBlankDetails() async throws {
+  let json = #"{"recording_id":"rec_1","creation":[{"stage":"composition","method":"human","verification_state":"distributor_verified","basis":"verified_fact"},{"stage":"mastering","method":"unknown","verification_state":null,"basis":null}],"credits":[{"credit_id":"crd_1","contributor":{"entity_id":"per_1","name":"Marguerite Okonkwo"},"role":"producer","instrument":null,"creation_method":"human","basis":"verified_fact","verification_state":"distributor_verified","source":"catalog"}],"claims":[],"integrity":[{"axis":"ai_generation","value":"none_declared","basis":"declared"}],"report_url":"/v1/reports"}"#
+  let t = StubTransport([(200, json), (201, #"{"report_id":"rpt_1"}"#)])
+  let catalog = CatalogService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let p = try await catalog.passport(RecordingID("rec_1"))
+  #expect(p.creation.map { PassportText.method($0.method) } == ["사람", "알 수 없음"])
+  #expect(PassportText.verification(p.creation[1].verificationState) == nil)
+  #expect(p.credits.first?.contributor.name == "Marguerite Okonkwo")
+  #expect(PassportText.integrity(p.integrity[0].axis) == "AI 생성 여부")
+  try await catalog.report(recording: RecordingID("rec_1"), reason: .undisclosedAI, details: "   ")
+  let body = try JSONSerialization.jsonObject(with: t.requests[1].httpBody!) as! [String: String]
+  #expect(body == ["subject_type": "recording", "subject_id": "rec_1", "reason_code": "undisclosed_ai"])
+}

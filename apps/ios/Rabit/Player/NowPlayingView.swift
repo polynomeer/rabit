@@ -6,6 +6,7 @@ struct NowPlayingView: View {
   @Environment(PlayerController.self) private var player
   @State private var scrub: Double?
   @State private var addingToPlaylist = false
+  @State private var credits: RecordingID?
 
   var body: some View {
     VStack(spacing: 0) {
@@ -20,29 +21,36 @@ struct NowPlayingView: View {
       .shadow(color: .black.opacity(0.35), radius: 30, y: 18)
       .padding(.top, 36)
 
-      VStack(alignment: .leading, spacing: 2) {
-        Text(player.current?.title ?? "재생 중인 곡 없음").font(.title2.bold()).lineLimit(2)
-        Text(player.current?.artist ?? "").font(.title3).foregroundStyle(Palette.muted).lineLimit(1)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .overlay(alignment: .trailing) {
-        // Nothing for a Blind Digging track: saving would reveal it.
+      HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(player.current?.title ?? "재생 중인 곡 없음").font(.title2.bold()).lineLimit(2)
+          Text(player.current?.artist ?? "").font(.title3).foregroundStyle(Palette.muted).lineLimit(1)
+        }
+        Spacer(minLength: 0)
+        // Nothing for a Blind Digging track: these would reveal it.
         if let entry = player.current, !entry.hidden {
-          HStack(spacing: 8) {
-            SaveButton(ref: entry.target.itemRef)
+          if case .recording(let id) = entry.target {
             Button {
-              addingToPlaylist = true
+              credits = id
             } label: {
-              Image(systemName: "text.badge.plus")
+              Image(systemName: "checkmark.shield")
             }
-            .accessibilityLabel("플레이리스트에 추가")
+            .accessibilityLabel("크레딧과 출처")
           }
-          .font(.title3)
-          .buttonStyle(.glass)
-          .buttonBorderShape(.circle)
+          SaveButton(ref: entry.target.itemRef)
+          Button {
+            addingToPlaylist = true
+          } label: {
+            Image(systemName: "text.badge.plus")
+          }
+          .accessibilityLabel("플레이리스트에 추가")
           .sheet(isPresented: $addingToPlaylist) { AddToPlaylistSheet(ref: entry.target.itemRef, title: entry.title) }
+          .sheet(item: $credits) { PassportView(recording: $0, title: entry.title) }
         }
       }
+      .font(.title3)
+      .buttonStyle(.glass)
+      .buttonBorderShape(.circle)
       .padding(.top, 30)
 
       VStack(spacing: 6) {

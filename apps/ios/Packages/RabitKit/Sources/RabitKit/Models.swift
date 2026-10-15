@@ -16,6 +16,10 @@ public struct Identifier<Tag>: RawRepresentable, Hashable, Sendable, Codable, Cu
   public var description: String { rawValue }
 }
 
+extension Identifier: Identifiable {
+  public var id: String { rawValue }
+}
+
 public enum ReleaseTag {}
 public enum RecordingTag {}
 public enum AudioSourceTag {}
