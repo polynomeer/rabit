@@ -148,3 +148,29 @@ let base = URL(string: "http://localhost:8080")!
   #expect(t.requests.count == 1)
   #expect(t.requests[0].url?.absoluteString == "http://localhost:8080/v1/search?q=harbour%20%26%20lights&limit=30")
 }
+
+@Test func libraryFilterAndPlaylistPaging() async throws {
+  let t = StubTransport([
+    (200, #"{"items":[],"next_cursor":null}"#),
+    (200, #"{"items":[{"item_id":"pli_2","position":101,"ref_type":"audio_source","ref_id":"aus_9","title":"Loop","subtitle":null,"ownership":"private","playability":{"playable":true,"reason":null},"added_at":"2026-10-15T09:00:00Z"}],"next_cursor":null}"#),
+  ])
+  let catalog = CatalogService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  _ = try await catalog.library(refType: .audioSource, limit: 100)
+  let page = try await catalog.playlistItems(PlaylistID("pls_1"), after: "a+b/c")
+  #expect(t.requests[0].url?.absoluteString == "http://localhost:8080/v1/library?limit=100&ref_type=audio_source")
+  #expect(t.requests[1].url?.absoluteString == "http://localhost:8080/v1/playlists/pls_1/items?limit=100&cursor=a%2Bb/c")
+  #expect(page.items.first?.target == .audioSource(AudioSourceID("aus_9")))
+}
+
+@Test func decodesPlaylistWithFirstPage() throws {
+  let json = """
+    {"playlist_id":"pls_1","title":"새벽","description":null,"visibility":"private","version":3,"item_count":1,
+     "items":[{"item_id":"pli_1","position":1,"ref_type":"recording","ref_id":"rec_1","title":"Midnight Harbour",
+               "subtitle":"Velvet Quasar","primary_release_id":"rel_1","ownership":"streaming",
+               "playability":{"playable":false,"reason":"subscription_required"},"added_at":"2026-10-15T09:00:00.000Z"}],
+     "items_next_cursor":null,"created_at":"2026-10-15T09:00:00.000Z","updated_at":"2026-10-15T09:00:00.000Z"}
+    """
+  let p = try APIClient.decoder.decode(Playlist.self, from: Data(json.utf8))
+  #expect(p.items.first?.playability.reason == .subscriptionRequired)
+  #expect(p.items.first?.target == .recording(RecordingID("rec_1")))
+}
