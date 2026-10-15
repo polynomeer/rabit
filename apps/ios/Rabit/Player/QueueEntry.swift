@@ -7,6 +7,9 @@ struct QueueEntry: Hashable, Identifiable {
   let artist: String
   /// Release id whose stand-in cover represents the item; nil for the user's own audio.
   let coverId: String?
+  /// Blind Digging: nothing may reveal what plays (title, artist, cover, lock screen,
+  /// "now playing" marks in lists) until the user decides.
+  var hidden = false
 
   var id: PlayTarget { target }
 
@@ -15,6 +18,12 @@ struct QueueEntry: Hashable, Identifiable {
     self.title = title
     self.artist = artist
     self.coverId = coverId
+  }
+
+  static func blind(_ recording: RecordingID) -> QueueEntry {
+    var entry = QueueEntry(target: .recording(recording), title: "블라인드 곡", artist: "", coverId: nil)
+    entry.hidden = true
+    return entry
   }
 
   /// Saved recordings and own audio; releases open their album instead.

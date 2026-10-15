@@ -87,6 +87,50 @@ public struct DigSession: Codable, Hashable, Sendable {
   public var isActive: Bool { state == "active" }
 }
 
+/// A Blind Digging round (DIG-010): recordings without artist, release, year or
+/// popularity until the user keeps or passes each one.
+public struct BlindDig: Codable, Hashable, Sendable {
+  public struct Item: Codable, Hashable, Sendable, Identifiable {
+    public enum Decision: String, Codable, Sendable { case keep, pass }
+    public struct Reveal: Codable, Hashable, Sendable {
+      public struct ReleaseRef: Codable, Hashable, Sendable {
+        public let releaseId: ReleaseID
+        public let title: String
+        public let releaseDate: String?
+      }
+      public let recording: EntitySummary
+      public let release: ReleaseRef?
+      public let popularityTier: String
+    }
+    public let itemId: String
+    public let position: Int
+    public let recordingId: RecordingID
+    public let decision: Decision?
+    public let reveal: Reveal?
+    public var id: String { itemId }
+  }
+  public let blindDigId: String
+  public let items: [Item]
+
+  /// The first item not decided yet.
+  public var current: Item? { items.first { $0.decision == nil } }
+}
+
+/// One album in a Crate Digging crate (DIG-009); each has a track the caller can play.
+public struct CrateItem: Codable, Hashable, Sendable {
+  public struct ReleaseRef: Codable, Hashable, Sendable {
+    public let releaseId: ReleaseID
+    public let title: String
+    public let releaseType: String
+    public let releaseDate: String?
+  }
+  public let release: ReleaseRef
+  public let artists: [EntitySummary]
+  public let label: EntitySummary?
+  public let playableTracks: Int
+  public let popularityTier: String
+}
+
 public enum PopularityFilter: String, CaseIterable, Sendable {
   case any
   case belowTop50 = "below_top_50"
@@ -177,6 +221,40 @@ public struct DigService: Sendable {
 
   public func end(_ session: DigSessionID) async throws -> DigSession {
     try await api.post("/v1/dig-sessions/\(session.rawValue)/end", body: Optional<Empty>.none)
+  }
+
+  public func startBlind(from entity: EntityID? = nil, popularity: PopularityFilter) async throws -> BlindDig {
+    struct Body: Encodable {
+      let startEntityId: EntityID?
+      let popularity: String
+      func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(startEntityId, forKey: .startEntityId)
+        try c.encode(popularity, forKey: .popularity)
+      }
+      enum CodingKeys: String, CodingKey { case startEntityId, popularity }
+    }
+    return try await api.post("/v1/blind-digs", body: Body(startEntityId: entity, popularity: popularity.rawValue))
+  }
+
+  /// Keep (saves to the library) or Pass; final. Returns the round with the item revealed.
+  public func decide(_ decision: BlindDig.Item.Decision, item: String, in round: String) async throws -> BlindDig {
+    struct Body: Encodable { let decision: BlindDig.Item.Decision }
+    return try await api.post("/v1/blind-digs/\(round)/items/\(item)/decision", body: Body(decision: decision))
+  }
+
+  /// A random crate of albums from the given years (nil: any era).
+  public func crate(years: ClosedRange<Int>?, popularity: PopularityFilter, size: Int = 12) async throws -> [CrateItem] {
+    var query = [
+      URLQueryItem(name: "popularity", value: popularity.rawValue), URLQueryItem(name: "size", value: String(size)),
+    ]
+    if let years {
+      query.append(URLQueryItem(name: "from", value: String(years.lowerBound)))
+      query.append(URLQueryItem(name: "to", value: String(years.upperBound)))
+    }
+    struct Crate: Decodable { let items: [CrateItem] }
+    let crate: Crate = try await api.get(CatalogService.path("/v1/dig/crate", query))
+    return crate.items
   }
 
   /// A new playlist with the trail's recordings in order.

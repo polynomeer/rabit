@@ -11,7 +11,7 @@ struct MiniPlayer: View {
     HStack(spacing: 10) {
       Button(action: open) {
         HStack(spacing: 10) {
-          ItemMark(coverId: player.current?.coverId, corner: 16)
+          ItemMark(coverId: player.current?.coverId, corner: 16, hidden: player.current?.hidden == true)
             .frame(width: 32, height: 32)
             .clipShape(.circle)
             .opacity(player.current == nil ? 0.4 : 1)

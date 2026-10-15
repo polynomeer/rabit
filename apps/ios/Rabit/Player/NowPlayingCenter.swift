@@ -54,7 +54,8 @@ enum NowPlayingCenter {
       MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
     ]
     if duration > 0 { values[MPMediaItemPropertyPlaybackDuration] = duration }
-    if let image = coverImage(for: entry.coverId) { values[MPMediaItemPropertyArtwork] = artwork(image) }
+    // Blind tracks have no cover id, so the lock screen shows no artwork either.
+    if !entry.hidden, let image = coverImage(for: entry.coverId) { values[MPMediaItemPropertyArtwork] = artwork(image) }
     info.nowPlayingInfo = values
     info.playbackState = isPlaying ? .playing : .paused
     let commands = MPRemoteCommandCenter.shared()

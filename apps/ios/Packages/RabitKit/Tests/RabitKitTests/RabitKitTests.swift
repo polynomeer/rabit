@@ -368,3 +368,30 @@ let oidcConfig = OIDCConfig(
   #expect(store.accessToken == nil && store.refreshToken == nil)
   #expect(signedOut.withLock { $0 })
 }
+
+@Test func blindRoundHidesUntilDecidedAndSendsTheDecision() async throws {
+  let hidden = #"{"blind_dig_id":"bld_1","popularity":"deep_cuts","created_at":"2026-10-15T09:00:00Z","items":[{"item_id":"bli_1","position":0,"recording_id":"rec_1","decision":null,"reveal":null},{"item_id":"bli_2","position":1,"recording_id":"rec_2","decision":null,"reveal":null}]}"#
+  let revealed = #"{"blind_dig_id":"bld_1","popularity":"deep_cuts","created_at":"2026-10-15T09:00:00Z","items":[{"item_id":"bli_1","position":0,"recording_id":"rec_1","decision":"keep","reveal":{"recording":{"entity_id":"rec_1","entity_type":"recording","name":"Slow Orbit","subtitle":"Lumen Avenue"},"release":{"release_id":"rel_2","title":"Paper Sky","release_date":"2025-09-12"},"popularity_tier":"deep_cut"}},{"item_id":"bli_2","position":1,"recording_id":"rec_2","decision":null,"reveal":null}]}"#
+  let t = StubTransport([(201, hidden), (200, revealed)])
+  let dig = DigService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let round = try await dig.startBlind(popularity: .deepCuts)
+  #expect(round.current?.itemId == "bli_1")
+  #expect(round.items.allSatisfy { $0.reveal == nil })
+  let start = try JSONSerialization.jsonObject(with: t.requests[0].httpBody!) as! [String: String]
+  #expect(start == ["popularity": "deep_cuts"])
+  let next = try await dig.decide(.keep, item: "bli_1", in: round.blindDigId)
+  #expect(t.requests[1].url?.path == "/v1/blind-digs/bld_1/items/bli_1/decision")
+  #expect(next.current?.itemId == "bli_2")
+  #expect(next.items[0].reveal?.release?.title == "Paper Sky")
+  #expect(DigText.tier(next.items[0].reveal!.popularityTier) == "Deep Cut")
+}
+
+@Test func crateAsksForTheDecade() async throws {
+  let t = StubTransport([(200, #"{"items":[{"release":{"release_id":"rel_1","title":"Harbour Lights","release_type":"album","release_date":"2024-03-01"},"artists":[{"entity_id":"art_1","entity_type":"artist","name":"Velvet Quasar","subtitle":null}],"label":null,"playable_tracks":2,"popularity_tier":"unknown"}]}"#), (200, #"{"items":[]}"#)])
+  let dig = DigService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let crate = try await dig.crate(years: 2020...2029, popularity: .any)
+  #expect(crate.first?.playableTracks == 2)
+  #expect(t.requests[0].url?.absoluteString == "http://localhost:8080/v1/dig/crate?popularity=any&size=12&from=2020&to=2029")
+  _ = try await dig.crate(years: nil, popularity: .obscure)
+  #expect(t.requests[1].url?.absoluteString == "http://localhost:8080/v1/dig/crate?popularity=obscure&size=12")
+}

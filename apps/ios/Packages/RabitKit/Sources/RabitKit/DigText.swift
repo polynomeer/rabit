@@ -23,6 +23,22 @@ public enum DigText {
     ][role] ?? role
   }
 
+  public static func tier(_ tier: String) -> String {
+    [
+      "top": "인기 상위", "upper": "인기 중상위", "deep_cut": "Deep Cut", "obscure": "희귀",
+      "unknown": "인기 정보 없음",
+    ][tier] ?? tier
+  }
+
+  public static func popularity(_ p: PopularityFilter) -> String {
+    switch p {
+    case .any: "Any"
+    case .belowTop50: "Below Top 50%"
+    case .deepCuts: "Deep Cuts"
+    case .obscure: "Obscure"
+    }
+  }
+
   /// The basis label shown on every connection; ML guesses always carry their confidence.
   public static func basis(_ evidence: Evidence) -> String {
     switch evidence.basis {

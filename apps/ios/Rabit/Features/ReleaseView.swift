@@ -74,7 +74,7 @@ struct ReleaseView: View {
 
       LazyVStack(spacing: 0) {
         ForEach(Array(release.tracks.enumerated()), id: \.element.id) { index, track in
-          TrackRow(track: track, number: index + 1, isCurrent: player.current?.target == .recording(track.recordingId)) {
+          TrackRow(track: track, number: index + 1, isCurrent: player.visibleTarget == .recording(track.recordingId)) {
             play(release, startAt: index)
           }
           Divider().overlay(Palette.line)

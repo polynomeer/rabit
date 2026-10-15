@@ -15,6 +15,8 @@ final class PlayerController {
   private(set) var message: String?
 
   var current: QueueEntry? { queue.indices.contains(index) ? queue[index] : nil }
+  /// What lists may mark as playing: nothing while a Blind Digging track plays.
+  var visibleTarget: PlayTarget? { current?.hidden == true ? nil : current?.target }
   var hasNext: Bool { index + 1 < queue.count }
 
   private let playback: PlaybackService
