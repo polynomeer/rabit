@@ -19,14 +19,17 @@ public final class APIClient: Sendable {
   let transport: any HTTPTransport
   /// Called when the API rejects the token; the app shows sign-in again.
   private let onUnauthorized: @Sendable () -> Void
+  /// Renews the access token once on a 401 (provider sign-in only).
+  private let refresher: TokenRefresher?
 
   public init(
     baseURL: URL, tokens: any TokenStore, transport: any HTTPTransport = URLSession.shared,
-    onUnauthorized: @escaping @Sendable () -> Void = {}
+    refresher: TokenRefresher? = nil, onUnauthorized: @escaping @Sendable () -> Void = {}
   ) {
     self.baseURL = baseURL
     self.tokens = tokens
     self.transport = transport
+    self.refresher = refresher
     self.onUnauthorized = onUnauthorized
   }
 
@@ -66,20 +69,30 @@ public final class APIClient: Sendable {
     _ method: String, _ path: String, body: B?, headers: [String: String] = [:]
   ) async throws -> T {
     guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.invalidResponse }
-    var req = URLRequest(url: url)
-    req.httpMethod = method
-    if let token = tokens.accessToken { req.setValue("Bearer \(token)", forHTTPHeaderField: "authorization") }
-    if let body {
-      req.setValue("application/json", forHTTPHeaderField: "content-type")
-      req.httpBody = try Self.encoder.encode(body)
+    let payload = try body.map { try Self.encoder.encode($0) }
+    func request() -> URLRequest {
+      var req = URLRequest(url: url)
+      req.httpMethod = method
+      if let token = tokens.accessToken { req.setValue("Bearer \(token)", forHTTPHeaderField: "authorization") }
+      if let payload {
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.httpBody = payload
+      }
+      for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
+      return req
     }
-    for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
 
-    let (data, response) = try await transport.data(for: req)
+    var (data, response) = try await transport.data(for: request())
+    // A 401 is answered before the request is processed, so one retry is safe.
+    if (response as? HTTPURLResponse)?.statusCode == 401, tokens.accessToken != nil, let refresher,
+      await refresher.refresh()
+    {
+      (data, response) = try await transport.data(for: request())
+    }
     guard let http = response as? HTTPURLResponse else { throw APIError.invalidResponse }
     if http.statusCode == 401 {
       if tokens.accessToken != nil {
-        tokens.accessToken = nil
+        tokens.clear()
         onUnauthorized()
       }
       throw APIError.unauthorized
@@ -98,7 +111,7 @@ public final class APIClient: Sendable {
   public func devSignIn(subject: String) async throws {
     struct Body: Encodable { let subject: String }
     struct Token: Decodable { let accessToken: String }
-    tokens.accessToken = nil
+    tokens.clear()
     let token: Token = try await post("/dev/token", body: Body(subject: subject))
     tokens.accessToken = token.accessToken
   }

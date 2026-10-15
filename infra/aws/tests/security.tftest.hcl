@@ -369,6 +369,24 @@ run "sign_in_is_cognito_with_an_mfa_operator_pool" {
     error_message = "Browser clients use the code flow without a secret and return only to the app."
   }
   assert {
+    condition = (
+      aws_cognito_user_pool_client.ios.generate_secret == false &&
+      toset(aws_cognito_user_pool_client.ios.allowed_oauth_flows) == toset(["code"]) &&
+      toset(aws_cognito_user_pool_client.ios.callback_urls) == toset(["app.rabit.ios://auth/callback"]) &&
+      aws_cognito_user_pool_client.ios.user_pool_id == aws_cognito_user_pool.users.id
+    )
+    error_message = "The iOS client is a public code-flow client of the user pool that returns only to the app's scheme."
+  }
+  assert {
+    condition = alltrue([
+      for td in aws_ecs_task_definition.role : alltrue([
+        for c in jsondecode(td.container_definitions) :
+        c.name == "metrics" || length(split(",", one([for e in c.environment : e.value if e.name == "AUTH_AUDIENCE"]))) == 2
+      ])
+    ])
+    error_message = "The api accepts the web and the iOS user-pool clients, and no operator client."
+  }
+  assert {
     condition = alltrue([
       for td in aws_ecs_task_definition.role : alltrue([
         for c in jsondecode(td.container_definitions) :

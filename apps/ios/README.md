@@ -33,6 +33,14 @@ To make catalog tracks playable for that ID (region KR and a Listen subscription
 pnpm demo:user ios-dev
 ```
 
+To try the provider sign-in locally, start the mock provider, run the api with `AUTH_AUDIENCE=rabit-web,rabit-ios` and the other settings under "Running pieces by hand" in the root README, and enable `RABIT_OIDC_ISSUER` / `RABIT_OIDC_CLIENT_ID` in the scheme's environment variables:
+
+```bash
+docker compose --profile oidc up -d oidc
+```
+
+For staging or release builds, set the build settings `RABIT_OIDC_ISSUER` and `RABIT_OIDC_CLIENT_ID` from `tofu output ios_oidc` (and `RABIT_API_BASE_URL`).
+
 If the API runs on another port (`RABIT_API_PORT`), change `RABIT_API_BASE` under the scheme's Run → Arguments → Environment Variables.
 
 ## Tests
@@ -43,4 +51,4 @@ If the API runs on another port (`RABIT_API_PORT`), change `RABIT_API_BASE` unde
 
 ## What works now
 
-Development sign-in, home (saved items, recent DIG sessions), search, album detail, archive (saved items, playlists), DIG (resume sessions, start from search or an album, follow connections by axis with their evidence, move back along the trail, save, end, make a playlist from the trail), Studio (record an Audio Log, import a file, upload steps with cancel, own audio), playback with the tab-bar mini player, the full player and lock-screen controls, theme choice and sign-out. Production sign-in (Cognito, PKCE) is not wired yet, so release builds cannot sign in.
+Provider sign-in (Cognito, PKCE) and development sign-in, home (saved items, recent DIG sessions), search, album detail, archive (saved items, playlists), DIG (resume sessions, start from search or an album, follow connections by axis with their evidence, move back along the trail, save, end, make a playlist from the trail), Studio (record an Audio Log, import a file, upload steps with cancel, own audio), playback with the tab-bar mini player, the full player and lock-screen controls, theme choice and sign-out.

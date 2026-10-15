@@ -37,7 +37,8 @@ export interface TokenVerifier {
  */
 export interface TrustedIssuer {
   issuer: string;
-  audience: string;
+  /** Accepted `aud` values (`standard`) or `client_id` values (`cognito`). */
+  audiences: string[];
   keys: JWTVerifyGetKey;
   profile: 'standard' | 'cognito';
   operators: boolean;
@@ -50,7 +51,14 @@ function claimsOf(payload: JWTPayload, t: TrustedIssuer): VerifiedToken | null {
   if (t.profile === 'cognito') {
     // Cognito access tokens name the app client in `client_id` and have no `aud`;
     // ID tokens (token_use=id) are never accepted as API credentials.
-    if (payload['token_use'] !== 'access' || payload['client_id'] !== t.audience) return null;
+    const clientId = payload['client_id'];
+    if (
+      payload['token_use'] !== 'access' ||
+      typeof clientId !== 'string' ||
+      !t.audiences.includes(clientId)
+    ) {
+      return null;
+    }
   }
   if (t.operators) {
     return {
@@ -90,7 +98,7 @@ export function createVerifier(issuers: TrustedIssuer[]): TokenVerifier {
         if (!t) return null;
         const { payload } = await jwtVerify(token, t.keys, {
           issuer: t.issuer,
-          ...(t.profile === 'standard' ? { audience: t.audience } : {}),
+          ...(t.profile === 'standard' ? { audience: t.audiences } : {}),
           algorithms: ALLOWED_ALGS,
           clockTolerance: 60,
           requiredClaims: ['sub', 'exp'],
@@ -150,7 +158,7 @@ export class DevIssuer {
       .setProtectedHeader({ alg: 'ES256', kid: 'dev-1' })
       .setSubject(opts.subject)
       .setIssuer(this.cfg.issuer)
-      .setAudience(opts.audience ?? this.cfg.audience)
+      .setAudience(opts.audience ?? this.cfg.audiences[0] ?? '')
       .setIssuedAt(opts.expired ? now - 7200 : now)
       .setExpirationTime(opts.expired ? now - 3600 : now + ttl);
     return jwt.sign(this.privateKey);

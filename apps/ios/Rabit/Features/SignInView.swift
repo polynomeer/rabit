@@ -1,9 +1,11 @@
+import AuthenticationServices
 import SwiftUI
 
-/// Sign-in. Debug builds use the development issuer (ADR-0009); provider sign-in
-/// (OIDC with PKCE through ASWebAuthenticationSession) comes in a later step.
+/// Sign-in: the provider (Cognito hosted sign-in, OIDC + PKCE in a web authentication
+/// session) when configured; debug builds also offer the development issuer (ADR-0009).
 struct SignInView: View {
   @Environment(AppModel.self) private var model
+  @Environment(\.webAuthenticationSession) private var webAuth
   @State private var subject = "ios-dev"
   @State private var busy = false
   @State private var error: String?
@@ -24,6 +26,17 @@ struct SignInView: View {
           .foregroundStyle(Palette.muted)
       }
       Spacer()
+      if model.providerSignIn {
+        Button {
+          Task { await providerSignIn() }
+        } label: {
+          Text(busy ? "로그인 중…" : "로그인")
+            .font(.headline)
+            .frame(maxWidth: .infinity, minHeight: 36)
+        }
+        .buttonStyle(.glassProminent)
+        .disabled(busy)
+      }
       if model.config.devSignIn {
         VStack(spacing: 12) {
           TextField("개발용 사용자 ID", text: $subject)
@@ -39,20 +52,37 @@ struct SignInView: View {
               .font(.headline)
               .frame(maxWidth: .infinity, minHeight: 36)
           }
-          .buttonStyle(.glassProminent)
+          .buttonStyle(.glass)
           .disabled(busy || subject.trimmingCharacters(in: .whitespaces).isEmpty)
-          if let error {
-            Text(error).font(.footnote).foregroundStyle(Palette.warn)
-          }
         }
-      } else {
-        Text("이 빌드에서는 아직 로그인할 수 없어요.")
+      } else if !model.providerSignIn {
+        Text("이 빌드에는 로그인 설정이 없어요.")
           .foregroundStyle(Palette.muted)
+      }
+      if let error {
+        Text(error).font(.footnote).foregroundStyle(Palette.warn)
       }
     }
     .padding(24)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Palette.background)
+  }
+
+  private func providerSignIn() async {
+    busy = true
+    error = nil
+    defer { busy = false }
+    do {
+      try await model.signIn { url in
+        // Ephemeral: no cookies shared with Safari, and no extra consent prompt.
+        try await webAuth.authenticate(
+          using: url, callback: .customScheme("app.rabit.ios"), preferredBrowserSession: .ephemeral,
+          additionalHeaderFields: [:])
+      }
+    } catch let e as ASWebAuthenticationSessionError where e.code == .canceledLogin {
+    } catch {
+      self.error = "로그인하지 못했어요. 잠시 후 다시 시도해 주세요."
+    }
   }
 
   private func signIn() async {

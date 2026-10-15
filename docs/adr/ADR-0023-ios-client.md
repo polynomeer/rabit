@@ -1,6 +1,6 @@
 # ADR-0023: Native iOS client in SwiftUI, iOS 26 and later
 
-- Status: Accepted (platform, stack, minimum OS, playback approach) / **Proposed (production sign-in, offline, Android, typeface on iOS)**
+- Status: Accepted (platform, stack, minimum OS, playback approach, provider sign-in, system typeface) / **Proposed (offline, Android)**
 - Date: 2026-10-15
 - Deciders: product owner (platform, stack, minimum OS, first scope), engineering
 - Related: ADR-0008 (HLS, media tokens), ADR-0009 (auth), ADR-0011 (client strategy), ADR-0016 (rights), ADR-0022 (visual design), Q06, PLY-001, PLY-012
@@ -34,15 +34,17 @@ Token rotation under AVPlayer: (a) **resource loader on a custom scheme** (chose
 - The player publishes title, artist, duration, position and the stand-in cover to the lock screen and Control Center, and answers play, pause, next, previous and scrubbing there.
 - The app icon is the brand symbol on Ink, rendered at 1024 px (opaque) by `apps/web/scripts/icons.mjs` from the same SVG as the web icons.
 
+## Amendment 2026-10-15: provider sign-in and typeface (owner decisions)
+- **Sign-in**: OIDC Authorization Code + PKCE (S256) in an ephemeral `ASWebAuthenticationSession` against the user pool's iOS client (ADR-0009 amendment). The app checks the discovery document's issuer, `state`, and the ID token's `iss`, `aud`, `nonce` and `exp` (it comes straight from the token endpoint over TLS, so the signature is left to the API's check of the access token). Access and refresh tokens live in the Keychain; a 401 renews once (concurrent requests share the renewal) and retries, a failed renewal signs out. Sign-out revokes the refresh token at the provider. Release builds take the issuer and client id from build settings (`tofu output ios_oidc`); debug builds keep the development sign-in as well.
+- **Typeface**: the system font (SF Pro and Apple SD Gothic Neo), for Dynamic Type and the iOS 26 look; the web keeps Noto Sans KR.
+
 ## Consequences
 - Models are written by hand and can drift from `openapi.yaml`; decoding tests pin the shapes the app reads. Generating them (swift-openapi-generator) stays an option.
 - Redirect-based segment loading depends on AVFoundation behaviour that unit tests cannot cover; it must be checked on a simulator or device against the local stack.
 - Local development needs Xcode 26 and XcodeGen.
 
 ## Still open (Proposed)
-- Production sign-in: OIDC Authorization Code + PKCE through `ASWebAuthenticationSession` against Cognito, refresh token in the Keychain.
 - Offline (PLY-012, P2), DRM (contract-dependent), Android, iPad layout.
-- Typeface on iOS: system font (SF Pro / Apple SD Gothic Neo) or bundled Noto Sans KR as on the web (OQ-BRD-01).
 
 ## Revisit trigger
 Q06 for other platforms; a server change to segment authorisation; DRM requirements.

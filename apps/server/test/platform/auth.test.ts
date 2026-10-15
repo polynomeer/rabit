@@ -27,12 +27,18 @@ async function cognitoSetup() {
   const trusted: TrustedIssuer[] = [
     {
       issuer: USERS,
-      audience: 'web-client',
+      audiences: ['web-client', 'ios-client'],
       keys: users.keys,
       profile: 'cognito',
       operators: false,
     },
-    { issuer: OPS, audience: 'ops-client', keys: ops.keys, profile: 'cognito', operators: true },
+    {
+      issuer: OPS,
+      audiences: ['ops-client'],
+      keys: ops.keys,
+      profile: 'cognito',
+      operators: true,
+    },
   ];
   return { users, ops, verifier: createVerifier(trusted) };
 }
@@ -55,6 +61,14 @@ describe('Cognito profile (ADR-0009)', () => {
       roles: [],
       mfa: false,
     });
+  });
+
+  it('accepts every listed app client (web and iOS) and no other', async () => {
+    const { users, verifier } = await cognitoSetup();
+    const ios = await users.sign({ token_use: 'access', client_id: 'ios-client' });
+    expect((await verifier.verify(ios))?.subject).toBe('user-1');
+    const listed = await users.sign({ token_use: 'access', client_id: ['web-client'] });
+    expect(await verifier.verify(listed)).toBeNull();
   });
 
   it('refuses ID tokens, other app clients and unknown issuers', async () => {
@@ -96,6 +110,15 @@ describe('Cognito profile (ADR-0009)', () => {
 
 describe('auth configuration', () => {
   const base = { ...process.env };
+  it('reads one or several audiences, separated by commas', () => {
+    expect(loadConfig({ ...base, AUTH_AUDIENCE: 'web' }).auth.audiences).toEqual(['web']);
+    expect(loadConfig({ ...base, AUTH_AUDIENCE: ' web , ios ' }).auth.audiences).toEqual([
+      'web',
+      'ios',
+    ]);
+    expect(() => loadConfig({ ...base, AUTH_AUDIENCE: ' , ' })).toThrow(/AUTH_AUDIENCE/);
+  });
+
   it('needs all three operator issuer settings, and a different issuer', () => {
     expect(() => loadConfig({ ...base, AUTH_OPERATOR_ISSUER: OPS })).toThrow(
       /AUTH_OPERATOR_ISSUER/,

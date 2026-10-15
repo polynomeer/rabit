@@ -283,3 +283,88 @@ func tempFile(_ text: String, name: String = "rec.m4a") throws -> URL {
     _ = try await failing.upload(file: try tempFile("data", name: "a.wav"), intent: .privateUpload)
   }
 }
+
+let discoveryJSON = #"{"issuer":"https://idp.example/pool","authorization_endpoint":"https://login.example/oauth2/authorize","token_endpoint":"https://login.example/oauth2/token","revocation_endpoint":"https://login.example/oauth2/revoke"}"#
+
+func jwt(_ claims: [String: Any]) -> String {
+  let body = OIDCClient.base64URL(try! JSONSerialization.data(withJSONObject: claims))
+  return "eyJhbGciOiJSUzI1NiJ9.\(body).sig"
+}
+
+let oidcConfig = OIDCConfig(
+  issuer: URL(string: "https://idp.example/pool")!, clientId: "ios-client",
+  redirectURI: URL(string: "app.rabit.ios://auth/callback")!)
+
+@Test func pkceChallengeMatchesRFC7636Example() {
+  #expect(OIDCClient.challenge(for: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk") == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
+}
+
+@Test func signInChecksStateNonceAndAudience() async throws {
+  let t = StubTransport([(200, discoveryJSON)])
+  let oidc = OIDCClient(config: oidcConfig, transport: t)
+  let d = try await oidc.discover()
+  let req = oidc.authorization(d)
+  let q = Dictionary(uniqueKeysWithValues: URLComponents(url: req.url, resolvingAgainstBaseURL: false)!.queryItems!.map { ($0.name, $0.value!) })
+  #expect(q["code_challenge_method"] == "S256")
+  #expect(q["code_challenge"] == OIDCClient.challenge(for: req.codeVerifier))
+  #expect(q["redirect_uri"] == "app.rabit.ios://auth/callback")
+  #expect(q["client_id"] == "ios-client")
+
+  // A callback with another state is refused before any token request.
+  await #expect(throws: OIDCError.stateMismatch) {
+    _ = try await oidc.finish(URL(string: "app.rabit.ios://auth/callback?code=c&state=other")!, for: req, discovery: d)
+  }
+  await #expect(throws: OIDCError.provider("access_denied")) {
+    _ = try await oidc.finish(URL(string: "app.rabit.ios://auth/callback?error=access_denied&state=\(req.state)")!, for: req, discovery: d)
+  }
+
+  let exp = Date().timeIntervalSince1970 + 3600
+  let good = jwt(["iss": "https://idp.example/pool", "aud": "ios-client", "nonce": req.nonce, "exp": exp])
+  t.responses = [(200, #"{"access_token":"at","refresh_token":"rt","id_token":"\#(good)","token_type":"Bearer"}"#)]
+  let tokens = try await oidc.finish(URL(string: "app.rabit.ios://auth/callback?code=abc&state=\(req.state)")!, for: req, discovery: d)
+  #expect(tokens == OIDCTokens(accessToken: "at", refreshToken: "rt"))
+  let form = String(data: t.requests.last!.httpBody!, encoding: .utf8)!
+  #expect(form.contains("code_verifier=\(req.codeVerifier)"))
+  #expect(form.contains("grant_type=authorization_code"))
+  #expect(form.contains("redirect_uri=app.rabit.ios%3A%2F%2Fauth%2Fcallback"))
+
+  let replayed = jwt(["iss": "https://idp.example/pool", "aud": ["ios-client"], "nonce": "other", "exp": exp])
+  t.responses = [(200, #"{"access_token":"at","id_token":"\#(replayed)","token_type":"Bearer"}"#)]
+  await #expect(throws: OIDCError.invalidIDToken("nonce")) {
+    _ = try await oidc.finish(URL(string: "app.rabit.ios://auth/callback?code=abc&state=\(req.state)")!, for: req, discovery: d)
+  }
+}
+
+@Test func discoveryForAnotherIssuerIsRefused() async {
+  let t = StubTransport([(200, discoveryJSON.replacingOccurrences(of: "idp.example/pool", with: "evil.example/pool"))])
+  await #expect(throws: OIDCError.issuerMismatch) { _ = try await OIDCClient(config: oidcConfig, transport: t).discover() }
+}
+
+@Test func expiredAccessTokenIsRenewedOnceAndRetried() async throws {
+  let store = InMemoryTokenStore("old", refresh: "rt1")
+  let t = StubTransport([
+    (401, "{}"),
+    (200, discoveryJSON),
+    (200, #"{"access_token":"new","refresh_token":"rt2","token_type":"Bearer"}"#),
+    (200, #"{"items":[],"next_cursor":null}"#),
+  ])
+  let refresher = TokenRefresher(oidc: OIDCClient(config: oidcConfig, transport: t), tokens: store)
+  let api = APIClient(baseURL: base, tokens: store, transport: t, refresher: refresher)
+  _ = try await CatalogService(api: api).library()
+  #expect(store.accessToken == "new")
+  #expect(store.refreshToken == "rt2")
+  #expect(t.requests.last?.value(forHTTPHeaderField: "authorization") == "Bearer new")
+}
+
+@Test func failedRenewalSignsOutAndClearsBothTokens() async {
+  let store = InMemoryTokenStore("old", refresh: "rt1")
+  let t = StubTransport([(401, "{}"), (200, discoveryJSON), (400, #"{"error":"invalid_grant"}"#)])
+  let signedOut = Mutex(false)
+  let api = APIClient(
+    baseURL: base, tokens: store, transport: t,
+    refresher: TokenRefresher(oidc: OIDCClient(config: oidcConfig, transport: t), tokens: store),
+    onUnauthorized: { signedOut.withLock { $0 = true } })
+  await #expect(throws: APIError.unauthorized) { _ = try await CatalogService(api: api).library() }
+  #expect(store.accessToken == nil && store.refreshToken == nil)
+  #expect(signedOut.withLock { $0 })
+}

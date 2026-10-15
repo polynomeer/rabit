@@ -42,5 +42,10 @@ Owner decision after the comparison above: Cognito, in the same account and regi
 - The `standard` profile (aud, `email_verified`, `rabit_roles` + `amr`) stays for the development issuer and the mock provider, and for any later provider.
 - Tests: `auth.test.ts`. A user-pool token with forged role, group and `amr` claims gets no role; ID tokens and other clients are refused; only the operator pool makes operators; a user-pool key cannot mint a token for the operator issuer.
 
+## Amendment 2026-10-15: iOS app client
+- The user pool gets a second public app client for the iOS app (owner decision; ADR-0023): Authorization Code + PKCE, no secret, callback `app.rabit.ios://auth/callback` only, the same token lifetimes and revocation as the web client. A separate client lets iOS be revoked and measured apart from the web. Operators keep signing in on the web only.
+- `AUTH_AUDIENCE` takes a comma-separated list. With `AUTH_PROFILE=cognito` the api accepts an access token whose `client_id` is one of them (web and iOS); with `standard` the JWT `aud` must contain one of them. The operator issuer keeps a single client.
+- The local mock provider maps `client_id=rabit-ios` to its own tokens, so the iOS flow can be tried against `docker compose --profile oidc`.
+
 ## Revisit trigger
 Provider selection; requirement for first-party session cookies on web (BFF pattern).
