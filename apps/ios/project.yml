@@ -47,6 +47,7 @@ targets:
       properties:
         RabitAPIBaseURL: $(RABIT_API_BASE_URL)
         UIBackgroundModes: [audio]
+        NSMicrophoneUsageDescription: 지금 이 자리의 소리를 Audio Log로 녹음해요. 녹음은 비공개로 저장돼요.
         ITSAppUsesNonExemptEncryption: false
         # Plain HTTP only to localhost (local stack); everything else needs TLS.
         NSAppTransportSecurity:

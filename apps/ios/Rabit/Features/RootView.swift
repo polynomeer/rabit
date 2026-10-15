@@ -35,7 +35,7 @@ struct MainTabs: View {
         ArchiveView()
       }
       Tab("Studio", systemImage: "slider.vertical.3", value: AppTab.studio) {
-        ComingSoonView(title: "Studio", systemImage: "slider.vertical.3")
+        StudioView()
       }
       Tab(value: AppTab.search, role: .search) {
         SearchView()
