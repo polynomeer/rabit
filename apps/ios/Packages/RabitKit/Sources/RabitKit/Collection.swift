@@ -75,7 +75,7 @@ public struct CollectionService: Sendable {
     }
   }
 
-  private func versioned(_ playlist: PlaylistID, _ change: (String) async throws -> Playlist) async throws -> Playlist {
+  func versioned(_ playlist: PlaylistID, _ change: (String) async throws -> Playlist) async throws -> Playlist {
     for attempt in 0..<2 {
       let (_, etag): (Playlist, String?) = try await api.sendWithETag(
         "GET", "/v1/playlists/\(playlist.rawValue)", body: Optional<Empty>.none)

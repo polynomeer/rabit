@@ -117,6 +117,7 @@ struct PlaylistView: View {
               Button("삭제", systemImage: "trash", role: .destructive) { Task { await remove(item) } }
             }
           }
+          .onMove { from, to in move(from: from, to: to) }
           if playlist.itemsNextCursor != nil {
             Button(loadingMore ? "불러오는 중…" : "더 보기") { Task { await loadMore() } }
               .disabled(loadingMore)
@@ -134,6 +135,7 @@ struct PlaylistView: View {
       }
     }
     .navigationTitle(playlist?.title ?? "")
+    .toolbar { if playlist != nil { EditButton() } }
     .task { await load() }
     .refreshable { await load() }
   }
@@ -158,6 +160,22 @@ struct PlaylistView: View {
     } catch let e as URLError where e.code == .cancelled {
     } catch {
       failed = true
+    }
+  }
+
+  /// Reorders locally, then moves on the server (positions are 0-based; a failure reloads).
+  private func move(from source: IndexSet, to destination: Int) {
+    guard var items = playlist?.items, let from = source.first else { return }
+    let moved = items[from]
+    items.move(fromOffsets: source, toOffset: destination)
+    playlist?.items = items
+    let target = items.firstIndex { $0.id == moved.id } ?? 0
+    Task {
+      do {
+        _ = try await model.collection.move(moved.itemId, to: target, in: id)
+      } catch {
+        await load()
+      }
     }
   }
 

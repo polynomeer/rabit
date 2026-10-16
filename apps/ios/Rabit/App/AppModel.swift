@@ -14,6 +14,7 @@ final class AppModel {
   let dig: DigService
   let uploads: UploadService
   let collection: CollectionService
+  let account: AccountService
   let player: PlayerController
   private(set) var signedIn: Bool
 
@@ -35,6 +36,7 @@ final class AppModel {
     dig = DigService(api: api)
     uploads = UploadService(api: api)
     collection = CollectionService(api: api)
+    account = AccountService(api: api)
     player = PlayerController(playback: PlaybackService(api: api, deviceId: DeviceID.current))
     signedIn = tokens.accessToken != nil
   }

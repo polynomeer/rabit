@@ -6,6 +6,8 @@ nonisolated enum ArchiveRoute: Hashable {
   case playlists
   case playlist(PlaylistID)
   case library(RabitKit.LibraryItem.RefType)
+  /// CDs, LPs and cassettes the user owns (a record of ownership, not of rights).
+  case physical
 }
 
 /// The archive tab: categories (playlists, albums, tracks, own audio) and what was added last.
@@ -31,6 +33,9 @@ struct ArchiveView: View {
           NavigationLink(value: ArchiveRoute.library(.audioSource)) {
             CategoryRow(title: "내 오디오", systemImage: "waveform", count: nil)
           }
+          NavigationLink(value: ArchiveRoute.physical) {
+            CategoryRow(title: "실물 컬렉션", systemImage: "opticaldisc", count: nil)
+          }
         }
         Section("최근 추가") {
           if let recent, recent.isEmpty {
@@ -49,6 +54,7 @@ struct ArchiveView: View {
         case .playlists: PlaylistsView()
         case .playlist(let id): PlaylistView(id: id)
         case .library(let kind): LibraryListView(kind: kind)
+        case .physical: PhysicalCollectionView()
         }
       }
       .rabitDestinations()
@@ -165,6 +171,7 @@ struct LibraryListView: View {
   let kind: RabitKit.LibraryItem.RefType
   @State private var items: [RabitKit.LibraryItem]?
   @State private var failed = false
+  @State private var editingLog: AudioSourceID?
 
   var body: some View {
     List {
@@ -172,6 +179,10 @@ struct LibraryListView: View {
         LibraryRow(item: item, queue: items ?? [])
           .swipeActions {
             Button("빼기", systemImage: "minus.circle", role: .destructive) { Task { await unsave(item) } }
+            if item.ownership == "audio_log" {
+              Button("편집", systemImage: "pencil") { editingLog = AudioSourceID(item.refId) }
+                .tint(Palette.prominent)
+            }
           }
       }
     }
@@ -185,6 +196,7 @@ struct LibraryListView: View {
       }
     }
     .navigationTitle(title)
+    .sheet(item: $editingLog, onDismiss: { Task { await load() } }) { AudioLogEditSheet(source: $0) }
     .task { await load() }
     .refreshable { await load() }
   }

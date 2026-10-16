@@ -451,3 +451,56 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   let body = try JSONSerialization.jsonObject(with: t.requests[1].httpBody!) as! [String: String]
   #expect(body == ["subject_type": "recording", "subject_id": "rec_1", "reason_code": "undisclosed_ai"])
 }
+
+@Test func accountDataDecodesAndPricesReadInWon() async throws {
+  let t = StubTransport([
+    (200, #"{"subscription":{"subscription_id":"sub_1","plan":"listen_sandbox","state":"active","paid_through":"2026-11-15T00:00:00Z","source":"sandbox","auto_renew":true}}"#),
+    (200, #"{"items":[{"order_id":"ord_1","kind":"release","status":"fulfilled","offer_id":"ofr_1","release_id":"rel_1","release_title":"Harbour Lights","artist_names":["Velvet Quasar"],"plan":null,"renewal":false,"price":{"amount_minor":9900,"currency":"KRW","tax_minor":900,"tax_included":true},"capabilities":["stream"],"terms_version":"v1","checkout_url":null,"entitlement_id":"ent_1","created_at":"2026-10-15T09:00:00Z","expires_at":"2026-10-15T09:30:00Z"}]}"#),
+    (200, #"{"subscription":null}"#),
+  ])
+  let account = AccountService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  #expect(try await account.subscription()?.autoRenew == true)
+  let orders = try await account.orders()
+  #expect(orders.first?.price.formatted.contains("9,900") == true)
+  #expect(try await account.subscription() == nil)
+}
+
+@Test func movingAPlaylistItemSendsItsPosition() async throws {
+  let t = StubTransport([(200, emptyPlaylist), (200, emptyPlaylist)])
+  t.headers = ["GET /v1/playlists/pls_1": ["ETag": "\"v4\""]]
+  let c = CollectionService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  _ = try await c.move(PlaylistItemID("pli_2"), to: 0, in: PlaylistID("pls_1"))
+  #expect(t.requests[1].url?.path == "/v1/playlists/pls_1/items/pli_2/move")
+  #expect(t.requests[1].value(forHTTPHeaderField: "If-Match") == "\"v4\"")
+  let body = try JSONSerialization.jsonObject(with: t.requests[1].httpBody!) as! [String: Int]
+  #expect(body == ["position": 0])
+}
+
+@Test func physicalDraftsTrimAndClearOptionalFields() async throws {
+  let item = #"{"physical_item_id":"phy_1","format":"vinyl","title":"Harbour Lights","artist_name":null,"barcode":null,"catalog_number":null,"release":null,"notes":null,"verification_state":"self_declared","created_at":"2026-10-15T09:00:00Z","updated_at":"2026-10-15T09:00:00Z"}"#
+  let t = StubTransport([(201, item), (200, item)])
+  let c = CollectionService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  var draft = PhysicalItemDraft()
+  draft.format = .vinyl
+  draft.title = "  Harbour Lights "
+  draft.barcode = "   "
+  let created = try await c.addPhysical(draft)
+  #expect(created.verificationState == "self_declared")
+  let sent = try JSONSerialization.jsonObject(with: t.requests[0].httpBody!) as! [String: Any]
+  #expect(sent["title"] as? String == "Harbour Lights")
+  #expect(sent["barcode"] is NSNull)
+  #expect(sent["format"] as? String == "vinyl")
+  _ = try await c.updatePhysical(created.id, PhysicalItemDraft(created))
+  #expect(t.requests[1].httpMethod == "PATCH")
+}
+
+@Test func audioLogEditClearsABlankNote() async throws {
+  let log = #"{"audio_log_id":"alg_1","audio_source_id":"aus_1","title":"한강","note":null,"recorded_at":"2026-10-15T05:00:00Z","recorded_tz":"Asia/Seoul","linked_recording_id":null,"tags":[],"source_status":"ready","created_at":"2026-10-15T05:10:00Z"}"#
+  let t = StubTransport([(200, "{\"items\":[\(log)],\"next_cursor\":null}"), (200, log)])
+  let c = CollectionService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let found = try #require(try await c.audioLog(for: AudioSourceID("aus_1")))
+  _ = try await c.updateAudioLog(found.id, title: " 한강 새벽 ", note: "  ")
+  let sent = try JSONSerialization.jsonObject(with: t.requests[1].httpBody!) as! [String: Any]
+  #expect(sent["title"] as? String == "한강 새벽")
+  #expect(sent["note"] is NSNull)
+}
