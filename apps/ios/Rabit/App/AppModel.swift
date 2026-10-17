@@ -16,6 +16,7 @@ final class AppModel {
   let collection: CollectionService
   let account: AccountService
   let player: PlayerController
+  let store: StoreController
   private(set) var signedIn: Bool
 
   private let api: APIClient
@@ -37,14 +38,17 @@ final class AppModel {
     uploads = UploadService(api: api)
     collection = CollectionService(api: api)
     account = AccountService(api: api)
+    store = StoreController(account: account)
     player = PlayerController(playback: PlaybackService(api: api, deviceId: DeviceID.current))
     signedIn = tokens.accessToken != nil
+    if signedIn { store.listen() }
   }
 
   func devSignIn(subject: String) async throws {
     guard config.devSignIn else { return }
     try await api.devSignIn(subject: subject)
     signedIn = true
+    store.listen()
   }
 
   var providerSignIn: Bool { oidc != nil }
@@ -60,10 +64,12 @@ final class AppModel {
     tokens.accessToken = result.accessToken
     tokens.refreshToken = result.refreshToken
     signedIn = true
+    store.listen()
   }
 
   func signOut() {
     player.stop()
+    store.stop()
     if let oidc, let refresh = tokens.refreshToken {
       Task.detached {
         guard let discovery = try? await oidc.discover() else { return }

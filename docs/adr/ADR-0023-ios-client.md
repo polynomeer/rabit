@@ -38,6 +38,9 @@ Token rotation under AVPlayer: (a) **resource loader on a custom scheme** (chose
 - **Sign-in**: OIDC Authorization Code + PKCE (S256) in an ephemeral `ASWebAuthenticationSession` against the user pool's iOS client (ADR-0009 amendment). The app checks the discovery document's issuer, `state`, and the ID token's `iss`, `aud`, `nonce` and `exp` (it comes straight from the token endpoint over TLS, so the signature is left to the API's check of the access token). Access and refresh tokens live in the Keychain; a 401 renews once (concurrent requests share the renewal) and retries, a failed renewal signs out. Sign-out revokes the refresh token at the provider. Release builds take the issuer and client id from build settings (`tofu output ios_oidc`); debug builds keep the development sign-in as well.
 - **Typeface**: the system font (SF Pro and Apple SD Gothic Neo), for Dynamic Type and the iOS 26 look; the web keeps Noto Sans KR.
 
+## Amendment 2026-10-17: in-app subscription
+The account sheet sells the Listen subscription through StoreKit 2 (ADR-0024): purchase with the server's `appAccountToken`, send `jwsRepresentation` to the server, finish only after it accepts; `Transaction.updates` and unfinished transactions are delivered while the app runs; restore and App Store subscription management are offered. Albums are not sold in the app.
+
 ## Consequences
 - Models are written by hand and can drift from `openapi.yaml`; decoding tests pin the shapes the app reads. Generating them (swift-openapi-generator) stays an option.
 - Redirect-based segment loading depends on AVFoundation behaviour that unit tests cannot cover; it must be checked on a simulator or device against the local stack.

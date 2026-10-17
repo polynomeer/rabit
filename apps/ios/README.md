@@ -39,6 +39,8 @@ To try the provider sign-in locally, start the mock provider, run the api with `
 docker compose --profile oidc up -d oidc
 ```
 
+To try the in-app subscription locally (ADR-0024), run the api with `APP_STORE_ENVIRONMENT=Xcode` (unsigned StoreKit testing; refused in production) and a KR account (`pnpm demo:user <ID>` sets KR). The scheme uses `Rabit/Rabit.storekit` (Listen monthly, KRW 10,900); Xcode's Debug → StoreKit → Manage Transactions can renew, refund or expire it.
+
 For staging or release builds, set the build settings `RABIT_OIDC_ISSUER` and `RABIT_OIDC_CLIENT_ID` from `tofu output ios_oidc` (and `RABIT_API_BASE_URL`).
 
 If the API runs on another port (`RABIT_API_PORT`), change `RABIT_API_BASE` under the scheme's Run → Arguments → Environment Variables.
@@ -51,4 +53,4 @@ If the API runs on another port (`RABIT_API_PORT`), change `RABIT_API_BASE` unde
 
 ## What works now
 
-Provider sign-in (Cognito, PKCE) and development sign-in, home (saved items, recent DIG sessions), search, album detail, archive (saved items, playlists; save and unsave, add to playlists, new playlists, swipe to remove, reorder; physical collection; Audio Log editing), account (subscription, entitlements, purchases and storage — read-only; buying stays on the web), DIG (resume sessions, start from search or an album, follow connections by axis with their evidence, move back along the trail, save, end, make a playlist from the trail; Blind Digging with nothing revealed until Keep or Pass; Crate Digging by era and popularity; label timelines from search, albums and DIG), credits and provenance per track (creation stages, credits, claims, integrity axes) with reporting, Studio (record an Audio Log, import a file, upload steps with cancel, own audio), playback with the tab-bar mini player, the full player and lock-screen controls, theme choice and sign-out.
+Provider sign-in (Cognito, PKCE) and development sign-in, home (saved items, recent DIG sessions), search, album detail, archive (saved items, playlists; save and unsave, add to playlists, new playlists, swipe to remove, reorder; physical collection; Audio Log editing), account (subscription bought in-app through the App Store, restore and manage; entitlements, purchases and storage), DIG (resume sessions, start from search or an album, follow connections by axis with their evidence, move back along the trail, save, end, make a playlist from the trail; Blind Digging with nothing revealed until Keep or Pass; Crate Digging by era and popularity; label timelines from search, albums and DIG), credits and provenance per track (creation stages, credits, claims, integrity axes) with reporting, Studio (record an Audio Log, import a file, upload steps with cancel, own audio), playback with the tab-bar mini player, the full player and lock-screen controls, theme choice and sign-out.
