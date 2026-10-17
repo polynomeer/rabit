@@ -1,0 +1,47 @@
+{
+  "identifier" : "8F3C2A9E-5B1D-4E7A-9C2F-1A6B3D8E4F70",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_applicationInternalID" : "0",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "ko",
+    "_storefront" : "KOR",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21000001",
+      "localizations" : [
+        { "description" : "Rabit Listen", "displayName" : "Rabit Listen", "locale" : "ko" }
+      ],
+      "name" : "Rabit Listen",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "10900",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "21000002",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "카탈로그 전체를 제한 없이 들어요.",
+              "displayName" : "Listen 월 구독",
+              "locale" : "ko"
+            }
+          ],
+          "productID" : "app.rabit.ios.listen.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Listen Monthly",
+          "subscriptionGroupID" : "21000001",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : []
+        }
+      ]
+    }
+  ],
+  "version" : { "major" : 4, "minor" : 0 }
+}

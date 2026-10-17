@@ -76,6 +76,20 @@ public struct AccountService: Sendable {
     return l.items
   }
 
+  /// In-app subscription status and the account token to set on the purchase (ADR-0024).
+  public func appStoreStatus() async throws -> AppStoreStatus {
+    try await api.get("/v1/subscription/app-store")
+  }
+
+  /// Sends a verified StoreKit transaction (`jwsRepresentation`); the server re-verifies it.
+  @discardableResult
+  public func submitAppStoreTransaction(_ jws: String) async throws -> Subscription? {
+    struct Body: Encodable { let signedTransaction: String }
+    struct Envelope: Decodable { let subscription: Subscription? }
+    let e: Envelope = try await api.post("/v1/subscription/app-store/transactions", body: Body(signedTransaction: jws))
+    return e.subscription
+  }
+
   public func orders() async throws -> [Order] {
     struct List: Decodable { let items: [Order] }
     let l: List = try await api.get("/v1/orders")
@@ -93,4 +107,13 @@ extension CollectionService {
         headers: ["If-Match": etag])
     }
   }
+}
+
+public struct AppStoreStatus: Codable, Hashable, Sendable {
+  public let productId: String
+  public let appAccountToken: UUID
+  public let available: Bool
+  /// `region` or `subscribed_elsewhere` when the purchase must not be offered.
+  public let unavailableReason: String?
+  public let subscription: Subscription?
 }

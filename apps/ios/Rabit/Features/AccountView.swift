@@ -1,9 +1,10 @@
 import RabitKit
+import StoreKit
 import SwiftUI
 
-/// The account sheet (from the home toolbar): subscription and entitlements, purchases,
-/// storage, theme, server and sign-out. Read-only for money: starting or changing a
-/// subscription and buying stay on the web (in-app purchase is an open decision).
+/// The account sheet (from the home toolbar): subscription (bought in-app through the
+/// App Store, ADR-0024) and entitlements, purchases, storage, theme, server and sign-out.
+/// Albums are not sold in the app.
 struct AccountView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.dismiss) private var dismiss
@@ -11,6 +12,7 @@ struct AccountView: View {
   @State private var me: Me?
   @State private var subscription: Subscription?
   @State private var entitlements: [Entitlement] = []
+  @State private var managing = false
 
   var body: some View {
     NavigationStack {
@@ -26,9 +28,8 @@ struct AccountView: View {
           NavigationLink("구매 내역") { OrdersView() }
         } header: {
           Text("구독과 이용권")
-        } footer: {
-          Text("구독 시작과 변경, 앨범 구매는 지금은 웹에서 할 수 있어요.")
         }
+        storeSection
         if let me {
           Section("계정") {
             LabeledContent("라이선스 지역", value: me.licenseCountry ?? "미설정")
@@ -60,7 +61,11 @@ struct AccountView: View {
           }
         }
       }
-      .task { await load() }
+      .task {
+        await load()
+        await model.store.refresh()
+      }
+      .manageSubscriptionsSheet(isPresented: $managing)
       .navigationTitle("계정")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
@@ -74,6 +79,51 @@ struct AccountView: View {
 }
 
 extension AccountView {
+  /// Buy, restore or manage the in-app subscription. Shown only when the server sells it.
+  @ViewBuilder private var storeSection: some View {
+    let store = model.store
+    if let status = store.status {
+      Section {
+        if store.isAppStoreSubscription {
+          Button("App Store에서 구독 관리") { managing = true }
+        } else if status.available, let product = store.product {
+          Button {
+            Task {
+              await store.purchase()
+              await load()
+            }
+          } label: {
+            HStack {
+              Text("Listen 구독하기").font(.headline)
+              Spacer()
+              Text("\(product.displayPrice) / 월")
+            }
+          }
+          .disabled(!store.canPurchase)
+        } else if status.unavailableReason == "subscribed_elsewhere" {
+          Text("웹에서 구독 중이에요. 같은 계정으로는 구독을 하나만 유지해요.")
+            .font(.footnote).foregroundStyle(Palette.muted)
+        } else if status.unavailableReason == "region" {
+          Text("이 지역에서는 아직 구독할 수 없어요.").font(.footnote).foregroundStyle(Palette.muted)
+        }
+        Button("구매 복원") {
+          Task {
+            await store.restore()
+            await load()
+          }
+        }
+        .disabled(store.busy)
+        if let message = store.message {
+          Text(message).font(.footnote).foregroundStyle(Palette.warn)
+        }
+      } footer: {
+        Text(
+          "매달 자동으로 결제되고 Apple ID로 청구돼요. 다음 결제 24시간 전까지 App Store 설정에서 언제든 해지할 수 있고, 해지해도 결제한 기간까지는 들을 수 있어요. 구매한 앨범은 구독과 상관없이 계속 재생돼요."
+        )
+      }
+    }
+  }
+
   private var subscriptionText: String {
     guard let s = subscription else { return "구독 없음" }
     return "\(AccountText.plan(s.plan)) · \(AccountText.subscriptionState(s.state))"
@@ -81,7 +131,11 @@ extension AccountView {
 
   private func renewalText(_ s: Subscription) -> String {
     let date = s.paidThrough.formatted(date: .long, time: .omitted)
-    if s.state == "past_due" { return "갱신 결제에 실패했어요. 웹에서 다시 결제하면 바로 이용할 수 있어요." }
+    if s.state == "past_due" {
+      return s.source == "app_store"
+        ? "App Store 결제에 실패했어요. App Store에서 결제 정보를 확인해 주세요."
+        : "갱신 결제에 실패했어요. 웹에서 다시 결제하면 바로 이용할 수 있어요."
+    }
     if s.source == "operator" { return "\(date)까지 (운영자가 설정)" }
     return s.autoRenew == true ? "\(date)에 자동으로 갱신돼요." : "자동 갱신이 꺼져 있어요. \(date)까지 이용할 수 있어요."
   }

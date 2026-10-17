@@ -504,3 +504,17 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   #expect(sent["title"] as? String == "한강 새벽")
   #expect(sent["note"] is NSNull)
 }
+
+@Test func appStoreStatusAndTransactionSubmission() async throws {
+  let t = StubTransport([
+    (200, #"{"product_id":"app.rabit.ios.listen.monthly","app_account_token":"6F9619FF-8B86-D011-B42D-00C04FC964FF","available":true,"unavailable_reason":null,"subscription":null}"#),
+    (200, #"{"subscription":{"subscription_id":"sub_1","plan":"listen_monthly","state":"active","paid_through":"2026-11-17T00:00:00Z","source":"app_store","auto_renew":true}}"#),
+  ])
+  let account = AccountService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let s = try await account.appStoreStatus()
+  #expect(s.available && s.appAccountToken == UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF"))
+  let sub = try await account.submitAppStoreTransaction("header.payload.sig")
+  #expect(sub?.source == "app_store")
+  let body = try JSONSerialization.jsonObject(with: t.requests[1].httpBody!) as! [String: String]
+  #expect(body == ["signed_transaction": "header.payload.sig"])
+}

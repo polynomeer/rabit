@@ -76,6 +76,8 @@ schemes:
         RabitTests: [test]
     run:
       config: Debug
+      # Local StoreKit testing; run the api with APP_STORE_ENVIRONMENT=Xcode (ADR-0024).
+      storeKitConfiguration: Rabit/Rabit.storekit
       environmentVariables:
         # Change when the local API runs on another port (RABIT_API_PORT).
         - variable: RABIT_API_BASE
