@@ -22,6 +22,8 @@ const defaults: Record<string, string> = {
   WORKER_CONCURRENCY: '2',
   PAYMENTS_PROVIDER: 'mock',
   PAYMENTS_MOCK_WEBHOOK_SECRET: 'test-mock-pay-webhook-secret-0123456789abcd',
+  // Unsigned StoreKit test transactions; the library still checks bundle, environment, shape.
+  APP_STORE_ENVIRONMENT: 'LocalTesting',
 };
 
 for (const [k, v] of Object.entries(defaults)) {

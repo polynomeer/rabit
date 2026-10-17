@@ -15,6 +15,7 @@ import * as m0012 from './migrations/0012_physical_collection.js';
 import * as m0013 from './migrations/0013_blind_dig.js';
 import * as m0014 from './migrations/0014_commerce.js';
 import * as m0015 from './migrations/0015_subscription_billing.js';
+import * as m0016 from './migrations/0016_app_store.js';
 
 // Migrations operate on the raw schema, independent of the current table types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +41,7 @@ export const migrations: Record<string, Migration> = {
   '0013_blind_dig': m0013,
   '0014_commerce': m0014,
   '0015_subscription_billing': m0015,
+  '0016_app_store': m0016,
 };
 
 export function createMigrator(db: AnyDb): Migrator {

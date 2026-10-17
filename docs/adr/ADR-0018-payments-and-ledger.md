@@ -26,6 +26,9 @@ The owner asked to build album purchase against a mock provider before Q04 is de
 
 Details: [commerce](../03-architecture/commerce.md). Replacing the mock with a real provider is a new adapter plus Q04 decisions (provider, taxes, refund policy, terms); the schema and flow are meant to stay.
 
+## Amendment 2026-10-17: App Store
+The owner decided to sell the subscription inside the iOS app through App Store in-app purchase; see [ADR-0024](ADR-0024-app-store-subscription.md). Apple is not a `PaymentProvider` (it charges, we receive signed transactions), but its sales use the same orders, ledger journals, subscription and entitlement.
+
 ## Before the provisional decision (MVP)
 Entitlements with `origin = grant` created by an authenticated operator (audited) or by fixtures; `origin = subscription` toggled by an operator to simulate subscription state. No endpoint lets a user confirm a payment.
 

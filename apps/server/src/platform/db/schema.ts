@@ -317,14 +317,22 @@ export interface RightsGrantTable {
   updated_at: UpdatedAt;
 }
 
+export interface AppStoreAccountTable {
+  user_id: string;
+  app_account_token: string;
+  created_at: CreatedAt;
+}
+
 export interface SubscriptionTable {
   id: string;
   user_id: string;
   plan: string;
   state: 'active' | 'past_due' | 'cancelled' | 'expired';
   paid_through: Timestamp;
-  source: 'operator' | 'sandbox';
+  source: 'operator' | 'sandbox' | 'app_store';
   auto_renew: Generated<boolean>;
+  /** Apple's original transaction id for an App Store subscription (ADR-0024). */
+  store_original_transaction_id: Generated<string | null>;
   version: Generated<number>;
   created_at: CreatedAt;
   updated_at: UpdatedAt;
@@ -727,6 +735,7 @@ export interface Database {
   music_relation: MusicRelationTable;
   rights_grant: RightsGrantTable;
   subscription: SubscriptionTable;
+  app_store_account: AppStoreAccountTable;
   entitlement: EntitlementTable;
   offer: OfferTable;
   purchase_order: PurchaseOrderTable;

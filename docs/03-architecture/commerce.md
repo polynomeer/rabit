@@ -53,6 +53,22 @@ Checkout is refused while a subscription is active (pay again only after it laps
 
 Open (owner): price, retry and grace policy for declined renewals, withdrawal rules (청약철회) and the terms text.
 
+## 5a. App Store in-app subscription (ADR-0024)
+
+The same plan sold inside the iOS app; Apple charges and we apply Apple's signed data.
+
+| Step | Effect |
+|---|---|
+| `GET /v1/subscription/app-store` | product id, the caller's `app_account_token`, whether it may be sold (KR, no subscription from another source) |
+| app purchase → `POST /v1/subscription/app-store/transactions` | verified JWS (signature, bundle, environment, product, token = caller, original transaction not linked elsewhere) → order `provider = app_store`, `checkout_ref` = Apple transaction id, fulfilled; sale journal; subscription `source = app_store`, paid through Apple's expiry |
+| `POST /webhooks/app-store` | notification stored by UUID (duplicates acknowledged), applied by a job: `SUBSCRIBED`/`DID_RENEW` → period, `DID_CHANGE_RENEWAL_STATUS` → renewal flag, `DID_FAIL_TO_RENEW` (no grace) → `past_due`, `EXPIRED` → `expired`, `REFUND`/`REVOKE` → refund journal and access ends now; unknown account → held |
+
+The web refuses checkout, stopping and resuming renewal for an App Store subscription, and the renewal job never charges it. A period that lands while a web subscription is active is applied (Apple already charged), web renewal stops, and the overlap is audited and counted (`rabit_app_store_overlaps_total`).
+
+Configuration: `APP_STORE_ENVIRONMENT` (`off`, `Production`, `Sandbox`, `Xcode`, `LocalTesting` — the last two only outside production), `APP_STORE_BUNDLE_ID`, `APP_STORE_PRODUCT_ID`, `APP_STORE_APP_APPLE_ID` (production), `APP_STORE_ROOT_CERTS` (Apple root certificates, DER).
+
+Open (owner, Q04): booking Apple's commission and how VAT is remitted for App Store sales.
+
 ## 6. Operations
 
 - Offers: `POST /v1/ops/offers` (one on sale per release), `POST /v1/ops/offers/{id}/withdraw`.
