@@ -16,6 +16,15 @@ import { PermanentJobError } from '../../platform/jobs/runner.js';
 import { metrics } from '../../platform/metrics.js';
 import type { SupportSection } from '../../platform/support.js';
 import type { AccountDataDeleter } from '../identity/index.js';
+import {
+  APPLY_STORE_EVENT_JOB,
+  AppStoreVerifier,
+  StoreRejected,
+  appStoreStatus,
+  applyNotification,
+  receiveNotification,
+  submitTransaction,
+} from './app-store.js';
 import { MOCK_DELIVER_JOB, MOCK_SIGNATURE_HEADER, MockPaymentProvider } from './mock-provider.js';
 import { WebhookRejected, type PaymentProvider } from './provider.js';
 import {
@@ -60,12 +69,39 @@ export function paymentProvider(ctx: AppContext): PaymentProvider | null {
     : null;
 }
 
+/** The App Store verifier, or null when in-app purchase is off (ADR-0024). */
+export function appStoreVerifier(ctx: AppContext): AppStoreVerifier | null {
+  return ctx.config.appStore ? new AppStoreVerifier(ctx.config.appStore) : null;
+}
+
 function requireProvider(provider: PaymentProvider | null): PaymentProvider {
   if (!provider) throw errors.unavailable();
   return provider;
 }
 
-async function routes(app: FastifyInstance, ctx: AppContext, provider: PaymentProvider | null) {
+async function routes(
+  app: FastifyInstance,
+  ctx: AppContext,
+  provider: PaymentProvider | null,
+  store: AppStoreVerifier | null,
+) {
+  // ---- App Store in-app subscription (ADR-0024) ----
+  app.get('/v1/subscription/app-store', async (req) => {
+    const p = requirePrincipal(req.principal);
+    if (!store) throw errors.unavailable();
+    return appStoreStatus(ctx.db, p.userId, store.config);
+  });
+
+  app.post('/v1/subscription/app-store/transactions', async (req) => {
+    const p = requirePrincipal(req.principal);
+    if (!store) throw errors.unavailable();
+    const body = parse(
+      z.strictObject({ signed_transaction: z.string().min(1).max(20_000) }),
+      req.body,
+    );
+    return submitTransaction(ctx.db, store, p, body.signed_transaction, req.id);
+  });
+
   app.get('/v1/releases/:release_id/offer', async (req) => {
     const p = requirePrincipal(req.principal);
     const { release_id } = parse(z.object({ release_id: idOf('release') }), req.params);
@@ -199,6 +235,27 @@ async function routes(app: FastifyInstance, ctx: AppContext, provider: PaymentPr
     scope.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
       done(null, body);
     });
+    // App Store Server Notifications V2: Apple's signature authenticates.
+    scope.post('/webhooks/app-store', async (req, reply) => {
+      if (!store) throw errors.notFound();
+      const raw = typeof req.body === 'string' ? req.body : '';
+      try {
+        const outcome = await receiveNotification(ctx.db, store, raw);
+        return await reply.status(200).send({ received: true, duplicate: outcome === 'duplicate' });
+      } catch (err) {
+        if (!(err instanceof StoreRejected)) throw err;
+        metrics.paymentEvents.inc({
+          provider: 'app_store',
+          type: 'unknown',
+          outcome: `rejected_${err.reason}`,
+        });
+        req.log.warn({ reason: err.reason }, 'App Store notification rejected');
+        throw errors.validation(
+          { notification: err.reason },
+          'The notification could not be verified.',
+        );
+      }
+    });
     scope.post('/webhooks/payments/:provider', async (req, reply) => {
       const { provider: name } = parse(z.object({ provider: z.string().max(20) }), req.params);
       if (!provider || provider.name !== name) throw errors.notFound();
@@ -278,7 +335,7 @@ const payloadId = (payload: Record<string, unknown>, key: string): string => {
 export function commerceModule(): Module {
   return {
     name: 'commerce',
-    routes: (app, ctx) => routes(app, ctx, paymentProvider(ctx)),
+    routes: (app, ctx) => routes(app, ctx, paymentProvider(ctx), appStoreVerifier(ctx)),
     jobs: (ctx) => {
       const provider = paymentProvider(ctx);
       return [
@@ -287,6 +344,20 @@ export function commerceModule(): Module {
           leaseMs: 60_000,
           async handle({ job }) {
             await applyEvent(ctx.db, ctx.log, payloadId(job.payload, 'payment_event_id'));
+          },
+        },
+        {
+          kind: APPLY_STORE_EVENT_JOB,
+          leaseMs: 60_000,
+          async handle({ job }) {
+            const productId = ctx.config.appStore?.productId;
+            if (!productId) throw new PermanentJobError('DISABLED', 'App Store is off');
+            await applyNotification(
+              ctx.db,
+              ctx.log,
+              payloadId(job.payload, 'payment_event_id'),
+              productId,
+            );
           },
         },
         {

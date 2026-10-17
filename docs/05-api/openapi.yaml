@@ -539,6 +539,38 @@ paths:
       responses:
         '200': { description: Subscription after the change, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionEnvelope' } } } }
         '409': { $ref: '#/components/responses/Error' }
+  /v1/subscription/app-store:
+    get:
+      tags: [commerce]
+      operationId: getAppStoreSubscription
+      description: >
+        What the iOS app needs before offering the in-app subscription (ADR-0024): the product id,
+        the caller's `app_account_token` (created once; the app sets it on the purchase so Apple's
+        signed transaction names the account) and whether it may be sold — KR accounts only, and
+        not while a subscription from another source is active or past due.
+      responses:
+        '200': { description: Status, content: { application/json: { schema: { $ref: '#/components/schemas/AppStoreSubscriptionStatus' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { description: In-app purchase is off, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /v1/subscription/app-store/transactions:
+    post:
+      tags: [commerce]
+      operationId: submitAppStoreTransaction
+      description: >
+        A StoreKit 2 transaction (`Transaction.jwsRepresentation`) after a purchase, renewal or
+        restore. Verified with Apple's signature, bundle id, environment and product; applied only
+        when its `appAccountToken` is the caller's and its original transaction is not linked to
+        another account. Idempotent per Apple transaction id. The app finishes the transaction after
+        a 2xx.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [signed_transaction], properties: { signed_transaction: { type: string, minLength: 1, maxLength: 20000 } } } } }
+      responses:
+        '200': { description: Subscription after applying, content: { application/json: { schema: { $ref: '#/components/schemas/SubscriptionEnvelope' } } } }
+        '403': { description: The purchase belongs to another account, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: The Apple subscription is linked to another account, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: 'Not verifiable, another product or not applicable', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '503': { description: In-app purchase is off, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
   /v1/releases/{release_id}/offer:
     parameters: [ { name: release_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
     get:
@@ -1185,6 +1217,24 @@ paths:
         '200': { description: Stored (or a duplicate), content: { application/json: { schema: { type: object, required: [received, duplicate], properties: { received: { type: boolean }, duplicate: { type: boolean } } } } } }
         '400': { description: 'Signature, timestamp or payload rejected', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '404': { description: Not the configured provider, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+  /webhooks/app-store:
+    post:
+      tags: [commerce]
+      operationId: receiveAppStoreNotification
+      security: []
+      description: >
+        App Store Server Notifications V2 (ADR-0024): `{ "signedPayload": "<JWS>" }`, authenticated by
+        Apple's signature. Stored by notification UUID before the response and applied once by a job
+        (renewal, renewal status, billing failure, expiry, refund, revocation); a redelivery is
+        acknowledged as a duplicate. Notifications for unknown accounts are held for an operator.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [signedPayload], properties: { signedPayload: { type: string } } } } }
+      responses:
+        '200': { description: Stored (or a duplicate), content: { application/json: { schema: { type: object, required: [received, duplicate], properties: { received: { type: boolean }, duplicate: { type: boolean } } } } } }
+        '400': { description: Signature or payload rejected, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '404': { description: In-app purchase is off, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
 
   /dev/mock-pay/checkouts/{checkout_ref}:
     parameters: [ { name: checkout_ref, in: path, required: true, schema: { type: string, pattern: '^mck_[0-9a-f]{24}$' } } ]
@@ -1969,8 +2019,17 @@ components:
         plan: { type: string }
         state: { type: string, enum: [active, past_due, cancelled, expired] }
         paid_through: { $ref: '#/components/schemas/Timestamp' }
-        source: { type: string, enum: [operator, sandbox] }
+        source: { type: string, enum: [operator, sandbox, app_store], description: '`app_store`: billed by Apple, managed in the App Store (ADR-0024)' }
         auto_renew: { type: boolean, description: Renews through the payment provider (sandbox) until stopped }
+    AppStoreSubscriptionStatus:
+      type: object
+      required: [product_id, app_account_token, available, unavailable_reason, subscription]
+      properties:
+        product_id: { type: string }
+        app_account_token: { type: string, format: uuid }
+        available: { type: boolean }
+        unavailable_reason: { type: [string, 'null'], enum: [null, region, subscribed_elsewhere] }
+        subscription: { oneOf: [ { $ref: '#/components/schemas/Subscription' }, { type: 'null' } ] }
     SubscriptionEnvelope:
       type: object
       required: [subscription]

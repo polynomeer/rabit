@@ -101,6 +101,19 @@ const envSchema = z
     PAYMENTS_MOCK_WEBHOOK_SECRET: secret.optional(),
     /** Monthly plan price in KRW with VAT. A placeholder until pricing is decided (Q03, Q04). */
     SUBSCRIPTION_PRICE_MINOR: positiveInt.default(10_900),
+    /**
+     * The Listen subscription as an App Store in-app purchase (ADR-0024). `off`
+     * disables it; `Xcode` and `LocalTesting` (unsigned StoreKit testing) never in
+     * production.
+     */
+    APP_STORE_ENVIRONMENT: z
+      .enum(['off', 'Production', 'Sandbox', 'Xcode', 'LocalTesting'])
+      .default('off'),
+    APP_STORE_BUNDLE_ID: z.string().min(1).default('app.rabit.ios'),
+    APP_STORE_PRODUCT_ID: z.string().min(1).default('app.rabit.ios.listen.monthly'),
+    APP_STORE_APP_APPLE_ID: positiveInt.optional(),
+    /** Comma-separated paths of Apple's DER root certificates (Production, Sandbox). */
+    APP_STORE_ROOT_CERTS: z.string().default(''),
 
     WORKER_CONCURRENCY: positiveInt.default(2),
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
@@ -126,6 +139,33 @@ const envSchema = z
         code: 'custom',
         path: ['PAYMENTS_PROVIDER'],
         message: 'must not be mock when NODE_ENV=production',
+      });
+    }
+    if (
+      c.NODE_ENV === 'production' &&
+      (c.APP_STORE_ENVIRONMENT === 'Xcode' || c.APP_STORE_ENVIRONMENT === 'LocalTesting')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['APP_STORE_ENVIRONMENT'],
+        message: 'unsigned StoreKit testing is not allowed in production',
+      });
+    }
+    if (c.APP_STORE_ENVIRONMENT === 'Production' && c.APP_STORE_APP_APPLE_ID === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['APP_STORE_APP_APPLE_ID'],
+        message: 'is required when APP_STORE_ENVIRONMENT=Production',
+      });
+    }
+    if (
+      (c.APP_STORE_ENVIRONMENT === 'Production' || c.APP_STORE_ENVIRONMENT === 'Sandbox') &&
+      c.APP_STORE_ROOT_CERTS.trim() === ''
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['APP_STORE_ROOT_CERTS'],
+        message: 'is required to verify App Store signatures',
       });
     }
     if (c.PAYMENTS_PROVIDER === 'mock' && !c.PAYMENTS_MOCK_WEBHOOK_SECRET) {
@@ -236,6 +276,7 @@ export interface Config {
   rateLimit: { enabled: boolean; store: 'postgres' | 'memory' };
   payments: { provider: 'none' } | { provider: 'mock'; webhookSecret: string };
   subscription: { plan: string; priceMinor: number };
+  appStore: AppStoreConfig | null;
   worker: { concurrency: number; ffmpegPath: string; ffprobePath: string };
   quota: {
     maxTotalBytes: number;
@@ -243,6 +284,14 @@ export interface Config {
     maxDurationMs: number;
     maxConcurrentUploads: number;
   };
+}
+
+export interface AppStoreConfig {
+  environment: 'Production' | 'Sandbox' | 'Xcode' | 'LocalTesting';
+  bundleId: string;
+  productId: string;
+  appAppleId: number | undefined;
+  rootCertPaths: string[];
 }
 
 export class ConfigError extends Error {
@@ -315,6 +364,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         ? { provider: 'mock', webhookSecret: e.PAYMENTS_MOCK_WEBHOOK_SECRET ?? '' }
         : { provider: 'none' },
     subscription: { plan: 'listen_monthly', priceMinor: e.SUBSCRIPTION_PRICE_MINOR },
+    appStore:
+      e.APP_STORE_ENVIRONMENT === 'off'
+        ? null
+        : {
+            environment: e.APP_STORE_ENVIRONMENT,
+            bundleId: e.APP_STORE_BUNDLE_ID,
+            productId: e.APP_STORE_PRODUCT_ID,
+            appAppleId: e.APP_STORE_APP_APPLE_ID,
+            rootCertPaths: e.APP_STORE_ROOT_CERTS.split(',')
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0),
+          },
     worker: {
       concurrency: e.WORKER_CONCURRENCY,
       ffmpegPath: e.FFMPEG_PATH,

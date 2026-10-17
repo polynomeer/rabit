@@ -25,6 +25,11 @@ export const metrics = {
     labelNames: ['event'] as const,
     registers: [registry],
   }),
+  appStoreOverlaps: new Counter({
+    name: 'rabit_app_store_overlaps_total',
+    help: 'App Store periods applied while a web subscription was active (support refunds one side)',
+    registers: [registry],
+  }),
   paymentReconcileMismatches: new Counter({
     name: 'rabit_payment_reconcile_mismatches_total',
     help: 'Orders whose state disagrees with the payment provider',

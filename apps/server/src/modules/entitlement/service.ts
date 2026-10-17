@@ -181,6 +181,7 @@ export async function setSubscription(
         paid_through: input.paid_through,
         source: 'operator',
         auto_renew: false,
+        store_original_transaction_id: null,
       })
       .onConflict((oc) =>
         oc.column('user_id').doUpdateSet((eb) => ({
@@ -189,6 +190,7 @@ export async function setSubscription(
           paid_through: input.paid_through,
           source: 'operator',
           auto_renew: false,
+          store_original_transaction_id: null,
           version: eb('subscription.version', '+', 1),
           updated_at: new Date(),
         })),
@@ -490,6 +492,9 @@ export async function activateSubscriptionPeriod(
       ? current.paid_through
       : now;
   const paidThrough = addMonths(base, input.months);
+  // A web payment that lands while an App Store subscription is linked (a race,
+  // ADR-0024) extends it; the App Store keeps billing and the link stays.
+  const store = current?.source === 'app_store';
   const sub = await tx
     .insertInto('subscription')
     .values({
@@ -506,8 +511,8 @@ export async function activateSubscriptionPeriod(
         plan: input.plan,
         state: 'active',
         paid_through: paidThrough,
-        source: 'sandbox',
-        auto_renew: true,
+        source: store ? 'app_store' : 'sandbox',
+        auto_renew: store ? current.auto_renew : true,
         version: eb('subscription.version', '+', 1),
         updated_at: now,
       })),
@@ -515,6 +520,100 @@ export async function activateSubscriptionPeriod(
     .returningAll()
     .executeTakeFirstOrThrow();
   return (await syncSubscriptionEntitlement(tx, sub, 'active', correlationId)).id;
+}
+
+/**
+ * An App Store period (ADR-0024): paid through Apple's expiry, never earlier than
+ * already paid, linked to Apple's original transaction. Returns the entitlement id
+ * and whether a web subscription was running (an overlap support must refund).
+ */
+export async function activateStorePeriod(
+  tx: DbOrTx,
+  input: { userId: string; plan: string; expiresAt: Date; originalTransactionId: string },
+  correlationId: string | null,
+): Promise<{ entitlementId: string; overlap: boolean }> {
+  const now = new Date();
+  const current = await tx
+    .selectFrom('subscription')
+    .selectAll()
+    .where('user_id', '=', input.userId)
+    .forUpdate()
+    .executeTakeFirst();
+  const overlap =
+    current !== undefined &&
+    current.source !== 'app_store' &&
+    current.state === 'active' &&
+    current.paid_through > now;
+  const paidThrough =
+    current && current.state === 'active' && current.paid_through > input.expiresAt
+      ? current.paid_through
+      : input.expiresAt;
+  const sub = await tx
+    .insertInto('subscription')
+    .values({
+      id: newId('subscription'),
+      user_id: input.userId,
+      plan: input.plan,
+      state: 'active',
+      paid_through: paidThrough,
+      source: 'app_store',
+      auto_renew: true,
+      store_original_transaction_id: input.originalTransactionId,
+    })
+    .onConflict((oc) =>
+      oc.column('user_id').doUpdateSet((eb) => ({
+        plan: input.plan,
+        state: 'active',
+        paid_through: paidThrough,
+        source: 'app_store',
+        // A new App Store period renews; a web subscription that overlapped stops renewing.
+        auto_renew: true,
+        store_original_transaction_id: input.originalTransactionId,
+        version: eb('subscription.version', '+', 1),
+        updated_at: now,
+      })),
+    )
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  const ent = await syncSubscriptionEntitlement(tx, sub, 'active', correlationId);
+  return { entitlementId: ent.id, overlap };
+}
+
+/** The App Store says renewal is on or off; only App Store subscriptions change. */
+export async function setStoreRenewal(tx: DbOrTx, userId: string, autoRenew: boolean) {
+  return tx
+    .updateTable('subscription')
+    .set((eb) => ({
+      auto_renew: autoRenew,
+      version: eb('version', '+', 1),
+      updated_at: new Date(),
+    }))
+    .where('user_id', '=', userId)
+    .where('source', '=', 'app_store')
+    .returningAll()
+    .executeTakeFirst();
+}
+
+/** The App Store subscription ended (expired, or no grace after a failed renewal). */
+export async function expireStoreSubscription(
+  tx: DbOrTx,
+  userId: string,
+  correlationId: string | null,
+): Promise<boolean> {
+  const sub = await tx
+    .updateTable('subscription')
+    .set((eb) => ({
+      state: 'expired',
+      auto_renew: false,
+      version: eb('version', '+', 1),
+      updated_at: new Date(),
+    }))
+    .where('user_id', '=', userId)
+    .where('source', '=', 'app_store')
+    .returningAll()
+    .executeTakeFirst();
+  if (sub) await syncSubscriptionEntitlement(tx, sub, 'expired', correlationId);
+  return sub !== undefined;
 }
 
 /** A renewal payment failed: no access until paid (fail closed, as for `past_due`). */
@@ -564,6 +663,7 @@ export async function stopSubscriptionRenewal(tx: DbOrTx, userId: string) {
     .set((eb) => ({ auto_renew: false, version: eb('version', '+', 1), updated_at: new Date() }))
     .where('user_id', '=', userId)
     .where('auto_renew', '=', true)
+    .where('source', '!=', 'app_store')
     .returningAll()
     .executeTakeFirst();
   return subscriptionView(sub ?? (await getSubscription(tx, userId)));

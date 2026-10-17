@@ -1103,6 +1103,9 @@ export async function createSubscriptionOrder(
       );
     }
     const current = await getSubscription(tx, principal.userId);
+    if (current?.source === 'app_store' && ['active', 'past_due'].includes(current.state)) {
+      throw errors.alreadyExists('Your subscription is billed by the App Store; manage it there.');
+    }
     if (current?.state === 'active') {
       throw errors.alreadyExists(
         current.auto_renew
@@ -1154,6 +1157,12 @@ export async function cancelSubscriptionRenewal(
   correlationId: string,
 ) {
   return db.transaction().execute(async (tx) => {
+    const current = await getSubscription(tx, principal.userId);
+    if (current?.source === 'app_store') {
+      throw errors.invalidState(
+        'This subscription is billed by the App Store; stop renewal there.',
+      );
+    }
     const view = await stopSubscriptionRenewal(tx, principal.userId);
     if (!view.subscription) throw errors.notFound();
     await audit(tx, {
@@ -1202,6 +1211,8 @@ export async function renewSubscriptions(
     .select(['s.user_id', 'u.license_country'])
     .where('s.state', '=', 'active')
     .where('s.auto_renew', '=', true)
+    // App Store subscriptions are billed by Apple (ADR-0024).
+    .where('s.source', '=', 'sandbox')
     .where('s.paid_through', '<=', new Date(now.getTime() + RENEW_AHEAD_MS))
     .where('u.status', '=', 'active')
     .limit(500)
