@@ -1,5 +1,5 @@
 # One image for all process roles (ADR-0012): api | worker | media | migrate.
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 # pnpm at the version pinned in package.json. Not via corepack: Node 25+ no longer bundles it.
@@ -9,7 +9,7 @@ RUN pnpm install --frozen-lockfile --filter @rabit/server...
 COPY apps/server apps/server
 RUN pnpm --filter @rabit/server build && pnpm --filter @rabit/server deploy --prod --legacy /out
 
-FROM node:24-bookworm-slim
+FROM node:26-bookworm-slim
 # ffmpeg is required by the worker (ADR-0007). Runs as a non-root user.
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tini \
   && rm -rf /var/lib/apt/lists/* && useradd --system --uid 10001 rabit
