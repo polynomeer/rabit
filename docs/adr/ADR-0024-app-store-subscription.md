@@ -31,4 +31,4 @@ Linking a purchase to an account: (1) **`appAccountToken`** — a UUID the serve
 - Albums bought on the web play in the app; the app neither sells albums nor points to the web to buy them.
 
 ## Revisit trigger
-Q04 (provider, taxes, settlement); Korea's alternative-payment rules if the owner wants them; album sales in the app.
+App Review purchases in Sandbox against a Production server (refused today; [operations guide](../09-operations/app-store.md) §4); Q04 (provider, taxes, settlement); Korea's alternative-payment rules if the owner wants them; album sales in the app.

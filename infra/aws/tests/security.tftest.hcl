@@ -476,3 +476,55 @@ run "rejects_unknown_environment" {
   }
   expect_failures = [var.environment]
 }
+
+# App Store in-app purchase (ADR-0024) stays off until the owner sets up App Store Connect.
+run "app_store_off_by_default" {
+  command = apply
+
+  assert {
+    condition = alltrue([
+      for td in aws_ecs_task_definition.role : alltrue([
+        for c in jsondecode(td.container_definitions) :
+        length([for e in c.environment : e if startswith(e.name, "APP_STORE_")]) == 0
+      ])
+    ])
+    error_message = "No App Store settings reach the tasks while it is off."
+  }
+}
+
+run "app_store_production" {
+  command = apply
+  variables {
+    app_store_environment  = "Production"
+    app_store_app_apple_id = 1234567890
+  }
+
+  assert {
+    condition = alltrue([
+      for td in aws_ecs_task_definition.role : alltrue([
+        for c in jsondecode(td.container_definitions) :
+        c.name == "metrics" || length(setsubtract(
+          ["APP_STORE_ENVIRONMENT=Production", "APP_STORE_ROOT_CERTS=/etc/ssl/apple/AppleRootCA-G3.cer", "APP_STORE_APP_APPLE_ID=1234567890"],
+          [for e in c.environment : "${e.name}=${e.value}"]
+        )) == 0
+      ])
+    ])
+    error_message = "Production verifies against Apple's root certificate in the image and the app's Apple ID."
+  }
+}
+
+run "app_store_production_needs_the_apple_id" {
+  command = plan
+  variables {
+    app_store_environment = "Production"
+  }
+  expect_failures = [var.app_store_environment]
+}
+
+run "app_store_refuses_local_testing" {
+  command = plan
+  variables {
+    app_store_environment = "LocalTesting"
+  }
+  expect_failures = [var.app_store_environment]
+}

@@ -18,7 +18,7 @@ locals {
   # sslmode=verify-full against the RDS CA bundle baked into the image.
   database_url = "postgres://${aws_db_instance.main.username}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${aws_db_instance.main.db_name}?sslmode=verify-full&sslrootcert=/etc/ssl/rds/global-bundle.pem"
 
-  environment = [
+  environment = concat([
     { name = "NODE_ENV", value = "production" },
     { name = "LOG_LEVEL", value = "info" },
     { name = "API_PORT", value = tostring(local.ports.api) },
@@ -42,7 +42,13 @@ locals {
     { name = "AUTH_DEV_ISSUER_ENABLED", value = "false" },
     { name = "RATE_LIMIT_STORE", value = "postgres" },
     { name = "WORKER_CONCURRENCY", value = tostring(var.worker_concurrency) },
-  ]
+    ], var.app_store_environment == "off" ? [] : [
+    # App Store in-app purchase (ADR-0024); Apple's root certificate is baked into the image.
+    { name = "APP_STORE_ENVIRONMENT", value = var.app_store_environment },
+    { name = "APP_STORE_ROOT_CERTS", value = "/etc/ssl/apple/AppleRootCA-G3.cer" },
+    ], var.app_store_app_apple_id == null ? [] : [
+    { name = "APP_STORE_APP_APPLE_ID", value = tostring(var.app_store_app_apple_id) },
+  ])
 
   secrets = [
     { name = "DATABASE_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },

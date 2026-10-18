@@ -58,3 +58,6 @@ High `rejected` share: inspect `reject_reason` distribution in `listening_event`
 
 ## rate-limit-store
 `RateLimitStoreFailing`: counter updates to `rate_limit_counter` fail and requests pass unlimited (ADR-0020). Check database health first: the api is usually failing too. If only the counters fail, check the table exists (migration `0011_rate_limit`) and its size (`SELECT count(*) FROM rate_limit_counter`). Expired rows are purged by the worker, so a large table means the worker is down. `UNLOGGED` tables are emptied after a crash, which only resets counters.
+
+## app-store
+Held App Store notifications, overlapping web and App Store subscriptions, refunds and signature failures: [App Store setup and operations](app-store.md) §3.

@@ -20,6 +20,8 @@ COPY --from=build /app/apps/server/dist ./dist
 # Amazon RDS certificate authorities, so DATABASE_URL can use sslmode=verify-full
 # with sslrootcert=/etc/ssl/rds/global-bundle.pem (ADR-0012).
 ADD --chmod=644 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /etc/ssl/rds/global-bundle.pem
+# Apple's root certificates for App Store signed data (ADR-0024, APP_STORE_ROOT_CERTS).
+COPY --chmod=644 apps/server/certs/apple/*.cer /etc/ssl/apple/
 USER rabit
 ENV NODE_ENV=production
 ENTRYPOINT ["/usr/bin/tini", "--", "/bin/sh", "-c", "exec node dist/entry/${0}.js \"$@\""]
