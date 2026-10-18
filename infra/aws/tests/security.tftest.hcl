@@ -504,12 +504,12 @@ run "app_store_production" {
       for td in aws_ecs_task_definition.role : alltrue([
         for c in jsondecode(td.container_definitions) :
         c.name == "metrics" || length(setsubtract(
-          ["APP_STORE_ENVIRONMENT=Production", "APP_STORE_ROOT_CERTS=/etc/ssl/apple/AppleRootCA-G3.cer", "APP_STORE_APP_APPLE_ID=1234567890"],
+          ["APP_STORE_ENVIRONMENT=Production", "APP_STORE_ROOT_CERTS=/etc/ssl/apple/AppleRootCA-G3.cer", "APP_STORE_APP_APPLE_ID=1234567890", "APP_STORE_ACCEPT_SANDBOX=true"],
           [for e in c.environment : "${e.name}=${e.value}"]
         )) == 0
       ])
     ])
-    error_message = "Production verifies against Apple's root certificate in the image and the app's Apple ID."
+    error_message = "Production verifies against Apple's root certificate in the image and the app's Apple ID, and takes App Review's Sandbox purchases as tests."
   }
 }
 

@@ -67,6 +67,8 @@ The web refuses checkout, stopping and resuming renewal for an App Store subscri
 
 Configuration: `APP_STORE_ENVIRONMENT` (`off`, `Production`, `Sandbox`, `Xcode`, `LocalTesting` — the last two only outside production), `APP_STORE_BUNDLE_ID`, `APP_STORE_PRODUCT_ID`, `APP_STORE_APP_APPLE_ID` (production), `APP_STORE_ROOT_CERTS` (Apple root certificates, DER).
 
+**Test purchases** (amendment 2026-10-18): a Production server with `APP_STORE_ACCEPT_SANDBOX` verifies data Apple signed for Sandbox (App Review, TestFlight) a second time as Sandbox. Its transaction ids are stored with a `sandbox:` prefix (orders, subscription link), so they never meet real ids; the order is fulfilled with `snapshot.test = true` and grants access, but posts no sale or refund journal.
+
 Open (owner, Q04): booking Apple's commission and how VAT is remitted for App Store sales.
 
 ## 6. Operations

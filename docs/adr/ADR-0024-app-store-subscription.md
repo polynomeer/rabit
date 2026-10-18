@@ -25,10 +25,17 @@ Linking a purchase to an account: (1) **`appAccountToken`** — a UUID the serve
 - **Ledger (provisional)**: the same gross sale journal as the sandbox (`provider_clearing` / `revenue` / `vat_payable`, VAT included at 10 %), with the order's provider telling App Store sales apart. Apple's commission and how VAT is remitted for App Store sales in Korea are Q04 accounting decisions; they will be booked at settlement, not guessed here.
 - **A race** (the account got a web subscription while a purchase was in flight): Apple has already charged, so the period is applied, web renewal is switched off, and the overlap is audited and counted (`rabit_app_store_overlaps_total`) for support to refund one side.
 
+## Amendment (2026-10-18): App Review's Sandbox purchases on Production
+App Review and TestFlight buy in Sandbox against the production server, which refused them, so the review purchase would fail. Owner decision: **accept them as test purchases**.
+- A Production server with `APP_STORE_ACCEPT_SANDBOX=true` (OpenTofu `app_store_accept_review_sandbox`, default true) verifies data Apple signed for another environment a second time as Sandbox, with Apple's root certificates and the bundle id. Unsigned environments (`Xcode`, `LocalTesting`) stay refused.
+- Sandbox transaction ids are stored with a `sandbox:` prefix (order `checkout_ref`, subscription link), so a Sandbox id never matches a real one.
+- A test purchase grants the subscription and its entitlement like a real one, fulfils an order with `snapshot.test = true`, and posts **no** sale or refund journal (no money moved). Metrics count it as `fulfilled_test`.
+- Who can make one: Sandbox testers created in our App Store Connect account and TestFlight testers we invite. Sandbox subscriptions renew every few minutes and lapse after a few renewals.
+
 ## Consequences
 - Releasing needs owner actions in App Store Connect: the app record and its Apple id, the subscription group and product, the server notification URL (`https://<api>/webhooks/app-store`, version 2), Apple's root certificates for the server, and enrolment in the App Store Small Business Program for the 15 % rate.
 - Local testing uses an Xcode StoreKit configuration with the server in `LocalTesting`/`Xcode` mode.
 - Albums bought on the web play in the app; the app neither sells albums nor points to the web to buy them.
 
 ## Revisit trigger
-App Review purchases in Sandbox against a Production server (refused today; [operations guide](../09-operations/app-store.md) §4); Q04 (provider, taxes, settlement); Korea's alternative-payment rules if the owner wants them; album sales in the app.
+Abuse of test purchases (TestFlight opened to many testers); Q04 (provider, taxes, settlement); Korea's alternative-payment rules if the owner wants them; album sales in the app.
