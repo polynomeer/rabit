@@ -158,3 +158,27 @@ variable "log_retention_days" {
   type    = number
   default = 30
 }
+
+variable "app_store_environment" {
+  description = "App Store in-app purchase (ADR-0024): off, Sandbox or Production. Xcode and LocalTesting are for local development only."
+  type        = string
+  default     = "off"
+  validation {
+    condition     = contains(["off", "Sandbox", "Production"], var.app_store_environment)
+    error_message = "app_store_environment must be off, Sandbox or Production."
+  }
+  validation {
+    condition     = var.app_store_environment != "Production" || var.app_store_app_apple_id != null
+    error_message = "app_store_environment Production needs app_store_app_apple_id."
+  }
+}
+
+variable "app_store_app_apple_id" {
+  description = "The app's Apple ID from App Store Connect (App Information). Required when app_store_environment is Production."
+  type        = number
+  default     = null
+  validation {
+    condition     = var.app_store_app_apple_id == null || try(var.app_store_app_apple_id > 0 && floor(var.app_store_app_apple_id) == var.app_store_app_apple_id, false)
+    error_message = "app_store_app_apple_id must be a positive whole number."
+  }
+}

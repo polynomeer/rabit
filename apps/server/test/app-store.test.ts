@@ -353,6 +353,17 @@ describe('App Store subscription (ADR-0024)', () => {
       .executeTakeFirstOrThrow();
     expect(ev).toEqual({ status: 'held', detail: 'unknown_account' });
 
+    // App Store Connect's "Request a Test Notification": no transaction, nothing to hold.
+    await notify(notification('TEST', {}));
+    await h.worker.drain();
+    const test = await h.ctx.db
+      .selectFrom('payment_event')
+      .select(['status', 'detail'])
+      .where('provider', '=', 'app_store')
+      .where('type', '=', 'TEST')
+      .executeTakeFirstOrThrow();
+    expect(test).toEqual({ status: 'ignored', detail: 'not_handled' });
+
     expect((await notify({ signedPayload: 'not-a-jws' })).statusCode).toBe(400);
     expect((await notify({})).statusCode).toBe(400);
   });

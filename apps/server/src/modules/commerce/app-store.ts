@@ -496,12 +496,26 @@ function deserialize(n: StoreNotification): StoreNotification {
   };
 }
 
+const HANDLED = new Set([
+  'SUBSCRIBED',
+  'DID_RENEW',
+  'DID_CHANGE_RENEWAL_STATUS',
+  'DID_FAIL_TO_RENEW',
+  'EXPIRED',
+  'GRACE_PERIOD_EXPIRED',
+  'REFUND',
+  'REVOKE',
+]);
+
 async function applyOne(
   tx: DbOrTx,
   n: StoreNotification,
   productId: string,
   eventId: string,
 ): Promise<Applied> {
+  // Other types (TEST, CONSUMPTION_REQUEST, PRICE_INCREASE, ...) are acknowledged and
+  // ignored before looking for an account: most carry no transaction.
+  if (!HANDLED.has(n.type)) return { status: 'ignored', detail: 'not_handled' };
   const t = n.transaction;
   if (t && t.productId !== productId) return { status: 'ignored', detail: 'other_product' };
   const userId = await ownerOf(tx, {

@@ -6,3 +6,8 @@ bucket_prefix       = "rabit-stg-0000"            # globally unique
 budget_alert_emails = ["ops@example.com"]
 budget_monthly_usd  = 300
 alert_emails        = ["oncall@example.com"]
+# App Store in-app purchase (ADR-0024; docs/09-operations/app-store.md).
+# Sandbox once the App Store Connect app and product exist; Production also needs
+# app_store_app_apple_id.
+app_store_environment = "off"
+# app_store_app_apple_id = 1234567890
