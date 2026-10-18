@@ -4,6 +4,7 @@ import {
   Environment,
   SignedDataVerifier,
   VerificationException,
+  VerificationStatus,
   type JWSTransactionDecodedPayload,
 } from '@apple/app-store-server-library';
 import { audit } from '../../platform/audit.js';
@@ -39,8 +40,12 @@ const KR_VAT_BP = 1_000;
 const TERRITORIES = ['KR'];
 const PLAN = 'listen_monthly';
 
+/** Marks Sandbox ids on a Production server, so they never meet real ones. */
+const TEST_PREFIX = 'sandbox:';
+
 /** What we use of a verified transaction. */
 export interface StoreTransaction {
+  /** Prefixed with `sandbox:` for a test purchase (see `test`). */
   transactionId: string;
   originalTransactionId: string;
   productId: string;
@@ -50,6 +55,11 @@ export interface StoreTransaction {
   /** Customer price in currency units × 1000 (Apple's milliunits), when Apple sends it. */
   priceMilli: number | null;
   currency: string | null;
+  /**
+   * A Sandbox purchase on a Production server (App Review, TestFlight): it grants
+   * access but is not a sale (ADR-0024 amendment).
+   */
+  test: boolean;
 }
 
 /** What we use of a verified App Store Server Notification V2. */
@@ -60,6 +70,8 @@ export interface StoreNotification {
   transaction: StoreTransaction | null;
   autoRenew: boolean | null;
   originalTransactionId: string | null;
+  /** Sandbox data on a Production server (see `StoreTransaction.test`). */
+  test: boolean;
 }
 
 export class StoreRejected extends Error {
@@ -72,8 +84,19 @@ export class StoreRejected extends Error {
 /** Verifies Apple's JWS with the App Store Server Library. */
 export class AppStoreVerifier {
   private readonly verifier: SignedDataVerifier;
+  /** Production with `acceptSandbox`: the fallback for Sandbox-signed data. */
+  private readonly sandbox: SignedDataVerifier | null;
 
-  constructor(readonly config: AppStoreConfig) {
+  /** `verifiers` replaces Apple's verifiers in tests (signed data needs Apple's chain). */
+  constructor(
+    readonly config: AppStoreConfig,
+    verifiers?: { primary: SignedDataVerifier; sandbox: SignedDataVerifier | null },
+  ) {
+    if (verifiers) {
+      this.verifier = verifiers.primary;
+      this.sandbox = verifiers.sandbox;
+      return;
+    }
     const env = {
       Production: Environment.PRODUCTION,
       Sandbox: Environment.SANDBOX,
@@ -83,11 +106,34 @@ export class AppStoreVerifier {
     const roots = config.rootCertPaths.map((p) => readFileSync(p));
     const signed = config.environment === 'Production' || config.environment === 'Sandbox';
     this.verifier = new SignedDataVerifier(roots, signed, env, config.bundleId, config.appAppleId);
+    this.sandbox =
+      config.environment === 'Production' && config.acceptSandbox
+        ? new SignedDataVerifier(roots, true, Environment.SANDBOX, config.bundleId)
+        : null;
+  }
+
+  /**
+   * Runs `f` with the configured verifier; on Production with `acceptSandbox`, data
+   * signed for Sandbox is verified again as Sandbox and marked as a test.
+   */
+  private async verified<T>(
+    f: (v: SignedDataVerifier) => Promise<T>,
+  ): Promise<{ value: T; test: boolean; verifier: SignedDataVerifier }> {
+    try {
+      return { value: await f(this.verifier), test: false, verifier: this.verifier };
+    } catch (err) {
+      const otherEnvironment =
+        err instanceof VerificationException &&
+        err.status === VerificationStatus.INVALID_ENVIRONMENT;
+      if (!this.sandbox || !otherEnvironment) throw err;
+      return { value: await f(this.sandbox), test: true, verifier: this.sandbox };
+    }
   }
 
   async transaction(jws: string): Promise<StoreTransaction> {
     try {
-      return toTransaction(await this.verifier.verifyAndDecodeTransaction(jws));
+      const r = await this.verified((v) => v.verifyAndDecodeTransaction(jws));
+      return toTransaction(r.value, r.test);
     } catch (err) {
       throw rejected(err);
     }
@@ -95,15 +141,17 @@ export class AppStoreVerifier {
 
   async notification(signedPayload: string): Promise<StoreNotification> {
     try {
-      const n = await this.verifier.verifyAndDecodeNotification(signedPayload);
+      const r = await this.verified((v) => v.verifyAndDecodeNotification(signedPayload));
+      const { value: n, test, verifier } = r;
       const data = n.data;
       const transaction = data?.signedTransactionInfo
-        ? toTransaction(await this.verifier.verifyAndDecodeTransaction(data.signedTransactionInfo))
+        ? toTransaction(await verifier.verifyAndDecodeTransaction(data.signedTransactionInfo), test)
         : null;
       const renewal = data?.signedRenewalInfo
-        ? await this.verifier.verifyAndDecodeRenewalInfo(data.signedRenewalInfo)
+        ? await verifier.verifyAndDecodeRenewalInfo(data.signedRenewalInfo)
         : null;
       if (!n.notificationUUID || !n.notificationType) throw new StoreRejected('payload');
+      const original = renewal?.originalTransactionId;
       return {
         notificationUUID: n.notificationUUID,
         type: n.notificationType,
@@ -111,7 +159,8 @@ export class AppStoreVerifier {
         transaction,
         autoRenew: renewal?.autoRenewStatus === undefined ? null : renewal.autoRenewStatus === 1,
         originalTransactionId:
-          transaction?.originalTransactionId ?? renewal?.originalTransactionId ?? null,
+          transaction?.originalTransactionId ?? (original ? marked(original, test) : null),
+        test,
       };
     } catch (err) {
       throw rejected(err);
@@ -126,18 +175,21 @@ function rejected(err: unknown): StoreRejected {
   return new StoreRejected('payload');
 }
 
-function toTransaction(t: JWSTransactionDecodedPayload): StoreTransaction {
+const marked = (id: string, test: boolean) => (test ? `${TEST_PREFIX}${id}` : id);
+
+function toTransaction(t: JWSTransactionDecodedPayload, test: boolean): StoreTransaction {
   if (!t.transactionId || !t.originalTransactionId || !t.productId)
     throw new StoreRejected('payload');
   return {
-    transactionId: t.transactionId,
-    originalTransactionId: t.originalTransactionId,
+    transactionId: marked(t.transactionId, test),
+    originalTransactionId: marked(t.originalTransactionId, test),
     productId: t.productId,
     appAccountToken: t.appAccountToken ?? null,
     expiresAt: t.expiresDate ? new Date(t.expiresDate) : null,
     revoked: t.revocationDate !== undefined,
     priceMilli: typeof t.price === 'number' ? t.price : null,
     currency: t.currency ?? null,
+    test,
   };
 }
 
@@ -239,6 +291,7 @@ async function applyPeriod(
         vat_rate_bp: KR_VAT_BP,
         capabilities: ['play'],
         terms_version: 'app-store',
+        ...(t.test ? { test: true } : {}),
         store: {
           transaction_id: t.transactionId,
           original_transaction_id: t.originalTransactionId,
@@ -254,7 +307,8 @@ async function applyPeriod(
     })
     .returningAll()
     .executeTakeFirstOrThrow();
-  await postSale(tx, order);
+  // A test purchase was never paid: access, but no sale in the ledger.
+  if (!t.test) await postSale(tx, order);
   await audit(tx, {
     actorType: 'system',
     actorId: null,
@@ -262,9 +316,9 @@ async function applyPeriod(
     subjectType: 'order',
     subjectId: order.id,
     correlationId,
-    details: { provider: APP_STORE, entitlement_id: entitlementId, overlap },
+    details: { provider: APP_STORE, entitlement_id: entitlementId, overlap, test: t.test },
   });
-  metrics.orders.inc({ event: 'fulfilled' });
+  metrics.orders.inc({ event: t.test ? 'fulfilled_test' : 'fulfilled' });
   if (overlap) {
     metrics.appStoreOverlaps.inc();
     await audit(tx, {
@@ -296,7 +350,7 @@ async function applyRefund(
     .executeTakeFirst();
   if (!order) return 'held';
   if (order.status === 'refunded') return 'ignored';
-  await postRefund(tx, order);
+  if (!t.test) await postRefund(tx, order);
   await tx
     .updateTable('purchase_order')
     .set((eb) => ({
@@ -315,9 +369,9 @@ async function applyRefund(
     subjectType: 'order',
     subjectId: order.id,
     correlationId,
-    details: { provider: APP_STORE },
+    details: { provider: APP_STORE, test: t.test },
   });
-  metrics.orders.inc({ event: 'refunded' });
+  metrics.orders.inc({ event: t.test ? 'refunded_test' : 'refunded' });
   return 'applied';
 }
 
@@ -399,7 +453,11 @@ export async function submitTransaction(
       }
       throw err;
     }
-    metrics.paymentEvents.inc({ provider: APP_STORE, type: 'transaction', outcome: 'applied' });
+    metrics.paymentEvents.inc({
+      provider: APP_STORE,
+      type: 'transaction',
+      outcome: t.test ? 'applied_test' : 'applied',
+    });
     return subscriptionView(await getSubscription(tx, principal.userId));
   });
 }
@@ -467,7 +525,7 @@ export async function applyNotification(
       .forUpdate()
       .executeTakeFirst();
     if (!ev || ev.status !== 'received' || ev.provider !== APP_STORE) return null;
-    const n = deserialize(ev.payload as unknown as StoreNotification);
+    const n = deserialize(ev.payload as unknown as StoredNotification);
     const r = await applyOne(tx, n, productId, ev.id);
     await tx
       .updateTable('payment_event')
@@ -487,12 +545,21 @@ export async function applyNotification(
   return result;
 }
 
+/** A notification as stored; events stored before test purchases existed have no `test`. */
+type StoredNotification = Omit<StoreNotification, 'test' | 'transaction'> & {
+  test?: boolean;
+  transaction: (Omit<StoreTransaction, 'test'> & { test?: boolean }) | null;
+};
+
 /** Dates come back from jsonb as strings. */
-function deserialize(n: StoreNotification): StoreNotification {
+function deserialize(n: StoredNotification): StoreNotification {
   const t = n.transaction;
   return {
     ...n,
-    transaction: t ? { ...t, expiresAt: t.expiresAt ? new Date(t.expiresAt) : null } : null,
+    test: n.test ?? false,
+    transaction: t
+      ? { ...t, expiresAt: t.expiresAt ? new Date(t.expiresAt) : null, test: t.test ?? false }
+      : null,
   };
 }
 

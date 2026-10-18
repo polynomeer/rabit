@@ -1,6 +1,18 @@
 import { randomUUID } from 'node:crypto';
+import {
+  Environment,
+  SignedDataVerifier,
+  VerificationException,
+  VerificationStatus,
+} from '@apple/app-store-server-library';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  AppStoreVerifier,
+  receiveNotification,
+  submitTransaction,
+} from '../src/modules/commerce/app-store.js';
 import { loadConfig } from '../src/platform/config.js';
+import type { Principal } from '../src/platform/http/principal.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
 import { createHarness, type Harness, type TestUser } from './helpers/harness.js';
 
@@ -366,6 +378,86 @@ describe('App Store subscription (ADR-0024)', () => {
 
     expect((await notify({ signedPayload: 'not-a-jws' })).statusCode).toBe(400);
     expect((await notify({})).statusCode).toBe(400);
+  });
+
+  it('applies App Review and TestFlight Sandbox purchases on Production as tests, not sales', async () => {
+    // Apple-signed data needs Apple's chain, so Production is stood in for by a verifier
+    // that refuses every other environment, and Sandbox by LocalTesting.
+    const otherEnvironment = () =>
+      Promise.reject(new VerificationException(VerificationStatus.INVALID_ENVIRONMENT));
+    const production = {
+      verifyAndDecodeTransaction: otherEnvironment,
+      verifyAndDecodeNotification: otherEnvironment,
+      verifyAndDecodeRenewalInfo: otherEnvironment,
+    } as unknown as SignedDataVerifier;
+    const sandbox = new SignedDataVerifier([], false, Environment.LOCAL_TESTING, 'app.rabit.ios');
+    const cfg = {
+      ...h.ctx.config.appStore!,
+      environment: 'Production' as const,
+      appAppleId: 1,
+      acceptSandbox: true,
+    };
+    const verifier = new AppStoreVerifier(cfg, { primary: production, sandbox });
+    const principal = (u: TestUser): Principal => ({
+      userId: u.userId as Principal['userId'],
+      personalWorkspaceId: u.workspaceId as Principal['personalWorkspaceId'],
+      status: 'active',
+      isOperator: false,
+    });
+    const ledgerLines = (orderId: string) =>
+      h.ctx.db.selectFrom('ledger_journal').select('id').where('order_id', '=', orderId).execute();
+
+    const reviewer = await krUser();
+    const { app_account_token: token } = await status(reviewer);
+    const id = `3000000${String(Math.floor(Math.random() * 1e9))}`;
+    const bought = transaction({ id, token, expires: Date.now() + 30 * DAY });
+    await submitTransaction(h.ctx.db, verifier, principal(reviewer), jws(bought), 'review');
+    expect((await status(reviewer)).subscription).toMatchObject({
+      state: 'active',
+      source: 'app_store',
+    });
+    expect((await play(reviewer)).statusCode).toBe(201);
+    const order = await h.ctx.db
+      .selectFrom('purchase_order')
+      .select(['id', 'snapshot'])
+      .where('checkout_ref', '=', `sandbox:${id}`)
+      .executeTakeFirstOrThrow();
+    expect(order.snapshot).toMatchObject({ test: true });
+    expect(await ledgerLines(order.id)).toEqual([]);
+
+    // The same id from the real App Store is another purchase.
+    const buyer = await krUser();
+    const real = transaction({
+      id,
+      token: (await status(buyer)).app_account_token,
+      expires: Date.now() + 30 * DAY,
+    });
+    expect((await submit(buyer, real)).statusCode).toBe(200);
+
+    // Sandbox notifications reach the same URL and follow the test purchase.
+    const refund = notification('REFUND', {
+      transaction: { ...bought, revocationDate: Date.now(), revocationReason: 0 },
+    });
+    await receiveNotification(h.ctx.db, verifier, JSON.stringify(refund));
+    await h.worker.drain();
+    expect((await play(reviewer)).statusCode).toBe(403);
+    expect(await ledgerLines(order.id)).toEqual([]);
+    expect((await status(buyer)).subscription).toMatchObject({ state: 'active' });
+
+    // Without acceptSandbox, Production refuses Sandbox data as before.
+    const strict = new AppStoreVerifier(
+      { ...cfg, acceptSandbox: false },
+      { primary: production, sandbox: null },
+    );
+    const other = await krUser();
+    const t = transaction({
+      id: `${id}9`,
+      token: (await status(other)).app_account_token,
+      expires: Date.now() + DAY,
+    });
+    await expect(
+      submitTransaction(h.ctx.db, strict, principal(other), jws(t), 'strict'),
+    ).rejects.toMatchObject({ status: 422 });
   });
 
   it('refuses unsigned StoreKit testing in production', () => {

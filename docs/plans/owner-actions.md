@@ -55,7 +55,7 @@ Step-by-step guide: [App Store setup and operations](../09-operations/app-store.
 | O-42 | App Store Connect app `app.rabit.ios`, its Apple ID, the subscription group and product `app.rabit.ios.listen.monthly` (₩10,900 tier, Korea) | Selling the subscription | guide §1 |
 | O-43 | Server notification URL (V2) for Production and Sandbox; then `app_store_environment = "Sandbox"` in `staging.tfvars` | Renewals, refunds and expiries reach the server only through notifications | guide §1–2; `infra/aws` variables, Apple root certificate in the image |
 | O-44 | App Store Small Business Program | 15 % instead of 30 % commission | — |
-| O-45 | Decide how a production server treats App Review's Sandbox purchases | The review purchase fails otherwise | guide §4 |
+| O-45 | ~~Decide how a production server treats App Review's Sandbox purchases~~ **Decided 2026-10-18: accepted as test purchases** (access, no sale). Give App Review a KR demo account in the review notes | The review purchase failed otherwise | `app_store_accept_review_sandbox` (default true); guide §2 |
 
 ## 4. Scheduled engineering items (no owner action, listed for visibility)
 

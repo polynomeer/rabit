@@ -182,3 +182,9 @@ variable "app_store_app_apple_id" {
     error_message = "app_store_app_apple_id must be a positive whole number."
   }
 }
+
+variable "app_store_accept_review_sandbox" {
+  description = "Production only: accept App Review and TestFlight Sandbox purchases as test purchases (access without a sale, ADR-0024)."
+  type        = bool
+  default     = true
+}

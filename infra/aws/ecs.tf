@@ -48,6 +48,10 @@ locals {
     { name = "APP_STORE_ROOT_CERTS", value = "/etc/ssl/apple/AppleRootCA-G3.cer" },
     ], var.app_store_app_apple_id == null ? [] : [
     { name = "APP_STORE_APP_APPLE_ID", value = tostring(var.app_store_app_apple_id) },
+    ], var.app_store_environment == "Production" ? [
+    # App Review and TestFlight buy in Sandbox: test purchases, access without a sale.
+    { name = "APP_STORE_ACCEPT_SANDBOX", value = tostring(var.app_store_accept_review_sandbox) },
+    ] : [
   ])
 
   secrets = [

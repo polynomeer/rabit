@@ -112,6 +112,11 @@ const envSchema = z
     APP_STORE_BUNDLE_ID: z.string().min(1).default('app.rabit.ios'),
     APP_STORE_PRODUCT_ID: z.string().min(1).default('app.rabit.ios.listen.monthly'),
     APP_STORE_APP_APPLE_ID: positiveInt.optional(),
+    /**
+     * Production only: also accept Sandbox purchases (App Review, TestFlight) as test
+     * purchases — access without a sale (ADR-0024 amendment).
+     */
+    APP_STORE_ACCEPT_SANDBOX: bool.default(false),
     /** Comma-separated paths of Apple's DER root certificates (Production, Sandbox). */
     APP_STORE_ROOT_CERTS: z.string().default(''),
 
@@ -291,6 +296,8 @@ export interface AppStoreConfig {
   bundleId: string;
   productId: string;
   appAppleId: number | undefined;
+  /** Production also verifies Sandbox data and applies it as test purchases. */
+  acceptSandbox: boolean;
   rootCertPaths: string[];
 }
 
@@ -372,6 +379,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
             bundleId: e.APP_STORE_BUNDLE_ID,
             productId: e.APP_STORE_PRODUCT_ID,
             appAppleId: e.APP_STORE_APP_APPLE_ID,
+            acceptSandbox: e.APP_STORE_ENVIRONMENT === 'Production' && e.APP_STORE_ACCEPT_SANDBOX,
             rootCertPaths: e.APP_STORE_ROOT_CERTS.split(',')
               .map((s) => s.trim())
               .filter((s) => s.length > 0),
