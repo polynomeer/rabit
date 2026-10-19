@@ -3,6 +3,7 @@ import type { Db } from '../../platform/db/db.js';
 import type { PopularityTier } from '../../platform/db/schema.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
+import { deleteInBatches } from '../../platform/jobs/queue.js';
 import { metrics } from '../../platform/metrics.js';
 
 export interface ListeningEventInput {
@@ -144,16 +145,18 @@ export function tierFor(percentile: number | null): PopularityTier {
  * counts. With no qualifying listens at all, every tier is `unknown`.
  */
 export async function computePopularity(db: Db): Promise<number> {
-  return db.transaction().execute(async (tx) => {
-    const rows = await sql<{ recording_id: string; listeners: number; plays: number }>`
-      WITH per_user AS (
-        SELECT e.recording_id, e.user_id, sum(e.played_ms) AS played,
-               count(*) FILTER (WHERE e.type = 'started') AS starts
-        FROM listening_event e
-        WHERE e.accepted AND e.recording_id IS NOT NULL
-          AND e.received_at > now() - make_interval(days => ${POPULARITY_WINDOW_DAYS})
-        GROUP BY e.recording_id, e.user_id
-      )
+  // One set-based statement instead of a transaction with one upsert per recording:
+  // it finishes quickly and never keeps a long transaction open. rank() - 1 is the
+  // number of recordings with strictly fewer listeners. Tier thresholds match tierFor().
+  const r = await sql`
+    WITH per_user AS (
+      SELECT e.recording_id, e.user_id, sum(e.played_ms) AS played,
+             count(*) FILTER (WHERE e.type = 'started') AS starts
+      FROM listening_event e
+      WHERE e.accepted AND e.recording_id IS NOT NULL
+        AND e.received_at > now() - make_interval(days => ${POPULARITY_WINDOW_DAYS})
+      GROUP BY e.recording_id, e.user_id
+    ), counts AS (
       SELECT r.id AS recording_id,
              count(pu.user_id) FILTER (
                WHERE pu.played >= LEAST(30000, COALESCE(r.duration_ms, 60000) / 2)
@@ -162,58 +165,41 @@ export async function computePopularity(db: Db): Promise<number> {
       FROM recording r
       LEFT JOIN per_user pu ON pu.recording_id = r.id
       WHERE r.catalog_audio_source_id IS NOT NULL
-      GROUP BY r.id`.execute(tx);
-    const list = rows.rows;
-    const anyData = list.some((r) => r.listeners > 0);
-    const sorted = list.map((r) => r.listeners).sort((a, b) => a - b);
-    const fewer = (n: number) => {
-      let lo = 0;
-      let hi = sorted.length;
-      while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        if ((sorted[mid] ?? 0) < n) lo = mid + 1;
-        else hi = mid;
-      }
-      return lo;
-    };
-    for (const r of list) {
-      const percentile =
-        anyData && list.length > 0
-          ? Math.round((fewer(r.listeners) / list.length) * 10000) / 10000
-          : null;
-      await tx
-        .insertInto('recording_popularity')
-        .values({
-          recording_id: r.recording_id,
-          window_days: POPULARITY_WINDOW_DAYS,
-          distinct_listeners: r.listeners,
-          plays: r.plays,
-          percentile,
-          tier: tierFor(percentile),
-          policy_version: POPULARITY_POLICY,
-        })
-        .onConflict((oc) =>
-          oc.column('recording_id').doUpdateSet({
-            window_days: POPULARITY_WINDOW_DAYS,
-            distinct_listeners: r.listeners,
-            plays: r.plays,
-            percentile,
-            tier: tierFor(percentile),
-            policy_version: POPULARITY_POLICY,
-            computed_at: new Date(),
-          }),
-        )
-        .execute();
-    }
-    return list.length;
-  });
+      GROUP BY r.id
+    ), ranked AS (
+      SELECT recording_id, listeners, plays,
+             CASE WHEN max(listeners) OVER () > 0
+               THEN round(((rank() OVER (ORDER BY listeners) - 1)::numeric / count(*) OVER ()), 4)
+             END AS percentile
+      FROM counts
+    )
+    INSERT INTO recording_popularity
+      (recording_id, window_days, distinct_listeners, plays, percentile, tier, policy_version, computed_at)
+    SELECT recording_id, ${POPULARITY_WINDOW_DAYS}, listeners, plays, percentile,
+           CASE WHEN percentile IS NULL THEN 'unknown'
+                WHEN percentile >= 0.9 THEN 'top'
+                WHEN percentile >= 0.5 THEN 'upper'
+                WHEN percentile >= 0.1 THEN 'deep_cut'
+                ELSE 'obscure' END,
+           ${POPULARITY_POLICY}, now()
+    FROM ranked
+    ON CONFLICT (recording_id) DO UPDATE SET
+      window_days = EXCLUDED.window_days,
+      distinct_listeners = EXCLUDED.distinct_listeners,
+      plays = EXCLUDED.plays,
+      percentile = EXCLUDED.percentile,
+      tier = EXCLUDED.tier,
+      policy_version = EXCLUDED.policy_version,
+      computed_at = EXCLUDED.computed_at`.execute(db);
+  return Number(r.numAffectedRows ?? 0);
 }
 
 /** Raw events older than the retention window are purged (NFR-PRV-005 proposal). */
 export async function purgeListeningEvents(db: Db): Promise<number> {
-  const res = await db
-    .deleteFrom('listening_event')
-    .where('received_at', '<', new Date(Date.now() - POPULARITY_WINDOW_DAYS * 86_400_000))
-    .executeTakeFirst();
-  return Number(res.numDeletedRows);
+  // In batches: one large DELETE would hold the vacuum horizon for every hot table.
+  return deleteInBatches(
+    db,
+    'listening_event',
+    sql`received_at < now() - make_interval(days => ${POPULARITY_WINDOW_DAYS})`,
+  );
 }

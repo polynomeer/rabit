@@ -102,7 +102,9 @@ resource "aws_ecs_task_definition" "role" {
     portMappings           = each.value.port == null ? [] : [{ containerPort = each.value.port, protocol = "tcp" }]
     environment            = local.environment
     secrets                = local.secrets
-    stopTimeout            = 60
+    # The worker hands unfinished jobs back after a 90 s grace (SHUTDOWN_GRACE_MS);
+    # 120 s is Fargate's maximum.
+    stopTimeout = each.key == "worker" ? 120 : 60
     logConfiguration = {
       logDriver = "awslogs"
       options = {

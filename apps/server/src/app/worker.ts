@@ -10,8 +10,15 @@ export interface WorkerProcess {
   /** One pass of dispatch + schedules + lease reclaim + jobs; used by tests. */
   drain(): Promise<void>;
   start(): void;
-  stop(): Promise<void>;
+  /**
+   * Stops claiming and dispatching; running jobs get `graceMs` to finish, then
+   * are handed back to the queue (ECS gives the task `stopTimeout` after SIGTERM).
+   */
+  stop(graceMs?: number): Promise<void>;
 }
+
+/** Time running jobs get to finish on shutdown, inside ECS's 120 s stopTimeout. */
+export const SHUTDOWN_GRACE_MS = 90_000;
 
 export function buildWorker(ctx: AppContext, modules: Module[]): WorkerProcess {
   const handlers = modules.flatMap((m) => m.jobs?.(ctx) ?? []);
@@ -25,6 +32,21 @@ export function buildWorker(ctx: AppContext, modules: Module[]): WorkerProcess {
   });
   const timers: NodeJS.Timeout[] = [];
   let loop: Promise<void> | null = null;
+  let dispatching: Promise<void> | null = null;
+  let stopped = false;
+
+  /** One dispatch at a time: the next pass starts only after the previous one ended. */
+  const dispatchLoop = async () => {
+    while (!stopped) {
+      let moved = 0;
+      try {
+        moved = await dispatchOutbox(ctx.db, subscriptions);
+      } catch (err) {
+        ctx.log.error({ err }, 'outbox dispatch failed');
+      }
+      if (moved === 0) await new Promise((r) => setTimeout(r, 250));
+    }
+  };
 
   /** Each step runs and fails on its own: a failing purge must not stop lease reclaim. */
   const housekeeping = async () => {
@@ -61,15 +83,16 @@ export function buildWorker(ctx: AppContext, modules: Module[]): WorkerProcess {
           }, ms),
         );
       };
-      every(250, () => dispatchOutbox(ctx.db, subscriptions));
+      dispatching = dispatchLoop();
       every(30_000, housekeeping);
       void housekeeping();
       loop = runner.run();
     },
-    async stop() {
+    async stop(graceMs = SHUTDOWN_GRACE_MS) {
+      stopped = true;
       for (const t of timers) clearInterval(t);
-      runner.stop();
-      await loop;
+      await runner.shutdown(graceMs);
+      await Promise.all([loop, dispatching]);
     },
   };
 }

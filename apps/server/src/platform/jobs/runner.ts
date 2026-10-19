@@ -3,7 +3,16 @@ import type { Logger } from 'pino';
 import type { Db } from '../db/db.js';
 import { ulid } from '../ids.js';
 import { metrics } from '../metrics.js';
-import { claimJobs, completeJob, failJob, reclaimExpiredLeases, type ClaimedJob } from './queue.js';
+import {
+  LEASE_WINDOW_MS,
+  claimJobs,
+  completeJob,
+  extendLeases,
+  failJob,
+  reclaimExpiredLeases,
+  releaseJobs,
+  type ClaimedJob,
+} from './queue.js';
 
 /** Thrown by handlers for failures that retrying cannot fix (e.g. unsupported media). */
 export class PermanentJobError extends Error {
@@ -24,7 +33,11 @@ export interface JobContext {
 
 export interface JobHandler {
   kind: string;
-  /** Lease must exceed the worst-case runtime; the handler is aborted at the lease end. */
+  /**
+   * Maximum runtime: the handler is aborted after this long. The claim itself is
+   * short and renewed by a heartbeat while the job runs (LEASE_WINDOW_MS), so a
+   * crashed worker's job is picked up again within that window.
+   */
   leaseMs: number;
   handle(ctx: JobContext): Promise<void>;
   /** Called once when the job goes to the DLQ, for compensating state changes. */
@@ -37,6 +50,8 @@ export interface RunnerOptions {
   handlers: JobHandler[];
   concurrency: number;
   pollIntervalMs?: number;
+  /** Claim window renewed by the heartbeat (tests shorten it). */
+  leaseWindowMs?: number;
 }
 
 export class JobRunner {
@@ -45,6 +60,10 @@ export class JobRunner {
   private running = 0;
   private stopped = false;
   private wake: (() => void) | null = null;
+  /** Jobs in flight, with the controller that aborts them. */
+  private readonly active = new Map<string, AbortController>();
+  /** Jobs handed back on shutdown: their late outcome must not be recorded. */
+  private readonly released = new Set<string>();
 
   constructor(private readonly opts: RunnerOptions) {
     this.handlers = new Map(opts.handlers.map((h) => [h.kind, h]));
@@ -63,6 +82,35 @@ export class JobRunner {
 
   async run(): Promise<void> {
     const interval = this.opts.pollIntervalMs ?? 500;
+    const heartbeat = setInterval(() => {
+      this.heartbeat().catch((err: unknown) => {
+        this.opts.log.error({ err }, 'job lease heartbeat failed');
+      });
+    }, this.window / 4);
+    try {
+      await this.loop(interval);
+    } finally {
+      clearInterval(heartbeat);
+    }
+  }
+
+  private get window(): number {
+    return this.opts.leaseWindowMs ?? LEASE_WINDOW_MS;
+  }
+
+  /** Renews the claims of running jobs; a job whose claim was lost is aborted. */
+  async heartbeat(): Promise<void> {
+    const ids = [...this.active.keys()];
+    if (ids.length === 0) return;
+    const held = await extendLeases(this.opts.db, this.workerId, ids, this.window);
+    for (const id of ids) {
+      if (held.has(id)) continue;
+      this.opts.log.warn({ job_id: id }, 'job lease lost; aborting (another worker may run it)');
+      this.active.get(id)?.abort(new Error('job lease lost'));
+    }
+  }
+
+  private async loop(interval: number): Promise<void> {
     while (!this.stopped) {
       try {
         const free = this.opts.concurrency - this.running;
@@ -78,7 +126,25 @@ export class JobRunner {
         await new Promise((r) => setTimeout(r, interval));
       }
     }
-    while (this.running > 0) await new Promise((r) => setTimeout(r, 50));
+  }
+
+  /**
+   * Stops claiming, lets running jobs finish for up to `graceMs`, then hands the
+   * rest back to the queue without counting the attempt and aborts them.
+   */
+  async shutdown(graceMs: number): Promise<number> {
+    this.stop();
+    const deadline = Date.now() + graceMs;
+    while (this.running > 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const left = [...this.active.keys()];
+    if (left.length === 0) return 0;
+    for (const id of left) this.released.add(id);
+    const n = await releaseJobs(this.opts.db, this.workerId, left);
+    for (const id of left) this.active.get(id)?.abort(new Error('worker shutting down'));
+    this.opts.log.warn({ released: n }, 'released unfinished jobs on shutdown');
+    return n;
   }
 
   /** Recovers expired leases and runs compensation for jobs that became dead. */
@@ -107,12 +173,11 @@ export class JobRunner {
 
   private async tick(limit: number, wait = true): Promise<number> {
     const kinds = [...this.handlers.keys()];
-    const maxLease = Math.max(...[...this.handlers.values()].map((h) => h.leaseMs));
     const jobs = await claimJobs(this.opts.db, {
       workerId: this.workerId,
       kinds,
       limit,
-      leaseMs: maxLease,
+      leaseMs: this.window,
     });
     const runs = jobs.map((j) => this.execute(j));
     if (wait) await Promise.all(runs);
@@ -131,8 +196,9 @@ export class JobRunner {
     if (!handler) return;
     this.running++;
     const ac = new AbortController();
+    this.active.set(job.id, ac);
     const timer = setTimeout(() => {
-      ac.abort(new Error('job lease expired'));
+      ac.abort(new Error('job exceeded its maximum runtime'));
     }, handler.leaseMs);
     const started = performance.now();
     const ctx: JobContext = { job, log, signal: ac.signal };
@@ -142,6 +208,10 @@ export class JobRunner {
       metrics.jobsTotal.inc({ kind: job.kind, outcome: 'succeeded' });
       log.info({ duration_ms: Math.round(performance.now() - started) }, 'job succeeded');
     } catch (err) {
+      if (this.released.has(job.id)) {
+        log.info('job released on shutdown; it runs again elsewhere');
+        return;
+      }
       const permanent = err instanceof PermanentJobError;
       const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
       const outcome = await failJob(this.opts.db, job, this.workerId, message, { permanent });
@@ -156,6 +226,8 @@ export class JobRunner {
       }
     } finally {
       clearTimeout(timer);
+      this.active.delete(job.id);
+      this.released.delete(job.id);
       this.running--;
     }
   }
