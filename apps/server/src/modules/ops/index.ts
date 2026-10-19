@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { sql } from 'kysely';
 import { z } from 'zod';
 import type { AppContext } from '../../app/context.js';
 import type { Module } from '../../app/modules.js';
@@ -7,7 +8,7 @@ import { errors } from '../../platform/errors.js';
 import { requireOperator } from '../../platform/http/principal.js';
 import { idOf, limitSchema, parse } from '../../platform/http/validation.js';
 import type { Id } from '../../platform/ids.js';
-import { requeueJob } from '../../platform/jobs/queue.js';
+import { deleteInBatches, requeueJob } from '../../platform/jobs/queue.js';
 import type { SupportSection } from '../../platform/support.js';
 import { getUser, workspaceIdsOf } from '../identity/index.js';
 
@@ -169,12 +170,24 @@ export function opsModule(deps: OpsDeps): Module {
         leaseMs: 5 * 60_000,
         async handle() {
           // Lease recovery runs in every worker process (JobRunner.reclaim), with onDead.
-          // Retention proposals (erd §4): finished jobs 14 d, idempotency records 2 d (≥ 24 h guarantee).
-          await ctx.db
-            .deleteFrom('job')
-            .where('status', '=', 'succeeded')
-            .where('updated_at', '<', new Date(Date.now() - 14 * 86_400_000))
-            .execute();
+          // Retention (erd §4): finished jobs 14 d, dead jobs 30 d (time to inspect and
+          // retry), dispatched outbox events 7 d, idempotency records 2 d (≥ 24 h
+          // guarantee). Deletes run in batches so no statement holds locks for long.
+          await deleteInBatches(
+            ctx.db,
+            'job',
+            sql`status = 'succeeded' AND updated_at < now() - interval '14 days'`,
+          );
+          await deleteInBatches(
+            ctx.db,
+            'job',
+            sql`status = 'dead' AND updated_at < now() - interval '30 days'`,
+          );
+          await deleteInBatches(
+            ctx.db,
+            'outbox_event',
+            sql`dispatched_at IS NOT NULL AND dispatched_at < now() - interval '7 days'`,
+          );
           await ctx.db
             .deleteFrom('idempotency_record')
             .where('created_at', '<', new Date(Date.now() - 2 * 86_400_000))

@@ -19,10 +19,18 @@ export type DbOrTx = Kysely<Database>;
  * database restarts. The pool discards that connection and opens a new one on
  * the next query; without a listener the error would crash the process.
  */
+export interface DbTimeouts {
+  /** Server-side limit per statement (0 = none, e.g. for migrations). */
+  statementMs: number;
+  /** A transaction left idle this long is ended by the server (0 = none). */
+  idleInTransactionMs: number;
+}
+
 export function createDb(
   url: string,
   poolMax = 10,
   onIdleError: (err: Error) => void = () => {},
+  timeouts: DbTimeouts = { statementMs: 0, idleInTransactionMs: 0 },
 ): Db {
   const pool = new pg.Pool({
     connectionString: url,
@@ -31,6 +39,12 @@ export function createDb(
     connectionTimeoutMillis: 5_000,
     idleTimeoutMillis: 30_000,
     application_name: 'rabit',
+    // A runaway query or a transaction left open must not hold locks and the
+    // vacuum horizon for the hot tables (job, outbox, rate-limit counters).
+    ...(timeouts.statementMs > 0 ? { statement_timeout: timeouts.statementMs } : {}),
+    ...(timeouts.idleInTransactionMs > 0
+      ? { idle_in_transaction_session_timeout: timeouts.idleInTransactionMs }
+      : {}),
   });
   pool.on('error', onIdleError);
   return new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });

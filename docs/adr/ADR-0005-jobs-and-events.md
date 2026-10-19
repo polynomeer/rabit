@@ -31,5 +31,14 @@ Processing (validate, transcode, analyze), deletion propagation, export, and sea
 ## Consequences
 Exactly-once is not promised; idempotency is required and tested (duplicate delivery tests).
 
+## Amendment (2026-10-19): leases, shutdown and retention
+From the architecture review:
+- **Lease window and heartbeat.** A claim lasts `LEASE_WINDOW_MS` (120 s) and the worker renews it every 30 s while the job runs. A handler's `leaseMs` is its maximum runtime (it is aborted after that), no longer the claim length, so a crashed worker's job returns to the queue within about 2 minutes whatever its kind. A job whose claim was taken over is aborted.
+- **Shutdown.** On SIGTERM the worker stops claiming and dispatching, gives running jobs 90 s, then hands the rest back (`queued`, the interrupted attempt not counted) and exits; the worker task's ECS `stopTimeout` is 120 s.
+- **Dispatch.** The outbox dispatcher is a loop that never overlaps itself (it was a 250 ms interval).
+- **Retention.** Finished jobs 14 days, dead jobs 30 days, dispatched outbox events 7 days, raw listening events after the popularity window; deleted in batches of 5,000 so no statement holds locks or the vacuum horizon for long. Popularity is one set-based statement, not one upsert per recording in a transaction.
+- **Timeouts.** Application connections set `statement_timeout` (30 s) and `idle_in_transaction_session_timeout` (60 s); migrations run without them.
+- **Ordering** is still per job, not per subject: handlers must stay commutative (version or tombstone checks).
+
 ## Revisit trigger
 Sustained queue latency above SLO at measured load; need for event replay across services; listening-event volume (moved to analytics store per AP-05).

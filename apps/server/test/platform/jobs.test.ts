@@ -4,6 +4,7 @@ import { dispatchOutbox, emit } from '../../src/platform/jobs/outbox.js';
 import {
   backoffMs,
   claimJobs,
+  deleteInBatches,
   enqueue,
   reclaimExpiredLeases,
   requeueJob,
@@ -206,5 +207,141 @@ describe('outbox', () => {
     expect(a[0]?.dedupe_key).toBe(`${kindA}:${eventId}`);
     expect(a[0]?.payload).toMatchObject({ event_id: eventId, state: 'ready' });
     expect(await jobsOfKind(kindB)).toHaveLength(1);
+  });
+});
+
+describe('leases, heartbeat and shutdown (review 2026-10-19)', () => {
+  const lockedUntil = async (kind: string) =>
+    (await jobsOfKind(kind))[0]?.locked_until?.getTime() ?? 0;
+
+  it('claims for a short window whatever the kind maximum runtime, and renews it while running', async () => {
+    const kind = `t.window.${ulid()}`;
+    await enqueue(ctx.db, { kind, payload: {}, dedupeKey: `${kind}:1` });
+    let release!: () => void;
+    const running = new Promise<void>((r) => (release = r));
+    let started!: () => void;
+    const begun = new Promise<void>((r) => (started = r));
+    const runner = new JobRunner({
+      db: ctx.db,
+      log: ctx.log,
+      concurrency: 1,
+      leaseWindowMs: 10_000,
+      handlers: [
+        {
+          kind,
+          leaseMs: 30 * 60_000,
+          handle: async () => {
+            started();
+            await running;
+          },
+        },
+      ],
+    });
+    const loop = runner.run();
+    await begun;
+    const first = await lockedUntil(kind);
+    // A crashed worker's 30-minute job comes back within the window, not 30 minutes.
+    expect(first - Date.now()).toBeLessThanOrEqual(10_000);
+    await new Promise((r) => setTimeout(r, 50));
+    await runner.heartbeat();
+    expect(await lockedUntil(kind)).toBeGreaterThan(first);
+    release();
+    await runner.shutdown(5_000);
+    await loop;
+    expect((await jobsOfKind(kind))[0]?.status).toBe('succeeded');
+  });
+
+  it('aborts a job whose lease another worker took over', async () => {
+    const kind = `t.lost.${ulid()}`;
+    await enqueue(ctx.db, { kind, payload: {}, dedupeKey: `${kind}:1` });
+    let signal!: AbortSignal;
+    let started!: () => void;
+    const begun = new Promise<void>((r) => (started = r));
+    const runner = new JobRunner({
+      db: ctx.db,
+      log: ctx.log,
+      concurrency: 1,
+      handlers: [
+        {
+          kind,
+          leaseMs: 60_000,
+          handle: (c) => {
+            signal = c.signal;
+            started();
+            return new Promise((_, reject) => {
+              c.signal.addEventListener('abort', () => {
+                reject(new Error('aborted'));
+              });
+            });
+          },
+        },
+      ],
+    });
+    const loop = runner.run();
+    await begun;
+    await ctx.db
+      .updateTable('job')
+      .set({ locked_by: 'another-worker' })
+      .where('kind', '=', kind)
+      .execute();
+    await runner.heartbeat();
+    expect(signal.aborted).toBe(true);
+    await runner.shutdown(1_000);
+    await loop;
+  });
+
+  it('hands unfinished jobs back on shutdown without counting the attempt', async () => {
+    const kind = `t.shutdown.${ulid()}`;
+    await enqueue(ctx.db, { kind, payload: {}, dedupeKey: `${kind}:1`, maxAttempts: 1 });
+    let started!: () => void;
+    const begun = new Promise<void>((r) => (started = r));
+    const runner = new JobRunner({
+      db: ctx.db,
+      log: ctx.log,
+      concurrency: 1,
+      handlers: [
+        {
+          kind,
+          leaseMs: 60_000,
+          handle: (c) => {
+            started();
+            return new Promise((_, reject) => {
+              c.signal.addEventListener('abort', () => {
+                reject(new Error('aborted'));
+              });
+            });
+          },
+        },
+      ],
+    });
+    const loop = runner.run();
+    await begun;
+    expect(await runner.shutdown(100)).toBe(1);
+    await loop;
+    const [job] = await jobsOfKind(kind);
+    // With maxAttempts 1 a counted attempt would have dead-lettered it.
+    expect(job).toMatchObject({ status: 'queued', attempts: 0, locked_by: null });
+  });
+});
+
+describe('retention', () => {
+  it('deletes in batches only what matches', async () => {
+    const kind = `t.retention.${ulid()}`;
+    for (let i = 0; i < 7; i++)
+      await enqueue(ctx.db, { kind, payload: { i }, dedupeKey: `${kind}:${i}` });
+    await ctx.db
+      .updateTable('job')
+      .set({ status: 'dead', updated_at: new Date(Date.now() - 40 * 86_400_000) })
+      .where('kind', '=', kind)
+      .where(sql<boolean>`(payload->>'i')::int < 5`)
+      .execute();
+    const n = await deleteInBatches(
+      ctx.db,
+      'job',
+      sql`kind = ${kind} AND status = 'dead' AND updated_at < now() - interval '30 days'`,
+      2,
+    );
+    expect(n).toBe(5);
+    expect(await jobsOfKind(kind)).toHaveLength(2);
   });
 });

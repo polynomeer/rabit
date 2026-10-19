@@ -179,3 +179,81 @@ export async function requeueJob(db: DbOrTx, id: string): Promise<boolean> {
     .executeTakeFirst();
   return Number(res.numUpdatedRows) > 0;
 }
+
+/**
+ * How long a claim lasts without a heartbeat. Workers extend the leases of jobs
+ * they are still running, so a crashed worker's jobs return to the queue after
+ * this window, whatever their kind's maximum runtime.
+ */
+export const LEASE_WINDOW_MS = 120_000;
+
+/** Heartbeat: extends this worker's leases; returns the ids it still holds. */
+export async function extendLeases(
+  db: DbOrTx,
+  workerId: string,
+  ids: readonly string[],
+  windowMs = LEASE_WINDOW_MS,
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .updateTable('job')
+    .set({
+      locked_until: sql<Date>`now() + make_interval(secs => ${windowMs / 1000})`,
+      updated_at: new Date(),
+    })
+    .where('id', 'in', [...ids])
+    .where('locked_by', '=', workerId)
+    .where('status', '=', 'running')
+    .returning('id')
+    .execute();
+  return new Set(rows.map((r) => r.id));
+}
+
+/**
+ * Hands jobs back on shutdown: queued again at once, and the interrupted attempt
+ * does not count (a deploy is not the job's fault).
+ */
+export async function releaseJobs(
+  db: DbOrTx,
+  workerId: string,
+  ids: readonly string[],
+): Promise<number> {
+  if (ids.length === 0) return 0;
+  const res = await db
+    .updateTable('job')
+    .set((eb) => ({
+      status: 'queued',
+      attempts: sql<number>`GREATEST(${eb.ref('attempts')} - 1, 0)`,
+      run_after: sql<Date>`now()`,
+      locked_by: null,
+      locked_until: null,
+      last_error: 'released on shutdown',
+      updated_at: new Date(),
+    }))
+    .where('id', 'in', [...ids])
+    .where('locked_by', '=', workerId)
+    .where('status', '=', 'running')
+    .executeTakeFirst();
+  return Number(res.numUpdatedRows);
+}
+
+/** Deletes matching rows in batches, so no single statement holds locks or the vacuum horizon for long. */
+export async function deleteInBatches(
+  db: DbOrTx,
+  table: 'job' | 'outbox_event' | 'listening_event',
+  where: ReturnType<typeof sql>,
+  batch = 5_000,
+  maxBatches = 200,
+): Promise<number> {
+  let total = 0;
+  for (let i = 0; i < maxBatches; i++) {
+    const r = await sql`
+      DELETE FROM ${sql.table(table)} WHERE ctid IN (
+        SELECT ctid FROM ${sql.table(table)} WHERE ${where} LIMIT ${batch}
+      )`.execute(db);
+    const n = Number(r.numAffectedRows ?? 0);
+    total += n;
+    if (n < batch) break;
+  }
+  return total;
+}

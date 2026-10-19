@@ -1,3 +1,4 @@
+import type { DbTimeouts } from './db/db.js';
 import { z } from 'zod';
 
 const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
@@ -23,6 +24,9 @@ const envSchema = z
 
     DATABASE_URL: z.string().startsWith('postgres'),
     DATABASE_POOL_MAX: positiveInt.default(10),
+    /** Server-side statement limit for the api, media and worker roles (migrations: none). */
+    DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).default(30_000),
+    DATABASE_IDLE_IN_TX_TIMEOUT_MS: z.coerce.number().int().min(0).default(60_000),
     /**
      * Password injected separately from DATABASE_URL, e.g. from the RDS-managed secret
      * in Secrets Manager, so the URL itself holds no secret. Overrides a URL password.
@@ -257,7 +261,7 @@ export interface Config {
     mediaPublicBaseUrl: string;
     corsAllowedOrigins: string[];
   };
-  db: { url: string; poolMax: number };
+  db: { url: string; poolMax: number; timeouts: DbTimeouts };
   s3: {
     endpoint: string | undefined;
     publicEndpoint: string | undefined;
@@ -333,7 +337,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         .map((s) => s.trim())
         .filter((s) => s.length > 0),
     },
-    db: { url: withPassword(e.DATABASE_URL, e.DATABASE_PASSWORD), poolMax: e.DATABASE_POOL_MAX },
+    db: {
+      url: withPassword(e.DATABASE_URL, e.DATABASE_PASSWORD),
+      poolMax: e.DATABASE_POOL_MAX,
+      timeouts: {
+        statementMs: e.DATABASE_STATEMENT_TIMEOUT_MS,
+        idleInTransactionMs: e.DATABASE_IDLE_IN_TX_TIMEOUT_MS,
+      },
+    },
     s3: {
       endpoint: e.S3_ENDPOINT,
       publicEndpoint: e.S3_PUBLIC_ENDPOINT ?? e.S3_ENDPOINT,
