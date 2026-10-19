@@ -87,8 +87,10 @@ locals {
 
   # Public browser clients: Authorization Code + PKCE, no secret (ADR-0009).
   cognito_clients = {
-    users     = { pool = aws_cognito_user_pool.users.id, refresh_hours = 720 }
-    operators = { pool = aws_cognito_user_pool.operators.id, refresh_hours = 12 }
+    users = { pool = aws_cognito_user_pool.users.id, refresh_hours = 720, access_minutes = 60 }
+    # Operator tokens are short: the API verifies tokens without calling Cognito, so
+    # disabling an operator takes effect when the token expires (refresh then fails).
+    operators = { pool = aws_cognito_user_pool.operators.id, refresh_hours = 12, access_minutes = 15 }
   }
 }
 
@@ -106,8 +108,8 @@ resource "aws_cognito_user_pool_client" "web" {
   explicit_auth_flows                  = ["ALLOW_REFRESH_TOKEN_AUTH"]
   prevent_user_existence_errors        = "ENABLED"
   enable_token_revocation              = true
-  access_token_validity                = 60
-  id_token_validity                    = 60
+  access_token_validity                = each.value.access_minutes
+  id_token_validity                    = each.value.access_minutes
   refresh_token_validity               = each.value.refresh_hours
 
   token_validity_units {

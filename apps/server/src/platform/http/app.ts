@@ -177,7 +177,7 @@ export async function installApiAuth(
   });
 
   app.addHook('onRequest', async (req) => {
-    if (!req.url.startsWith('/v1/')) return;
+    if (!isApiRoute(req)) return;
     const token = bearer(req);
     if (!token) throw errors.unauthenticated();
     const verified = await auth.verifier.verify(token);
@@ -186,7 +186,7 @@ export async function installApiAuth(
     const principal = await auth.resolvePrincipal(verified, req.id);
     if (
       principal.status === 'deletion_requested' &&
-      !(req.method === 'GET' && req.url === '/v1/me')
+      !(req.method === 'GET' && req.routeOptions.url === '/v1/me')
     ) {
       throw errors.accountDeletionPending();
     }
@@ -194,6 +194,24 @@ export async function installApiAuth(
   });
 
   await installRateLimit(app, cfg, auth.db);
+}
+
+/**
+ * Whether a request is for the authenticated API. Decided by the route Fastify
+ * matched, not the raw URL: a percent-encoded path such as `/%761/me` reaches the
+ * `/v1/me` handler and must not skip authentication or rate limits. Unmatched
+ * paths (404) are judged by their decoded form.
+ */
+function isApiRoute(req: FastifyRequest): boolean {
+  const route = req.routeOptions.url;
+  if (route) return route.startsWith('/v1/');
+  let path = req.url;
+  try {
+    path = decodeURIComponent(req.url);
+  } catch {
+    // Malformed escapes: keep the raw form; it is not an API route either way.
+  }
+  return path.startsWith('/v1/');
 }
 
 /** Per-principal rate limiting for `/v1` (api-guidelines §8); runs after authentication. */
@@ -217,7 +235,7 @@ export async function installRateLimit(app: FastifyInstance, cfg: Config, db: Db
     max: 600,
     timeWindow: '1 minute',
     keyGenerator: (req) => req.principal?.userId ?? req.ip,
-    allowList: (req) => !req.url.startsWith('/v1/'),
+    allowList: (req) => !isApiRoute(req),
     errorResponseBuilder: (_req, ctx) =>
       Object.assign(new AppError(429, 'RATE_LIMITED', 'Too many requests.', { retryable: true }), {
         statusCode: 429,

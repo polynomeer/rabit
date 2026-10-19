@@ -47,5 +47,10 @@ Owner decision after the comparison above: Cognito, in the same account and regi
 - `AUTH_AUDIENCE` takes a comma-separated list. With `AUTH_PROFILE=cognito` the api accepts an access token whose `client_id` is one of them (web and iOS); with `standard` the JWT `aud` must contain one of them. The operator issuer keeps a single client.
 - The local mock provider maps `client_id=rabit-ios` to its own tokens, so the iOS flow can be tried against `docker compose --profile oidc`.
 
+## Amendment (2026-10-19): gate by route, short operator tokens
+From the architecture review:
+- The API gate (authentication, the deletion check, rate limits) decides by the route Fastify matched, not the raw URL. A percent-encoded path such as `/%761/me` reaches the `/v1/me` handler and now passes the same gate (regression test `auth-gate.test.ts`).
+- Operator access and ID tokens last 15 minutes (users: 60). The API verifies tokens locally, so removing an operator works by disabling the user in the operator pool and signing them out (`admin-disable-user`, `admin-user-global-sign-out`): refresh fails at once and the last access token expires within 15 minutes.
+
 ## Revisit trigger
 Provider selection; requirement for first-party session cookies on web (BFF pattern).

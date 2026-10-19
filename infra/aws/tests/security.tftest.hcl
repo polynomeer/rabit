@@ -354,6 +354,10 @@ run "sign_in_is_cognito_with_an_mfa_operator_pool" {
     error_message = "Every operator sign-in needs MFA (NFR-SEC-007, ADR-0009)."
   }
   assert {
+    condition     = aws_cognito_user_pool_client.web["operators"].access_token_validity <= 15
+    error_message = "Operator access tokens are short-lived, so disabling an operator takes effect within 15 minutes."
+  }
+  assert {
     condition     = aws_cognito_user_pool.operators.admin_create_user_config[0].allow_admin_create_user_only
     error_message = "Nobody can sign up as an operator."
   }
