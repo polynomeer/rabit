@@ -79,3 +79,9 @@ Values are proposals tuned after baseline measurement (PB Phase 22). Counters ar
 
 ## 11. Versioning
 Additive changes are non-breaking. Breaking changes need a new major path (`/v2`) and a human decision (Playbook §9).
+
+## 12. Evolving value sets and clients (2026-10-19)
+Two clients (web, iOS) now read the API, and installed iOS builds lag the server.
+- **Open enums.** Server-owned value sets that grow (playability `reason`, evidence `basis`, search result `kind`) may gain values without a new API version. Clients treat an unknown value as a safe default (not playable, not a fact, not openable). iOS decodes them through `OpenEnum` (`.unknown`); the web's texts are typed from the spec, so a value added to the spec fails the web typecheck until it has a text.
+- **Spec as the contract.** Web types are generated from `openapi.yaml` (`pnpm --filter @rabit/web api:types`); CI fails when the generated file is stale. The contract test checks the playability reasons against the server's list.
+- **Closed for now.** Library and playlist `ref_type` stay closed on iOS (they are also request parameters); adding a ref type needs a client release first.

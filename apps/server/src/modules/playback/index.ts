@@ -12,6 +12,7 @@ export {
   evaluatePolicies,
   playabilities,
   denyAllCatalog,
+  PLAYABILITY_REASONS,
   type CatalogAccess,
   type CatalogDecision,
   type DenyReason,

@@ -1,5 +1,6 @@
 /** Thin client for the Rabit API (docs/05-api/openapi.yaml). */
 
+import type { components } from './api-schema';
 import { t, type MessageKey } from './i18n';
 
 export const API_BASE =
@@ -109,10 +110,14 @@ export async function devSignIn(subject: string, operator = false): Promise<void
   setToken(((await r.json()) as { access_token: string }).access_token);
 }
 
-export interface Playability {
-  playable: boolean;
-  reason: string | null;
-}
+/**
+ * Types generated from docs/05-api/openapi.yaml (`pnpm --filter @rabit/web api:types`;
+ * CI fails when the file is out of date). New code should use these instead of
+ * hand-written shapes.
+ */
+export type Schemas = components['schemas'];
+
+export type Playability = Schemas['Playability'];
 export interface LibraryItem {
   library_item_id: string;
   ref_type: 'audio_source' | 'recording' | 'release';
@@ -196,7 +201,8 @@ export interface DigSession {
 }
 
 /** Playability reason code → label (use with `tCode`). */
-export const REASON_TEXT: Record<string, MessageKey> = {
+/** Every reason the spec lists has a text: a reason added to the spec fails the typecheck here. */
+export const REASON_TEXT: Record<NonNullable<Playability['reason']>, MessageKey> = {
   not_ready: 'reason.not_ready',
   rights_unavailable: 'reason.rights_unavailable',
   subscription_required: 'reason.subscription_required',
