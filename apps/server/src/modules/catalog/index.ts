@@ -17,6 +17,7 @@ export {
   type EntitySummary,
 } from './entities.js';
 export { activeGrant, activeGrants, createGrant } from './rights.js';
+export { detachCatalogSource } from './entities.js';
 export { ingestCatalog, manifestSchema, type CatalogManifest } from './ingest.js';
 export type { CatalogPlayability, Playability } from './routes.js';
 

@@ -10,6 +10,7 @@ import { idOf, limitSchema, parse } from '../../platform/http/validation.js';
 import type { Id } from '../../platform/ids.js';
 import { deleteInBatches, requeueJob } from '../../platform/jobs/queue.js';
 import type { SupportSection } from '../../platform/support.js';
+import { resetSourceForRetry } from '../audio/index.js';
 import { getUser, workspaceIdsOf } from '../identity/index.js';
 
 type JobRow = {
@@ -120,20 +121,7 @@ const routes =
             .where('id', '=', job_id)
             .executeTakeFirstOrThrow();
           const sourceId = (p.payload as { audio_source_id?: string }).audio_source_id;
-          if (sourceId) {
-            await tx
-              .updateTable('audio_source')
-              .set({ status: 'processing', failure_code: null, updated_at: new Date() })
-              .where('id', '=', sourceId)
-              .where('status', '=', 'failed')
-              .execute();
-            await tx
-              .updateTable('upload_session')
-              .set({ state: 'quarantined', failure_code: null, updated_at: new Date() })
-              .where('audio_source_id', '=', sourceId)
-              .where('state', '=', 'failed')
-              .execute();
-          }
+          if (sourceId) await resetSourceForRetry(tx, sourceId);
         }
         await audit(tx, {
           actorType: 'operator',

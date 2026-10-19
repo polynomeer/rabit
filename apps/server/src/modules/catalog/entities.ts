@@ -222,31 +222,22 @@ export async function creditsOf(db: DbOrTx, subjectId: string) {
     .execute();
 }
 
-/** The single system workspace that owns catalog sources (domain-model §3.1). */
-export async function ensureCatalogWorkspace(
-  db: DbOrTx,
-  newWorkspaceId: () => string,
-): Promise<string> {
-  const existing = await db
-    .selectFrom('workspace')
-    .select('id')
-    .where('type', '=', 'catalog')
-    .executeTakeFirst();
-  if (existing) return existing.id;
-  await db
-    .insertInto('workspace')
-    .values({
-      id: newWorkspaceId(),
-      type: 'catalog',
-      owner_user_id: null,
-      quota_policy_id: 'catalog',
-    })
-    .onConflict((oc) => oc.doNothing())
+/** A catalog master was processed: its measured duration becomes the recording's. */
+export async function setRecordingDuration(tx: DbOrTx, recordingId: string, durationMs: number) {
+  await tx
+    .updateTable('recording')
+    .set({ duration_ms: durationMs })
+    .where('id', '=', recordingId)
     .execute();
-  const row = await db
-    .selectFrom('workspace')
-    .select('id')
-    .where('type', '=', 'catalog')
-    .executeTakeFirstOrThrow();
-  return row.id;
+}
+
+/** A catalog source's audio is gone (restore reconcile): its recordings no longer point at it. */
+export async function detachCatalogSource(tx: DbOrTx, sourceId: string): Promise<string[]> {
+  const rows = await tx
+    .updateTable('recording')
+    .set({ catalog_audio_source_id: null })
+    .where('catalog_audio_source_id', '=', sourceId)
+    .returning('id')
+    .execute();
+  return rows.map((r) => r.id);
 }

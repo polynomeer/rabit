@@ -8,6 +8,7 @@ import { getUser } from './service.js';
 export {
   resolvePrincipal,
   getUser,
+  ensureCatalogWorkspace,
   isWorkspaceMember,
   workspaceIdsOf,
   quotaPolicy,

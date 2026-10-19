@@ -86,6 +86,11 @@ export interface ProcessInput {
   expectedSha256: string;
   maxDurationMs: number;
   uploadSessionId: string | null;
+  /**
+   * Runs in the transaction that marks the source ready, so a retry can never
+   * skip it (review #11). The catalog records the recording's duration here.
+   */
+  onReady?: (tx: DbOrTx, info: { durationMs: number }) => Promise<void>;
 }
 
 /**
@@ -227,14 +232,7 @@ export async function processSource(
         })
         .where('id', '=', source.audio_version_id)
         .execute();
-      if (source.origin === 'catalog' && source.recording_id) {
-        // Same transaction as `ready`, so a retry can never skip it (review #11).
-        await tx
-          .updateTable('recording')
-          .set({ duration_ms: info.durationMs })
-          .where('id', '=', source.recording_id)
-          .execute();
-      }
+      await p.onReady?.(tx, { durationMs: info.durationMs });
       await tx
         .updateTable('audio_source')
         .set({ status: 'ready', failure_code: null, updated_at: new Date() })

@@ -208,3 +208,32 @@ export async function setLicenseCountry(
     });
   });
 }
+
+/** The single system workspace that owns catalog sources (domain-model §3.1). */
+export async function ensureCatalogWorkspace(
+  db: DbOrTx,
+  newWorkspaceId: () => string,
+): Promise<string> {
+  const existing = await db
+    .selectFrom('workspace')
+    .select('id')
+    .where('type', '=', 'catalog')
+    .executeTakeFirst();
+  if (existing) return existing.id;
+  await db
+    .insertInto('workspace')
+    .values({
+      id: newWorkspaceId(),
+      type: 'catalog',
+      owner_user_id: null,
+      quota_policy_id: 'catalog',
+    })
+    .onConflict((oc) => oc.doNothing())
+    .execute();
+  const row = await db
+    .selectFrom('workspace')
+    .select('id')
+    .where('type', '=', 'catalog')
+    .executeTakeFirstOrThrow();
+  return row.id;
+}
