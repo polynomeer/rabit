@@ -177,6 +177,8 @@ extension Playability.Reason {
     case .noAudio: "오디오가 없어요"
     case .deleted: "삭제됐어요"
     case .notFound: "찾을 수 없어요"
+    case .capabilityDenied: "사용할 수 없어요"
+    case .unknown: "지금은 들을 수 없어요"
     }
   }
 }

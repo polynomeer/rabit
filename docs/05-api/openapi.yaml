@@ -1574,7 +1574,7 @@ components:
       required: [playable, reason]
       properties:
         playable: { type: boolean }
-        reason: { type: [string, 'null'], enum: [null, not_ready, rights_unavailable, subscription_required, purchase_available, no_audio, deleted, not_found] }
+        reason: { type: [string, 'null'], enum: [null, not_ready, rights_unavailable, subscription_required, purchase_available, capability_denied, no_audio, deleted, not_found], description: 'Clients must treat an unknown value as "cannot play now": new reasons may be added.' }
     ArtistRef:
       type: object
       required: [entity_id, name]

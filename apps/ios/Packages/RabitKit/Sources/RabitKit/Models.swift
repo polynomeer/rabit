@@ -42,7 +42,7 @@ public typealias PlaylistItemID = Identifier<PlaylistItemTag>
 
 /// Whether the caller may play an item now, and why not (server-decided, ADR-0016).
 public struct Playability: Codable, Hashable, Sendable {
-  public enum Reason: String, Codable, Sendable {
+  public enum Reason: String, Codable, Sendable, OpenEnum {
     case notReady = "not_ready"
     case rightsUnavailable = "rights_unavailable"
     case subscriptionRequired = "subscription_required"
@@ -50,6 +50,9 @@ public struct Playability: Codable, Hashable, Sendable {
     case noAudio = "no_audio"
     case deleted
     case notFound = "not_found"
+    case capabilityDenied = "capability_denied"
+    /// A reason this build does not know yet.
+    case unknown
   }
   public let playable: Bool
   public let reason: Reason?
@@ -189,10 +192,12 @@ public struct ListeningEvent: Codable, Hashable, Sendable {
 }
 
 public struct SearchResult: Codable, Hashable, Sendable, Identifiable {
-  public enum Kind: String, Codable, Sendable {
+  public enum Kind: String, Codable, Sendable, OpenEnum {
     case recording, release, artist, person, label
     case privateAudio = "private_audio"
     case audioLog = "audio_log"
+    /// A kind this build does not know yet: shown, not playable.
+    case unknown
   }
   public let kind: Kind
   /// A recording, release, entity or audio id, depending on `kind`.

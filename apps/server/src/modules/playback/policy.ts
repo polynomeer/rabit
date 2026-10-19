@@ -4,13 +4,22 @@ import { metrics } from '../../platform/metrics.js';
 import { getSourcesUnchecked, type SourceRow } from '../audio/index.js';
 import { workspaceIdsOf } from '../identity/index.js';
 
-export type DenyReason =
-  | 'not_found'
-  | 'not_ready'
-  | 'rights_unavailable'
-  | 'subscription_required'
-  | 'purchase_available'
-  | 'capability_denied';
+export const DENY_REASONS = [
+  'not_found',
+  'not_ready',
+  'rights_unavailable',
+  'subscription_required',
+  'purchase_available',
+  'capability_denied',
+] as const;
+export type DenyReason = (typeof DENY_REASONS)[number];
+
+/**
+ * Every reason a `Playability` can carry: the policy's denials plus the catalog and
+ * library states. The OpenAPI enum is checked against this list (contract test), so
+ * clients learn about a new reason from the spec.
+ */
+export const PLAYABILITY_REASONS = [...DENY_REASONS, 'no_audio', 'deleted'] as const;
 
 /** Playback capabilities. MVP has only `play`; offline/stems/transform are P2 (ADR-0016). */
 export type Capability = 'play';

@@ -5,6 +5,7 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+import { PLAYABILITY_REASONS } from '../src/modules/playback/index.js';
 import { registeredRoutes } from '../src/platform/http/app.js';
 import { fixtures } from './helpers/audio-fixtures.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
@@ -71,6 +72,15 @@ describe('OpenAPI contract (ADR-0010)', () => {
     const missingFromCode = [...specified].filter((r) => !implemented.has(r)).sort();
     expect(missingFromSpec).toEqual([]);
     expect(missingFromCode).toEqual([]);
+  });
+
+  it('lists every playability reason the server can return', () => {
+    const schema = (
+      spec as unknown as {
+        components: { schemas: { Playability: { properties: { reason: { enum: unknown[] } } } } };
+      }
+    ).components.schemas.Playability.properties.reason.enum;
+    expect(schema.filter((v) => v !== null).sort()).toEqual([...PLAYABILITY_REASONS].sort());
   });
 
   it('responses of the main resources match their schemas', async () => {

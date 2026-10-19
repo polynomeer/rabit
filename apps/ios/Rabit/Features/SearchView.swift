@@ -48,7 +48,7 @@ struct SearchView: View {
     case .recording: .recording(RecordingID(result.id))
     case .release: .release(ReleaseID(result.id))
     case .privateAudio, .audioLog: .audioSource(AudioSourceID(result.id))
-    case .artist, .person, .label: nil
+    case .artist, .person, .label, .unknown: nil
     }
   }
 
@@ -70,6 +70,9 @@ struct SearchView: View {
         content
       }
       .foregroundStyle(Palette.text)
+    } else if result.kind == .unknown {
+      // A kind this build does not know: listed, but nothing to open.
+      content
     } else {
       // Labels open their timeline; artists and people a DIG exploration.
       NavigationLink(
@@ -83,7 +86,7 @@ struct SearchView: View {
     case .release: ItemMark(coverId: result.id)
     case .recording: ItemMark(coverId: result.primaryReleaseId?.rawValue ?? result.id)
     case .privateAudio, .audioLog: ItemMark(coverId: nil)
-    case .artist, .person, .label:
+    case .artist, .person, .label, .unknown:
       Circle().fill(Palette.surface)
         .overlay { Text(result.title.prefix(1).uppercased()).font(.headline) }
         .accessibilityHidden(true)
@@ -99,6 +102,7 @@ struct SearchView: View {
     case .label: "레이블"
     case .privateAudio: "내 오디오"
     case .audioLog: "오디오 로그"
+    case .unknown: "기타"
     }
   }
 

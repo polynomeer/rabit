@@ -52,6 +52,7 @@ public enum DigText {
     case .verifiedFact: "검증된 사실"
     case .declared: "신고된 정보"
     case .mlInferred: "추정 (신뢰도 \(Int(((evidence.confidence ?? 0) * 100).rounded()))%)"
+    case .unknown: "확인되지 않은 정보"
     }
   }
 

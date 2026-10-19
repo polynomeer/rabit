@@ -350,7 +350,7 @@ private struct ConnectionCard: View {
   let connection: DigConnection
 
   var body: some View {
-    let inferred = connection.evidence.basis == .mlInferred
+    let inferred = connection.evidence.basis != .verifiedFact && connection.evidence.basis != .declared
     HStack(alignment: .top, spacing: 12) {
       EntityMark(entity: connection.entity).frame(width: 48, height: 48)
       VStack(alignment: .leading, spacing: 4) {
@@ -391,7 +391,7 @@ private struct ConnectionCard: View {
     switch connection.evidence.basis {
     case .verifiedFact: .verified
     case .declared: .neutral
-    case .mlInferred: .inferred
+    case .mlInferred, .unknown: .inferred
     }
   }
 }

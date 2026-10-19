@@ -518,3 +518,17 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   let body = try JSONSerialization.jsonObject(with: t.requests[1].httpBody!) as! [String: String]
   #expect(body == ["signed_transaction": "header.payload.sig"])
 }
+
+@Test func unknownServerValuesDecodeAsUnknown() throws {
+  let decoder = APIClient.decoder
+  let play = try decoder.decode(
+    Playability.self, from: Data(#"{"playable":false,"reason":"region_paused"}"#.utf8))
+  #expect(play.reason == .unknown)
+  let denied = try decoder.decode(
+    Playability.self, from: Data(#"{"playable":false,"reason":"capability_denied"}"#.utf8))
+  #expect(denied.reason == .capabilityDenied)
+  let basis = try decoder.decode([Evidence.Basis].self, from: Data(#"["verified_fact","crowd_sourced"]"#.utf8))
+  #expect(basis == [.verifiedFact, .unknown])
+  let kinds = try decoder.decode([SearchResult.Kind].self, from: Data(#"["release","podcast"]"#.utf8))
+  #expect(kinds == [.release, .unknown])
+}

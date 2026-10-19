@@ -9,7 +9,8 @@
     "test": "node scripts/contrast.mjs",
     "contrast": "node scripts/contrast.mjs",
     "icons": "node scripts/icons.mjs",
-    "e2e": "playwright test -c e2e/playwright.config.ts"
+    "e2e": "playwright test -c e2e/playwright.config.ts",
+    "api:types": "openapi-typescript ../../docs/05-api/openapi.yaml -o src/api-schema.d.ts && prettier --write src/api-schema.d.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-kr": "5.3.1",
@@ -25,6 +26,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "openapi-typescript": "7.13.0",
     "pg": "^8.23.1",
     "vite": "^8.3.4"
   }
