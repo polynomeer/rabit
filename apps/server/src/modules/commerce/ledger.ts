@@ -43,27 +43,37 @@ async function post(
   return true;
 }
 
+type LedgerOrder = {
+  id: string;
+  currency: Currency;
+  amount_minor: number;
+  tax_minor: number;
+  provider: string;
+};
+
+/**
+ * Money held by the provider until it pays out. Apple pays net of its commission
+ * on its own schedule, so App Store sales clear separately and can be matched
+ * against Apple's settlement reports (commission and VAT treatment: Q04).
+ */
+const clearingAccount = (provider: string): LedgerAccount =>
+  provider === 'app_store' ? 'app_store_clearing' : 'provider_clearing';
+
 /** Money received through the provider: revenue plus VAT owed. */
-export function postSale(
-  db: DbOrTx,
-  order: { id: string; currency: Currency; amount_minor: number; tax_minor: number },
-) {
+export function postSale(db: DbOrTx, order: LedgerOrder) {
   return post(db, order, 'sale', [
-    { account: 'provider_clearing', debit: order.amount_minor },
+    { account: clearingAccount(order.provider), debit: order.amount_minor },
     { account: 'revenue', credit: order.amount_minor - order.tax_minor },
     { account: 'vat_payable', credit: order.tax_minor },
   ]);
 }
 
 /** Full refund: the sale reversed as a new journal, never an edit. */
-export function postRefund(
-  db: DbOrTx,
-  order: { id: string; currency: Currency; amount_minor: number; tax_minor: number },
-) {
+export function postRefund(db: DbOrTx, order: LedgerOrder) {
   return post(db, order, 'refund', [
     { account: 'revenue', debit: order.amount_minor - order.tax_minor },
     { account: 'vat_payable', debit: order.tax_minor },
-    { account: 'provider_clearing', credit: order.amount_minor },
+    { account: clearingAccount(order.provider), credit: order.amount_minor },
   ]);
 }
 

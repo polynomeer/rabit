@@ -9,6 +9,20 @@ import { emit } from '../../platform/jobs/outbox.js';
 import { audit } from '../../platform/audit.js';
 
 type EntRow = Selectable<EntitlementTable>;
+
+/**
+ * App Store periods end exactly at Apple's expiry, and the renewal notification
+ * can arrive a little after it. Access and the subscription state therefore wait
+ * this long past the paid-through date before lapsing (ADR-0024 amendment); a
+ * renewal extends them, an EXPIRED or REFUND notification ends them at once.
+ */
+export const STORE_RENEWAL_MARGIN_MS = 24 * 3_600_000;
+
+/** A running App Store period keeps access through the margin; an ended one does not. */
+const accessUntil = (sub: { source: string; state: string; paid_through: Date }) =>
+  sub.source === 'app_store' && (sub.state === 'active' || sub.state === 'past_due')
+    ? new Date(sub.paid_through.getTime() + STORE_RENEWAL_MARGIN_MS)
+    : sub.paid_through;
 type SubRow = Selectable<SubscriptionTable>;
 
 export function entitlementView(e: EntRow) {
@@ -40,7 +54,7 @@ export function subscriptionView(s: SubRow | undefined) {
   };
 }
 
-async function emitChanged(db: DbOrTx, e: EntRow, correlationId: string | null) {
+export async function emitChanged(db: DbOrTx, e: EntRow, correlationId: string | null) {
   await emit(db, {
     type: 'EntitlementChanged',
     schemaVersion: 1,
@@ -361,7 +375,15 @@ export async function expireEntitlements(db: Db): Promise<number> {
       .updateTable('subscription')
       .set((eb) => ({ state: 'expired', version: eb('version', '+', 1), updated_at: new Date() }))
       .where('state', 'in', ['active', 'past_due'])
-      .where('paid_through', '<=', new Date())
+      .where((eb) =>
+        eb.or([
+          eb.and([eb('source', '!=', 'app_store'), eb('paid_through', '<=', new Date())]),
+          eb.and([
+            eb('source', '=', 'app_store'),
+            eb('paid_through', '<=', new Date(Date.now() - STORE_RENEWAL_MARGIN_MS)),
+          ]),
+        ]),
+      )
       .execute();
     const rows = await tx
       .updateTable('entitlement')
@@ -449,7 +471,7 @@ async function syncSubscriptionEntitlement(
       capabilities: ['play'],
       origin: 'subscription',
       origin_ref: sub.id,
-      valid_to: sub.paid_through,
+      valid_to: accessUntil(sub),
       status,
     })
     .onConflict((oc) =>
@@ -458,7 +480,7 @@ async function syncSubscriptionEntitlement(
         .where('origin', '=', 'subscription')
         .doUpdateSet((eb) => ({
           status,
-          valid_to: sub.paid_through,
+          valid_to: accessUntil(sub),
           origin_ref: sub.id,
           version: eb('entitlement.version', '+', 1),
           updated_at: new Date(),
@@ -492,9 +514,14 @@ export async function activateSubscriptionPeriod(
       ? current.paid_through
       : now;
   const paidThrough = addMonths(base, input.months);
-  // A web payment that lands while an App Store subscription is linked (a race,
-  // ADR-0024) extends it; the App Store keeps billing and the link stays.
-  const store = current?.source === 'app_store';
+  // A web payment that lands while an App Store subscription runs (a race,
+  // ADR-0024) extends it; the App Store keeps billing and the link stays. Once the
+  // App Store subscription has ended, the web takes over and the link is dropped,
+  // so a late Apple notification for it can no longer touch this subscription.
+  const store =
+    current?.source === 'app_store' &&
+    ['active', 'past_due'].includes(current.state) &&
+    current.paid_through > now;
   const sub = await tx
     .insertInto('subscription')
     .values({
@@ -513,6 +540,7 @@ export async function activateSubscriptionPeriod(
         paid_through: paidThrough,
         source: store ? 'app_store' : 'sandbox',
         auto_renew: store ? current.auto_renew : true,
+        store_original_transaction_id: store ? current.store_original_transaction_id : null,
         version: eb('subscription.version', '+', 1),
         updated_at: now,
       })),
@@ -579,8 +607,18 @@ export async function activateStorePeriod(
   return { entitlementId: ent.id, overlap };
 }
 
-/** The App Store says renewal is on or off; only App Store subscriptions change. */
-export async function setStoreRenewal(tx: DbOrTx, userId: string, autoRenew: boolean) {
+/**
+ * Apple's notifications change only the App Store subscription they belong to: the
+ * one linked to their original transaction (ADR-0024). Anything else — a web
+ * subscription, or an App Store subscription since replaced — is left alone.
+ */
+/** The App Store says renewal is on or off for this subscription. */
+export async function setStoreRenewal(
+  tx: DbOrTx,
+  userId: string,
+  originalTransactionId: string,
+  autoRenew: boolean,
+) {
   return tx
     .updateTable('subscription')
     .set((eb) => ({
@@ -590,16 +628,32 @@ export async function setStoreRenewal(tx: DbOrTx, userId: string, autoRenew: boo
     }))
     .where('user_id', '=', userId)
     .where('source', '=', 'app_store')
+    .where('store_original_transaction_id', '=', originalTransactionId)
     .returningAll()
     .executeTakeFirst();
 }
 
-/** The App Store subscription ended (expired, or no grace after a failed renewal). */
+/**
+ * The App Store subscription ended. A notification about a period older than the
+ * one already paid (it arrived late, after a renewal) changes nothing.
+ */
 export async function expireStoreSubscription(
   tx: DbOrTx,
   userId: string,
+  originalTransactionId: string,
+  periodEnd: Date | null,
   correlationId: string | null,
-): Promise<boolean> {
+): Promise<'expired' | 'stale' | 'not_linked'> {
+  const current = await tx
+    .selectFrom('subscription')
+    .selectAll()
+    .where('user_id', '=', userId)
+    .where('source', '=', 'app_store')
+    .where('store_original_transaction_id', '=', originalTransactionId)
+    .forUpdate()
+    .executeTakeFirst();
+  if (!current) return 'not_linked';
+  if (periodEnd && current.paid_through.getTime() > periodEnd.getTime() + 1000) return 'stale';
   const sub = await tx
     .updateTable('subscription')
     .set((eb) => ({
@@ -608,8 +662,52 @@ export async function expireStoreSubscription(
       version: eb('version', '+', 1),
       updated_at: new Date(),
     }))
+    .where('id', '=', current.id)
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  await syncSubscriptionEntitlement(tx, sub, 'expired', correlationId);
+  return 'expired';
+}
+
+/** Apple could not renew and gives no grace: no access until paid. */
+export async function markStoreSubscriptionPastDue(
+  tx: DbOrTx,
+  userId: string,
+  originalTransactionId: string,
+  correlationId: string | null,
+): Promise<boolean> {
+  const sub = await tx
+    .updateTable('subscription')
+    .set((eb) => ({ state: 'past_due', version: eb('version', '+', 1), updated_at: new Date() }))
     .where('user_id', '=', userId)
     .where('source', '=', 'app_store')
+    .where('store_original_transaction_id', '=', originalTransactionId)
+    .where('state', '=', 'active')
+    .returningAll()
+    .executeTakeFirst();
+  if (sub) await syncSubscriptionEntitlement(tx, sub, 'suspended', correlationId);
+  return sub !== undefined;
+}
+
+/** Apple refunded or revoked the running period: access ends now. */
+export async function endStoreSubscriptionNow(
+  tx: DbOrTx,
+  userId: string,
+  originalTransactionId: string,
+  correlationId: string | null,
+): Promise<boolean> {
+  const sub = await tx
+    .updateTable('subscription')
+    .set((eb) => ({
+      state: 'cancelled',
+      paid_through: new Date(),
+      auto_renew: false,
+      version: eb('version', '+', 1),
+      updated_at: new Date(),
+    }))
+    .where('user_id', '=', userId)
+    .where('source', '=', 'app_store')
+    .where('store_original_transaction_id', '=', originalTransactionId)
     .returningAll()
     .executeTakeFirst();
   if (sub) await syncSubscriptionEntitlement(tx, sub, 'expired', correlationId);
@@ -627,12 +725,13 @@ export async function markSubscriptionPastDue(
     .set((eb) => ({ state: 'past_due', version: eb('version', '+', 1), updated_at: new Date() }))
     .where('user_id', '=', userId)
     .where('state', '=', 'active')
+    .where('source', '!=', 'app_store')
     .returningAll()
     .executeTakeFirst();
   if (sub) await syncSubscriptionEntitlement(tx, sub, 'suspended', correlationId);
 }
 
-/** Immediate end after a refund: access stops now and nothing renews. */
+/** Immediate end after a web refund: access stops now and nothing renews. Apple's own subscription is ended only by Apple ({@link endStoreSubscriptionNow}). */
 export async function endSubscriptionNow(
   tx: DbOrTx,
   userId: string,
@@ -648,6 +747,7 @@ export async function endSubscriptionNow(
       updated_at: new Date(),
     }))
     .where('user_id', '=', userId)
+    .where('source', '!=', 'app_store')
     .returningAll()
     .executeTakeFirst();
   if (sub) await syncSubscriptionEntitlement(tx, sub, 'expired', correlationId);

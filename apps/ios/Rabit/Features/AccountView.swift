@@ -86,6 +86,9 @@ extension AccountView {
       Section {
         if store.isAppStoreSubscription {
           Button("App Store에서 구독 관리") { managing = true }
+        } else if status.available, store.storefrontCountry != nil, !store.isKoreanStorefront {
+          Text("한국 App Store 계정에서만 구독할 수 있어요. 기기의 Apple ID 국가를 확인해 주세요.")
+            .font(.footnote).foregroundStyle(Palette.muted)
         } else if status.available, let product = store.product {
           Button {
             Task {

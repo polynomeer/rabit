@@ -32,6 +32,16 @@ App Review and TestFlight buy in Sandbox against the production server, which re
 - A test purchase grants the subscription and its entitlement like a real one, fulfils an order with `snapshot.test = true`, and posts **no** sale or refund journal (no money moved). Metrics count it as `fulfilled_test`.
 - Who can make one: Sandbox testers created in our App Store Connect account and TestFlight testers we invite. Sandbox subscriptions renew every few minutes and lapse after a few renewals.
 
+## Amendment (2026-10-19): notifications are scoped to their subscription
+Architecture review findings, fixed:
+- **Scope.** Apple-driven changes (renewal on/off, failed renewal, expiry, refund) apply only to the subscription with `source = 'app_store'` linked to the notification's original transaction. A web subscription, or an App Store subscription since replaced, is never touched. The web's own past-due and refund paths never touch an App Store subscription. When the web takes over after an App Store subscription has ended, the link is dropped.
+- **Order.** An `EXPIRED` whose transaction ends before the period already paid (it arrived after a renewal) is ignored (`stale`). A refund ends access only when the refunded transaction is the running period; refunding a past month changes nothing now.
+- **Renewal margin.** Access for an App Store period lasts 24 h past Apple's expiry (`STORE_RENEWAL_MARGIN_MS`) so a renewal notification arriving after the expiry does not interrupt playback; `EXPIRED`, `REFUND` and `REVOKE` still end it at once. Reconciliation with the App Store Server API (missed notifications) is a follow-up that needs API keys from App Store Connect (owner action).
+- **Deleted accounts.** Account deletion removes the `appAccountToken` and the original-transaction link. A notification for a deleted or deleting account is held (`account_deleted`) for support, never applied.
+- **Test purchases.** A Sandbox purchase cannot take over a real paid App Store subscription (`test_over_paid`). Orders carry a typed `test` column.
+- **Refunds.** App Store orders are refunded by Apple only; the operator refund refuses them, and refund jobs go only to the provider that took the payment.
+- **Ledger.** App Store sales clear in `app_store_clearing` (web: `provider_clearing`) so they can be matched against Apple's net settlement. Commission and VAT treatment stay a Q04 decision. Journals booked before this change keep `provider_clearing` (entries are append-only).
+
 ## Consequences
 - Releasing needs owner actions in App Store Connect: the app record and its Apple id, the subscription group and product, the server notification URL (`https://<api>/webhooks/app-store`, version 2), Apple's root certificates for the server, and enrolment in the App Store Small Business Program for the 15 % rate.
 - Local testing uses an Xcode StoreKit configuration with the server in `LocalTesting`/`Xcode` mode.

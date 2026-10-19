@@ -5,13 +5,17 @@ import {
   VerificationException,
   VerificationStatus,
 } from '@apple/app-store-server-library';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { STORE_RENEWAL_MARGIN_MS } from '../src/modules/entitlement/index.js';
+import { expireEntitlements } from '../src/modules/entitlement/service.js';
 import {
   AppStoreVerifier,
   receiveNotification,
   submitTransaction,
 } from '../src/modules/commerce/app-store.js';
 import { loadConfig } from '../src/platform/config.js';
+import { newId } from '../src/platform/ids.js';
 import type { Principal } from '../src/platform/http/principal.js';
 import { asOperator, seedCatalog } from './helpers/catalog.js';
 import { createHarness, type Harness, type TestUser } from './helpers/harness.js';
@@ -204,7 +208,7 @@ describe('App Store subscription (ADR-0024)', () => {
       .execute();
     expect(lines).toEqual(
       expect.arrayContaining([
-        { account: 'provider_clearing', debit_minor: 10_900, credit_minor: 0 },
+        { account: 'app_store_clearing', debit_minor: 10_900, credit_minor: 0 },
         { account: 'revenue', debit_minor: 0, credit_minor: 9_909 },
         { account: 'vat_payable', debit_minor: 0, credit_minor: 991 },
       ]),
@@ -476,5 +480,258 @@ describe('App Store subscription (ADR-0024)', () => {
     expect(() => loadConfig({ ...base, APP_STORE_ENVIRONMENT: 'Sandbox' })).toThrow(
       /APP_STORE_ROOT_CERTS/,
     );
+  });
+});
+
+describe('App Store notifications change only the subscription they belong to (review 2026-10-19)', () => {
+  const sub = (u: TestUser) =>
+    h.ctx.db
+      .selectFrom('subscription')
+      .selectAll()
+      .where('user_id', '=', u.userId)
+      .executeTakeFirstOrThrow();
+  const eventDetail = async (original: string, type: string) =>
+    await h.ctx.db
+      .selectFrom('payment_event')
+      .select(['status', 'detail'])
+      .where('provider', '=', 'app_store')
+      .where('type', 'like', `${type}%`)
+      .where(sql<boolean>`payload->>'originalTransactionId' = ${original}`)
+      .orderBy('received_at', 'desc')
+      .executeTakeFirstOrThrow();
+
+  it('ignores an EXPIRED that arrives after a renewal it predates', async () => {
+    const u = await krUser();
+    const { token, id } = await purchased(u, 1);
+    const first = transaction({ id, token, expires: Date.now() + DAY });
+    await notify(
+      notification('DID_RENEW', {
+        transaction: transaction({
+          id: `${id}1`,
+          original: id,
+          token,
+          expires: Date.now() + 31 * DAY,
+        }),
+      }),
+    );
+    await h.worker.drain();
+    // Apple's EXPIRED for the first period, delivered late.
+    await notify(notification('EXPIRED', { transaction: first }, 'VOLUNTARY'));
+    await h.worker.drain();
+    expect((await status(u)).subscription).toMatchObject({ state: 'active' });
+    expect(await eventDetail(id, 'EXPIRED')).toEqual({ status: 'ignored', detail: 'stale' });
+  });
+
+  it('leaves a web subscription alone when notifications for an old App Store link arrive', async () => {
+    const u = await krUser();
+    const { token, id } = await purchased(u, 2);
+    // The App Store subscription ends, and the user subscribes on the web.
+    await notify(notification('EXPIRED', { autoRenew: 0, original: id }, 'VOLUNTARY'));
+    await h.worker.drain();
+    const checkout = await h.api.inject({
+      method: 'POST',
+      url: '/v1/subscription/checkout',
+      headers: { ...u.headers, 'idempotency-key': `web-after-store-${id}` },
+      payload: {},
+    });
+    expect(checkout.statusCode, checkout.body).toBe(201);
+    const ref = checkout.json<{ checkout_url: string }>().checkout_url.split('/').pop()!;
+    await h.api.inject({
+      method: 'POST',
+      url: `/dev/mock-pay/checkouts/${ref}/complete`,
+      payload: { outcome: 'succeeded' },
+    });
+    await h.worker.drain();
+    expect(await sub(u)).toMatchObject({
+      state: 'active',
+      source: 'sandbox',
+      store_original_transaction_id: null,
+    });
+
+    const old = transaction({ id, token, expires: Date.now() + 2 * DAY });
+    await notify(notification('DID_FAIL_TO_RENEW', { transaction: old }));
+    await notify(
+      notification('REFUND', {
+        transaction: { ...old, revocationDate: Date.now(), revocationReason: 0 },
+      }),
+    );
+    await h.worker.drain();
+    expect(await sub(u)).toMatchObject({ state: 'active', source: 'sandbox' });
+    expect((await play(u)).statusCode).toBe(201);
+  });
+
+  it('keeps access when a past month is refunded, and ends it for the running one', async () => {
+    const u = await krUser();
+    const { token, id } = await purchased(u, 30);
+    const past = transaction({ id: `${id}0`, original: id, token, expires: Date.now() - DAY });
+    // The past month was applied earlier (as a renewal); Apple now refunds it.
+    await h.ctx.db
+      .insertInto('purchase_order')
+      .values({
+        id: newId('order'),
+        user_id: u.userId,
+        kind: 'subscription',
+        offer_id: null,
+        offer_version: null,
+        status: 'fulfilled',
+        currency: 'KRW',
+        amount_minor: 10_900,
+        tax_minor: 991,
+        snapshot: JSON.stringify({
+          kind: 'subscription',
+          plan: 'listen_monthly',
+          period_months: 1,
+          renewal: true,
+          territory: 'KR',
+          currency: 'KRW',
+          amount_minor: 10_900,
+          tax_minor: 991,
+          vat_rate_bp: 1000,
+          capabilities: ['play'],
+          terms_version: 'app-store',
+        }),
+        provider: 'app_store',
+        checkout_ref: past.transactionId,
+        checkout_url: null,
+        entitlement_id: (
+          await h.ctx.db
+            .selectFrom('entitlement')
+            .select('id')
+            .where('user_id', '=', u.userId)
+            .where('origin', '=', 'subscription')
+            .executeTakeFirstOrThrow()
+        ).id,
+        expires_at: new Date(),
+        paid_at: new Date(),
+        refunded_at: null,
+      })
+      .execute();
+    await notify(
+      notification('REFUND', {
+        transaction: { ...past, revocationDate: Date.now(), revocationReason: 0 },
+      }),
+    );
+    await h.worker.drain();
+    expect((await status(u)).subscription).toMatchObject({ state: 'active' });
+
+    const current = transaction({ id, token, expires: Date.now() + 30 * DAY });
+    await notify(
+      notification('REFUND', {
+        transaction: { ...current, revocationDate: Date.now(), revocationReason: 0 },
+      }),
+    );
+    await h.worker.drain();
+    expect((await status(u)).subscription).toMatchObject({ state: 'cancelled' });
+  });
+
+  it('never re-activates a deleted account and drops its App Store link', async () => {
+    const u = await krUser();
+    const { token, id } = await purchased(u, 2);
+    const del = await h.api.inject({
+      method: 'DELETE',
+      url: '/v1/me',
+      headers: { ...u.headers, 'idempotency-key': `del-store-${u.userId}` },
+    });
+    expect(del.statusCode).toBe(202);
+    await h.worker.drain();
+    const link = await h.ctx.db
+      .selectFrom('app_store_account')
+      .select('user_id')
+      .where('user_id', '=', u.userId)
+      .execute();
+    expect(link).toEqual([]);
+    expect(await sub(u)).toMatchObject({ state: 'cancelled', store_original_transaction_id: null });
+
+    await notify(
+      notification('DID_RENEW', {
+        transaction: transaction({
+          id: `${id}1`,
+          original: id,
+          token,
+          expires: Date.now() + 32 * DAY,
+        }),
+      }),
+    );
+    await h.worker.drain();
+    expect(await sub(u)).toMatchObject({ state: 'cancelled' });
+    const orders = await h.ctx.db
+      .selectFrom('purchase_order')
+      .select('id')
+      .where('checkout_ref', '=', `${id}1`)
+      .execute();
+    expect(orders).toEqual([]);
+  });
+
+  it('refuses operator refunds of App Store orders (Apple refunds them)', async () => {
+    const u = await krUser();
+    const { id } = await purchased(u);
+    const order = await h.ctx.db
+      .selectFrom('purchase_order')
+      .select(['id', 'version'])
+      .where('checkout_ref', '=', id)
+      .executeTakeFirstOrThrow();
+    const r = await h.api.inject({
+      method: 'POST',
+      url: `/v1/ops/orders/${order.id}/refunds`,
+      headers: { ...ops.op.headers, 'if-match': `"${String(order.version)}"` },
+      payload: { reason: 'customer asked' },
+    });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().error.message).toMatch(/refunded by Apple/);
+  });
+
+  it('keeps access through the renewal margin, then lapses', async () => {
+    const u = await krUser();
+    await purchased(u, 30);
+    const s = await sub(u);
+    const justEnded = new Date(Date.now() - 3_600_000);
+    await h.ctx.db
+      .updateTable('subscription')
+      .set({ paid_through: justEnded })
+      .where('id', '=', s.id)
+      .execute();
+    await h.ctx.db
+      .updateTable('entitlement')
+      .set({ valid_to: new Date(justEnded.getTime() + STORE_RENEWAL_MARGIN_MS) })
+      .where('user_id', '=', u.userId)
+      .where('origin', '=', 'subscription')
+      .execute();
+    await expireEntitlements(h.ctx.db);
+    expect((await sub(u)).state).toBe('active');
+    expect((await play(u)).statusCode).toBe(201);
+
+    const long = new Date(Date.now() - STORE_RENEWAL_MARGIN_MS - 3_600_000);
+    await h.ctx.db
+      .updateTable('subscription')
+      .set({ paid_through: long })
+      .where('id', '=', s.id)
+      .execute();
+    await h.ctx.db
+      .updateTable('entitlement')
+      .set({ valid_to: new Date(long.getTime() + STORE_RENEWAL_MARGIN_MS) })
+      .where('user_id', '=', u.userId)
+      .where('origin', '=', 'subscription')
+      .execute();
+    await expireEntitlements(h.ctx.db);
+    expect((await sub(u)).state).toBe('expired');
+  });
+  it('keeps a charged purchase it cannot apply for support (another currency)', async () => {
+    const u = await krUser();
+    const { app_account_token: token } = await status(u);
+    const id = `4000000${String(Math.floor(Math.random() * 1e9))}`;
+    const usd = {
+      ...transaction({ id, token, expires: Date.now() + 30 * DAY }),
+      currency: 'USD',
+      price: 9_990,
+    };
+    const r = await submit(u, usd);
+    expect(r.statusCode).toBe(422);
+    const held = await h.ctx.db
+      .selectFrom('payment_event')
+      .select(['status', 'detail'])
+      .where('provider_event_id', '=', `transaction:${id}`)
+      .executeTakeFirstOrThrow();
+    expect(held).toEqual({ status: 'held', detail: 'currency' });
+    expect((await status(u)).subscription).toBeNull();
   });
 });

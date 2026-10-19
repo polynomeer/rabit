@@ -224,8 +224,15 @@ async function routes(
     const { order_id } = parse(z.object({ order_id: idOf('order') }), req.params);
     const version = requireIfMatch(req.headers);
     const body = parse(z.strictObject({ reason }), req.body);
-    requireProvider(provider);
-    const o = await requestRefund(ctx.db, op, order_id, version, body.reason, req.id);
+    const o = await requestRefund(
+      ctx.db,
+      op,
+      provider?.name ?? null,
+      order_id,
+      version,
+      body.reason,
+      req.id,
+    );
     return reply.status(202).header('etag', etag(o.version)).send(o);
   });
 
@@ -309,6 +316,8 @@ async function routes(
 /** Account deletion: pending orders end; paid orders and the ledger stay (finance, legal). */
 export const deleteAccountOrders: AccountDataDeleter = async (ctx, account) => {
   await cancelPendingOrders(ctx.db, account.userId);
+  // Apple's notifications for this account can no longer find it (ADR-0024).
+  await ctx.db.deleteFrom('app_store_account').where('user_id', '=', account.userId).execute();
 };
 
 /** Support sees order counts by status only. */

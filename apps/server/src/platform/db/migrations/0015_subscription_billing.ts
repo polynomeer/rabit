@@ -1,4 +1,5 @@
 import { sql, type Kysely } from 'kysely';
+import { refuseDataLoss } from '../migration-guard.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- migrations target the raw schema */
 
@@ -33,11 +34,17 @@ export async function up(db: Kysely<any>): Promise<void> {
 }
 
 /**
- * Rolling back deletes subscription orders with their refunds and ledger
- * journals (the ledger's append-only trigger is suspended for this only);
- * release orders are untouched.
+ * Rolling back would delete subscription orders with their refunds and ledger
+ * journals, so it refuses while any exist (see migration-guard). On a disposable
+ * database it removes them (the ledger's append-only trigger is suspended for this
+ * only); release orders are untouched.
  */
 export async function down(db: Kysely<any>): Promise<void> {
+  await refuseDataLoss(
+    db,
+    'subscription orders and their ledger journals',
+    "SELECT 1 FROM purchase_order WHERE kind = 'subscription'",
+  );
   await sql
     .raw(
       `
