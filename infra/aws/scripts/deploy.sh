@@ -8,6 +8,7 @@
 #
 # Required env: AWS_REGION, ENVIRONMENT, IMAGE (full ECR URI with tag),
 #               OPS_SUBNETS (comma-separated), OPS_SECURITY_GROUP
+# Optional:     MIGRATION_TIMEOUT_S (default 3600)
 set -euo pipefail
 : "${AWS_REGION:?}" "${ENVIRONMENT:?}" "${IMAGE:?}" "${OPS_SUBNETS:?}" "${OPS_SECURITY_GROUP:?}"
 NAME="rabit-${ENVIRONMENT}"
@@ -36,7 +37,20 @@ TASK=$(aws ecs run-task --cluster "$CLUSTER" --launch-type FARGATE \
   --network-configuration "awsvpcConfiguration={subnets=[${OPS_SUBNETS}],securityGroups=[${OPS_SECURITY_GROUP}],assignPublicIp=DISABLED}" \
   --overrides '{"containerOverrides":[{"name":"ops","command":["migrate","up"]}]}' \
   --query 'tasks[0].taskArn' --output text)
-aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK"
+# `aws ecs wait tasks-stopped` gives up after about 10 minutes while a long migration
+# keeps running; poll with an explicit limit instead.
+deadline=$(($(date +%s) + ${MIGRATION_TIMEOUT_S:-3600}))
+while :; do
+  STATUS=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" \
+    --query 'tasks[0].lastStatus' --output text)
+  [ "$STATUS" = STOPPED ] && break
+  if [ "$(date +%s)" -ge "$deadline" ]; then
+    echo "migration still running after ${MIGRATION_TIMEOUT_S:-3600}s (task $TASK); services unchanged." >&2
+    echo "Do not start another deploy until it ends: logs /rabit/${ENVIRONMENT}/ops" >&2
+    exit 1
+  fi
+  sleep 15
+done
 CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" \
   --query 'tasks[0].containers[0].exitCode' --output text)
 if [ "$CODE" != "0" ]; then
