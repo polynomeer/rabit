@@ -19,10 +19,10 @@ import { metrics } from '../../platform/metrics.js';
 import { getUser } from '../identity/index.js';
 import {
   activateStorePeriod,
-  endSubscriptionNow,
+  endStoreSubscriptionNow,
   expireStoreSubscription,
   getSubscription,
-  markSubscriptionPastDue,
+  markStoreSubscriptionPastDue,
   setStoreRenewal,
   subscriptionView,
 } from '../entitlement/index.js';
@@ -257,6 +257,24 @@ async function applyPeriod(
     .executeTakeFirst();
   if (existing) return 'duplicate';
   if (!t.expiresAt) throw new StoreRejected('no_expiry');
+  if (t.test) {
+    // A Sandbox (review/TestFlight) purchase never takes over a real paid App Store
+    // subscription: its notifications would then reach the real one.
+    const current = await tx
+      .selectFrom('subscription')
+      .select(['source', 'state', 'paid_through', 'store_original_transaction_id'])
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+    if (
+      current?.source === APP_STORE &&
+      current.state === 'active' &&
+      current.paid_through > new Date() &&
+      current.store_original_transaction_id !== t.originalTransactionId &&
+      !(current.store_original_transaction_id ?? TEST_PREFIX).startsWith(TEST_PREFIX)
+    ) {
+      throw new StoreRejected('test_over_paid');
+    }
+  }
   if (t.currency !== null && t.currency !== 'KRW') throw new StoreRejected('currency');
   const amount = t.priceMilli !== null ? Math.round(t.priceMilli / 1000) : null;
   if (amount === null || amount <= 0) throw new StoreRejected('price');
@@ -298,6 +316,7 @@ async function applyPeriod(
         },
       }),
       provider: APP_STORE,
+      test: t.test,
       checkout_ref: t.transactionId,
       checkout_url: null,
       entitlement_id: entitlementId,
@@ -361,7 +380,12 @@ async function applyRefund(
     }))
     .where('id', '=', order.id)
     .execute();
-  await endSubscriptionNow(tx, userId, correlationId);
+  // Only a refund of the running period ends access, and only for the subscription
+  // this transaction belongs to; a refunded past month changes nothing now.
+  const running = t.expiresAt === null || t.expiresAt > new Date();
+  const ended = running
+    ? await endStoreSubscriptionNow(tx, userId, t.originalTransactionId, correlationId)
+    : false;
   await audit(tx, {
     actorType: 'system',
     actorId: null,
@@ -369,7 +393,7 @@ async function applyRefund(
     subjectType: 'order',
     subjectId: order.id,
     correlationId,
-    details: { provider: APP_STORE, test: t.test },
+    details: { provider: APP_STORE, test: t.test, access_ended: ended },
   });
   metrics.orders.inc({ event: t.test ? 'refunded_test' : 'refunded' });
   return 'applied';
@@ -590,6 +614,14 @@ async function applyOne(
     originalTransactionId: n.originalTransactionId,
   });
   if (!userId) return { status: 'held', detail: 'unknown_account' };
+  const user = await tx
+    .selectFrom('app_user')
+    .select('status')
+    .where('id', '=', userId)
+    .executeTakeFirst();
+  // A deleted (or deleting) account is never re-activated by Apple; support refunds.
+  if (user?.status !== 'active') return { status: 'held', detail: 'account_deleted' };
+  const original = t?.originalTransactionId ?? n.originalTransactionId;
   switch (n.type) {
     case 'SUBSCRIBED':
     case 'DID_RENEW': {
@@ -603,23 +635,27 @@ async function applyOne(
       }
     }
     case 'DID_CHANGE_RENEWAL_STATUS': {
-      if (n.autoRenew === null) return { status: 'ignored', detail: 'no_renewal_info' };
-      const sub = await setStoreRenewal(tx, userId, n.autoRenew);
-      return {
-        status: sub ? 'applied' : 'ignored',
-        detail: n.autoRenew ? 'renewal_on' : 'renewal_off',
-      };
+      if (n.autoRenew === null || !original) {
+        return { status: 'ignored', detail: 'no_renewal_info' };
+      }
+      const sub = await setStoreRenewal(tx, userId, original, n.autoRenew);
+      if (!sub) return { status: 'ignored', detail: 'not_linked' };
+      return { status: 'applied', detail: n.autoRenew ? 'renewal_on' : 'renewal_off' };
     }
     case 'DID_FAIL_TO_RENEW': {
       // With a billing grace period Apple keeps access; without one, no access until paid.
       if (n.subtype === 'GRACE_PERIOD') return { status: 'ignored', detail: 'grace_period' };
-      await markSubscriptionPastDue(tx, userId, eventId);
-      return { status: 'applied', detail: 'past_due' };
+      if (!original) return { status: 'held', detail: 'no_transaction' };
+      const changed = await markStoreSubscriptionPastDue(tx, userId, original, eventId);
+      return changed
+        ? { status: 'applied', detail: 'past_due' }
+        : { status: 'ignored', detail: 'not_linked' };
     }
     case 'EXPIRED':
     case 'GRACE_PERIOD_EXPIRED': {
-      const changed = await expireStoreSubscription(tx, userId, eventId);
-      return { status: changed ? 'applied' : 'ignored', detail: 'expired' };
+      if (!original) return { status: 'held', detail: 'no_transaction' };
+      const r = await expireStoreSubscription(tx, userId, original, t?.expiresAt ?? null, eventId);
+      return { status: r === 'expired' ? 'applied' : 'ignored', detail: r };
     }
     case 'REFUND':
     case 'REVOKE': {

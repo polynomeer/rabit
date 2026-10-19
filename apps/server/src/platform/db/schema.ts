@@ -602,6 +602,8 @@ export interface PurchaseOrderTable {
   id: string;
   user_id: string;
   kind: ColumnType<OrderKind, OrderKind | undefined, never>;
+  /** An App Review / TestFlight purchase: access, but no money and no journal. */
+  test: Generated<boolean>;
   offer_id: string | null;
   offer_version: number | null;
   status: OrderStatus;
@@ -688,7 +690,7 @@ export interface LedgerJournalTable {
   created_at: CreatedAt;
 }
 
-export type LedgerAccount = 'provider_clearing' | 'revenue' | 'vat_payable';
+export type LedgerAccount = 'provider_clearing' | 'app_store_clearing' | 'revenue' | 'vat_payable';
 
 export interface LedgerLineTable {
   journal_id: string;

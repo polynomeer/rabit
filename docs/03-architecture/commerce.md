@@ -32,7 +32,7 @@
 | sale | `provider_clearing` amount | `revenue` amount − VAT; `vat_payable` VAT |
 | refund | `revenue` amount − VAT; `vat_payable` VAT | `provider_clearing` amount |
 
-One journal per order and kind. The database refuses unbalanced journals (deferred constraint trigger) and any update or delete of entries.
+Clearing accounts by provider: `provider_clearing` for the web provider, `app_store_clearing` for App Store sales (ADR-0024 amendment 2026-10-19). One journal per order and kind. The database refuses unbalanced journals (deferred constraint trigger) and any update or delete of entries.
 
 ## 4. Sandbox provider
 
@@ -74,6 +74,7 @@ Open (owner, Q04): booking Apple's commission and how VAT is remitted for App St
 ## 6. Operations
 
 - Offers: `POST /v1/ops/offers` (one on sale per release), `POST /v1/ops/offers/{id}/withdraw`.
-- Refund: `POST /v1/ops/orders/{id}/refunds` with If-Match and a reason; audited.
+- Refund: `POST /v1/ops/orders/{id}/refunds` with If-Match and a reason; audited. Only orders of the configured web provider; App Store orders are refunded by Apple (409).
 - Reconciliation: hourly; mismatches are counted (`rabit_payment_reconcile_mismatches_total{kind}`) and logged with the order id, not repaired.
-- Account deletion cancels pending orders; paid orders, refunds and the ledger stay for finance and legal traceability.
+- Down migrations that would delete financial records (0015, 0017) refuse while such rows exist unless `MIGRATION_ALLOW_DATA_LOSS=true` (disposable databases only).
+- Account deletion cancels pending orders and removes the App Store account link; paid orders, refunds and the ledger stay for finance and legal traceability.

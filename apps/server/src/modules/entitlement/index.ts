@@ -15,6 +15,7 @@ import {
 import type { AccountDataDeleter } from '../identity/index.js';
 import type { SupportSection } from '../../platform/support.js';
 import {
+  emitChanged as emitEntitlementChanged,
   changeEntitlementStatus,
   expireEntitlements,
   getSubscription,
@@ -31,6 +32,9 @@ export {
   activateSubscriptionPeriod,
   addMonths,
   expireStoreSubscription,
+  endStoreSubscriptionNow,
+  markStoreSubscriptionPastDue,
+  STORE_RENEWAL_MARGIN_MS,
   setStoreRenewal,
   subscriptionView,
   endSubscriptionNow,
@@ -116,17 +120,29 @@ function routes(app: FastifyInstance, ctx: AppContext): void {
 
 /** Account deletion: entitlements are revoked; rows stay for legal/ledger traceability (Legal). */
 export const deleteAccountEntitlements: AccountDataDeleter = async (ctx, account) => {
-  await ctx.db
-    .updateTable('entitlement')
-    .set((eb) => ({ status: 'revoked', version: eb('version', '+', 1), updated_at: new Date() }))
-    .where('user_id', '=', account.userId)
-    .where('status', 'in', ['active', 'suspended'])
-    .execute();
-  await ctx.db
-    .updateTable('subscription')
-    .set({ state: 'cancelled', updated_at: new Date() })
-    .where('user_id', '=', account.userId)
-    .execute();
+  await ctx.db.transaction().execute(async (tx) => {
+    const revoked = await tx
+      .updateTable('entitlement')
+      .set((eb) => ({ status: 'revoked', version: eb('version', '+', 1), updated_at: new Date() }))
+      .where('user_id', '=', account.userId)
+      .where('status', 'in', ['active', 'suspended'])
+      .returningAll()
+      .execute();
+    for (const e of revoked) await emitEntitlementChanged(tx, e, null);
+    // The App Store link goes too: a later Apple notification for this account is
+    // then held for an operator instead of re-activating it (ADR-0024).
+    await tx
+      .updateTable('subscription')
+      .set({
+        state: 'cancelled',
+        auto_renew: false,
+        source: 'operator',
+        store_original_transaction_id: null,
+        updated_at: new Date(),
+      })
+      .where('user_id', '=', account.userId)
+      .execute();
+  });
 };
 
 export function entitlementModule(): Module {

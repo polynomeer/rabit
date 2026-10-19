@@ -683,6 +683,7 @@ async function startRefund(tx: DbOrTx, order: OrderRow, requestedBy: string, rea
 export async function requestRefund(
   db: Db,
   operator: Principal,
+  providerName: string | null,
   orderId: string,
   expectedVersion: number,
   reason: string,
@@ -697,6 +698,16 @@ export async function requestRefund(
       .executeTakeFirst();
     if (!o) throw errors.notFound();
     if (o.version !== expectedVersion) throw errors.preconditionFailed();
+    // Each order is refunded through the provider that took the money. App Store
+    // purchases are refunded by Apple only; its REFUND notification then applies.
+    if (o.provider === 'app_store') {
+      throw errors.invalidState(
+        'App Store purchases are refunded by Apple. The customer requests it at reportaproblem.apple.com.',
+      );
+    }
+    if (o.provider !== providerName) {
+      throw errors.invalidState(`Orders paid through ${o.provider} cannot be refunded here.`);
+    }
     if (o.status !== 'fulfilled' && o.status !== 'paid') {
       throw errors.invalidState(`A ${o.status} order cannot be refunded.`);
     }
@@ -722,11 +733,20 @@ export async function submitRefund(db: Db, provider: PaymentProvider, refundId: 
     const r = await tx
       .selectFrom('payment_refund as r')
       .innerJoin('purchase_order as o', 'o.id', 'r.order_id')
-      .select(['r.id', 'r.status', 'r.provider_ref', 'r.amount_minor', 'o.checkout_ref'])
+      .select([
+        'r.id',
+        'r.status',
+        'r.provider_ref',
+        'r.amount_minor',
+        'o.checkout_ref',
+        'o.provider',
+      ])
       .where('r.id', '=', refundId)
       .forUpdate()
       .executeTakeFirst();
     if (!r || r.status !== 'requested' || r.provider_ref || !r.checkout_ref) return;
+    // Never send a refund to a provider that did not take the payment.
+    if (r.provider !== provider.name) return;
     const { providerRef } = await provider.requestRefund(tx, {
       refundId: r.id,
       checkoutRef: r.checkout_ref,
