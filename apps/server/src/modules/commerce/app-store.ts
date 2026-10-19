@@ -455,35 +455,59 @@ export async function submitTransaction(
   if (t.productId !== verifier.config.productId) {
     throw errors.unprocessable('UNPROCESSABLE', 'This App Store product is not sold here.');
   }
-  return db.transaction().execute(async (tx) => {
-    const token = await appAccountToken(tx, principal.userId);
-    if (!t.appAccountToken || t.appAccountToken.toLowerCase() !== token) {
-      throw errors.forbidden('This App Store purchase belongs to another account.');
-    }
-    const bound = await tx
-      .selectFrom('subscription')
-      .select('user_id')
-      .where('store_original_transaction_id', '=', t.originalTransactionId)
-      .executeTakeFirst();
-    if (bound && bound.user_id !== principal.userId) {
-      throw errors.alreadyExists('This App Store subscription is linked to another account.');
-    }
-    try {
+  let rejected: StoreRejected;
+  try {
+    return await db.transaction().execute(async (tx) => {
+      const token = await appAccountToken(tx, principal.userId);
+      if (!t.appAccountToken || t.appAccountToken.toLowerCase() !== token) {
+        throw errors.forbidden('This App Store purchase belongs to another account.');
+      }
+      const bound = await tx
+        .selectFrom('subscription')
+        .select('user_id')
+        .where('store_original_transaction_id', '=', t.originalTransactionId)
+        .executeTakeFirst();
+      if (bound && bound.user_id !== principal.userId) {
+        throw errors.alreadyExists('This App Store subscription is linked to another account.');
+      }
       if (t.revoked) await applyRefund(tx, principal.userId, t, correlationId);
       else await applyPeriod(tx, principal.userId, t, correlationId);
-    } catch (err) {
-      if (err instanceof StoreRejected) {
-        throw errors.unprocessable('UNPROCESSABLE', 'The App Store transaction cannot be applied.');
-      }
-      throw err;
-    }
-    metrics.paymentEvents.inc({
-      provider: APP_STORE,
-      type: 'transaction',
-      outcome: t.test ? 'applied_test' : 'applied',
+      metrics.paymentEvents.inc({
+        provider: APP_STORE,
+        type: 'transaction',
+        outcome: t.test ? 'applied_test' : 'applied',
+      });
+      return subscriptionView(await getSubscription(tx, principal.userId));
     });
-    return subscriptionView(await getSubscription(tx, principal.userId));
-  });
+  } catch (err) {
+    if (!(err instanceof StoreRejected)) throw err;
+    rejected = err;
+  }
+  // Apple has charged, but the purchase cannot be applied here (e.g. another
+  // currency). It is kept for support, who refund it; the app does not finish it.
+  await recordRejected(db, t, rejected.reason);
+  throw errors.unprocessable('UNPROCESSABLE', 'The App Store transaction cannot be applied.');
+}
+
+/** A verified, charged transaction we could not apply: held for an operator. */
+async function recordRejected(db: Db, t: StoreTransaction, reason: string) {
+  await db
+    .insertInto('payment_event')
+    .values({
+      id: newId('paymentEvent'),
+      provider: APP_STORE,
+      provider_event_id: `transaction:${t.transactionId}`,
+      type: 'transaction',
+      checkout_ref: t.transactionId,
+      payload_sha256: createHash('sha256').update(t.transactionId).digest('hex'),
+      payload: JSON.stringify(t),
+      status: 'held',
+      detail: reason,
+      processed_at: new Date(),
+    })
+    .onConflict((oc) => oc.columns(['provider', 'provider_event_id']).doNothing())
+    .execute();
+  metrics.paymentEvents.inc({ provider: APP_STORE, type: 'transaction', outcome: 'held' });
 }
 
 // ---- server notifications ----

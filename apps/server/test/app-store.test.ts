@@ -715,4 +715,23 @@ describe('App Store notifications change only the subscription they belong to (r
     await expireEntitlements(h.ctx.db);
     expect((await sub(u)).state).toBe('expired');
   });
+  it('keeps a charged purchase it cannot apply for support (another currency)', async () => {
+    const u = await krUser();
+    const { app_account_token: token } = await status(u);
+    const id = `4000000${String(Math.floor(Math.random() * 1e9))}`;
+    const usd = {
+      ...transaction({ id, token, expires: Date.now() + 30 * DAY }),
+      currency: 'USD',
+      price: 9_990,
+    };
+    const r = await submit(u, usd);
+    expect(r.statusCode).toBe(422);
+    const held = await h.ctx.db
+      .selectFrom('payment_event')
+      .select(['status', 'detail'])
+      .where('provider_event_id', '=', `transaction:${id}`)
+      .executeTakeFirstOrThrow();
+    expect(held).toEqual({ status: 'held', detail: 'currency' });
+    expect((await status(u)).subscription).toBeNull();
+  });
 });
