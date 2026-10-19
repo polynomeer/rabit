@@ -83,7 +83,8 @@ Later deploys only run the workflow. OpenTofu ignores the services' task definit
 
 ## Operations
 
-- **Migrations / restore reconcile:** run the `ops` task with a command override, for example `["restore-reconcile","--dry-run"]` (see `tofu output ops_task`).
+- **Migrations / restore reconcile:** `infra/aws/scripts/ops.sh restore-reconcile --dry-run` runs the `ops` task with the image the api is running now (OpenTofu's own task definition revisions point at the bootstrap image).
+- **Deploys** run only for commits whose CI passed, production only from `main`. Migrations are polled for up to `MIGRATION_TIMEOUT_S` (1 h). The web client keeps hashed assets for 14 days, so tabs opened before a deploy keep working.
 - **Before external launch:**
   - set `db_multi_az = true` and `single_nat_gateway = false`, and `interface_endpoint_az_count = 2`;
   - run `drill:restore` against a restored RDS snapshot and `pnpm gameday` scenarios against staging (R9, R17);
