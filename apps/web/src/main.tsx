@@ -1,10 +1,9 @@
-import { StrictMode, useEffect, useState, type ReactNode } from 'react';
+import { lazy, StrictMode, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SIGNED_OUT, devSignIn, get, hasToken, setToken } from './api';
 import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from './auth';
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
-import { OpsConsole } from './ops';
 import { PlayerProvider } from './player';
 import {
   digHref,
@@ -28,6 +27,9 @@ import { applyTheme, storedTheme } from './theme';
 // One variable font split by unicode-range; browsers fetch only the slices a page uses.
 import '@fontsource-variable/noto-sans-kr';
 import './styles.css';
+
+// The operator console is loaded only when an operator opens it.
+const OpsConsole = lazy(() => import('./ops').then((m) => ({ default: m.OpsConsole })));
 
 // Before the first render, so a chosen theme never flashes the OS one.
 applyTheme(storedTheme());
@@ -282,7 +284,11 @@ function App() {
           )
         ) : null}
         {route.kind === 'dig-session' ? <DigSessionView id={route.id} /> : null}
-        {route.kind === 'ops' ? <OpsConsole section={route.section} /> : null}
+        {route.kind === 'ops' ? (
+          <Suspense fallback={<p role="status">{t('common.loading')}</p>}>
+            <OpsConsole section={route.section} />
+          </Suspense>
+        ) : null}
         {tab === 'Account' ? <Account /> : null}
       </main>
     </PlayerProvider>
