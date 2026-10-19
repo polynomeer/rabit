@@ -7,7 +7,8 @@ import { emit } from '../../platform/jobs/outbox.js';
 import { enqueue } from '../../platform/jobs/queue.js';
 import { BUCKETS } from '../../platform/storage/blob-store.js';
 import { audit } from '../../platform/audit.js';
-import { ensureCatalogWorkspace } from './entities.js';
+import { createCatalogSource } from '../audio/index.js';
+import { ensureCatalogWorkspace } from '../identity/index.js';
 import { createGrant } from './rights.js';
 
 const key = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
@@ -226,41 +227,14 @@ export async function ingestCatalog(
       }
       const plan = planned.get(r.key);
       if (plan) {
-        const objectId = newId('audioObject');
-        const versionId = newId('audioVersion');
         const { sourceId, sha256, prefix } = plan;
-        await tx
-          .insertInto('audio_object')
-          .values({ id: objectId, kind: 'recording', current_version_id: versionId })
-          .execute();
-        await tx
-          .insertInto('audio_version')
-          .values({
-            id: versionId,
-            audio_object_id: objectId,
-            version_no: 1,
-            recording_id: recId,
-            content_sha256: sha256,
-            duration_ms: null,
-            technical: JSON.stringify({}),
-          })
-          .execute();
-        await tx
-          .insertInto('audio_source')
-          .values({
-            id: sourceId,
-            audio_version_id: versionId,
-            workspace_id: workspaceId,
-            origin: 'catalog',
-            visibility: 'public',
-            status: 'processing',
-            title: null,
-            created_by: null,
-            failure_code: null,
-            storage_prefix: prefix,
-            deleted_at: null,
-          })
-          .execute();
+        await createCatalogSource(tx, {
+          sourceId,
+          recordingId: recId,
+          workspaceId,
+          sha256,
+          storagePrefix: prefix,
+        });
         await tx
           .updateTable('recording')
           .set({ catalog_audio_source_id: sourceId })

@@ -3,6 +3,7 @@ import { audit } from '../../platform/audit.js';
 import { enqueue } from '../../platform/jobs/queue.js';
 import type { Bucket } from '../../platform/storage/blob-store.js';
 import { markDeleting } from '../audio/index.js';
+import { detachCatalogSource } from '../catalog/index.js';
 
 export interface ReconcileReport {
   /** Accounts still `deletion_requested` in the backup: deletion queued again. */
@@ -93,12 +94,7 @@ export async function reconcileAfterRestore(
     if (dryRun) continue;
     await ctx.db.transaction().execute(async (tx) => {
       await markDeleting(tx, m.id, m.workspace_id, new Date(), null);
-      const detached = await tx
-        .updateTable('recording')
-        .set({ catalog_audio_source_id: null })
-        .where('catalog_audio_source_id', '=', m.id)
-        .returning('id')
-        .execute();
+      const detached = await detachCatalogSource(tx, m.id);
       await audit(tx, {
         actorType: 'system',
         actorId: null,
@@ -106,7 +102,7 @@ export async function reconcileAfterRestore(
         subjectType: 'audio_source',
         subjectId: m.id,
         reason: 'original missing from storage after a database restore',
-        details: { recording_ids: detached.map((d) => d.id) },
+        details: { recording_ids: detached },
       });
     });
     // markDeleting emits SourceDeletionRequested, which queues the deletion job.

@@ -2,7 +2,8 @@ import { z } from 'zod';
 import type { AppContext } from '../../app/context.js';
 import { PermanentJobError, type JobHandler } from '../../platform/jobs/runner.js';
 import { BUCKETS } from '../../platform/storage/blob-store.js';
-import { getSourceUnchecked, processSource } from '../audio/index.js';
+import { getSourceUnchecked, markSourceFailed, processSource } from '../audio/index.js';
+import { setRecordingDuration } from './entities.js';
 import { expireGrants } from './rights.js';
 
 const payload = z.object({ audio_source_id: z.string(), sha256: z.string() });
@@ -24,20 +25,19 @@ export function catalogJobs(ctx: AppContext): JobHandler[] {
           // Catalog masters may be longer than the free-tier cap; 6 h hard limit.
           maxDurationMs: 6 * 60 * 60 * 1000,
           uploadSessionId: null,
+          onReady: async (tx, info) => {
+            if (source.recording_id)
+              await setRecordingDuration(tx, source.recording_id, info.durationMs);
+          },
         });
       },
       async onDead(job, error) {
         const p = payload.parse(job.job.payload);
-        await ctx.db
-          .updateTable('audio_source')
-          .set({
-            status: 'failed',
-            failure_code: error instanceof PermanentJobError ? error.code : 'PROCESSING_FAILED',
-            updated_at: new Date(),
-          })
-          .where('id', '=', p.audio_source_id)
-          .where('status', '=', 'processing')
-          .execute();
+        await markSourceFailed(
+          ctx.db,
+          p.audio_source_id,
+          error instanceof PermanentJobError ? error.code : 'PROCESSING_FAILED',
+        );
       },
     },
     {

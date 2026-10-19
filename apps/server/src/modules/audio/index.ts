@@ -20,6 +20,7 @@ export {
 } from './sources.js';
 export { storageUsage } from './uploads.js';
 export { processSource, deleteSourceNow } from './jobs.js';
+export { createCatalogSource, markSourceFailed, resetSourceForRetry } from './catalog-sources.js';
 export type { RecordingExists } from './audio-logs.js';
 export { LADDER } from './media/render.js';
 
