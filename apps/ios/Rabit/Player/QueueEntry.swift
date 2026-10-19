@@ -51,7 +51,7 @@ struct QueueEntry: Hashable, Identifiable {
     case .privateAudio, .audioLog:
       target = .audioSource(AudioSourceID(result.id))
       coverId = nil
-    case .release, .artist, .person, .label:
+    case .release, .artist, .person, .label, .unknown:
       return nil
     }
     title = result.title

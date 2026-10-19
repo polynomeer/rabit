@@ -14,10 +14,12 @@ public struct DigAxis: RawRepresentable, Codable, Hashable, Sendable {
 /// Why a connection exists and how sure we are. `mlInferred` must never look like a fact
 /// (CLAUDE.md: distinguish verified provenance from ML-inferred relationships).
 public struct Evidence: Codable, Hashable, Sendable {
-  public enum Basis: String, Codable, Sendable {
+  public enum Basis: String, Codable, Sendable, OpenEnum {
     case verifiedFact = "verified_fact"
     case declared
     case mlInferred = "ml_inferred"
+    /// A basis this build does not know: never shown as a fact.
+    case unknown
   }
   public struct Reason: Codable, Hashable, Sendable {
     public let code: String
