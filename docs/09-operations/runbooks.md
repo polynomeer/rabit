@@ -59,5 +59,16 @@ High `rejected` share: inspect `reject_reason` distribution in `listening_event`
 ## rate-limit-store
 `RateLimitStoreFailing`: counter updates to `rate_limit_counter` fail and requests pass unlimited (ADR-0020). Check database health first: the api is usually failing too. If only the counters fail, check the table exists (migration `0011_rate_limit`) and its size (`SELECT count(*) FROM rate_limit_counter`). Expired rows are purged by the worker, so a large table means the worker is down. `UNLOGGED` tables are emptied after a crash, which only resets counters.
 
+## payments-held
+A payment, refund or App Store event could not be applied (`PaymentEventsHeld`), orders disagree with the provider (`PaymentReconcileMismatch`), or a customer pays twice (`AppStoreSubscriptionOverlap`).
+1. List held events: `SELECT id, provider, type, detail, checkout_ref, received_at FROM payment_event WHERE status = 'held' ORDER BY received_at DESC`. Open the order with `GET /v1/ops/orders/{id}` (events, refunds, ledger).
+2. By `detail`:
+   - `amount_mismatch`, `currency`, `price`: the customer was charged a different amount; refund through the provider (web: operator refund; App Store: the customer asks Apple, support explains).
+   - `unknown_account`, `unknown_checkout`, `unknown_refund`: find the account by the transaction or checkout reference; do not apply by hand without a second operator.
+   - `account_deleted`: the account was deleted after paying through the App Store; the customer asks Apple for a refund. Never re-activate the account.
+   - `test_over_paid`: a Sandbox purchase on an account with a real paid subscription; nothing to refund (no money moved).
+3. Reconciliation mismatches are logged with the order id and kind; compare with the provider's dashboard before changing anything. Corrections are new ledger journals, never edits.
+4. Overlaps: refund the newer side (see App Store below for which side can be refunded where).
+
 ## app-store
 Held App Store notifications, overlapping web and App Store subscriptions, refunds and signature failures: [App Store setup and operations](app-store.md) §3.

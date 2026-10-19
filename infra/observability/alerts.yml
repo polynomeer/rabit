@@ -93,3 +93,27 @@ groups:
         annotations:
           impact: API rate limits are not enforced (fail-open, ADR-0020); abuse limits such as uploads and reports are open.
           runbook: docs/09-operations/runbooks.md#rate-limit-store
+
+  - name: rabit-payments
+    rules:
+      # Money moved (or Apple charged) but nothing was applied: support must act.
+      - alert: PaymentEventsHeld
+        expr: sum(increase(rabit_payment_events_total{outcome="held"}[1h])) > 0
+        labels: { severity: ticket }
+        annotations:
+          impact: A payment, refund or App Store notification could not be applied; a customer may have paid without access or lost access they paid for.
+          runbook: docs/09-operations/runbooks.md#payments-held
+
+      - alert: PaymentReconcileMismatch
+        expr: sum(increase(rabit_payment_reconcile_mismatches_total[2h])) > 0
+        labels: { severity: ticket }
+        annotations:
+          impact: Orders disagree with the payment provider's records (a payment or refund was not recorded).
+          runbook: docs/09-operations/runbooks.md#payments-held
+
+      - alert: AppStoreSubscriptionOverlap
+        expr: sum(increase(rabit_app_store_overlaps_total[1d])) > 0
+        labels: { severity: ticket }
+        annotations:
+          impact: A customer is paying for both a web and an App Store subscription; one side must be refunded.
+          runbook: docs/09-operations/runbooks.md#payments-held

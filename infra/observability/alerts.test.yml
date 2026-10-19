@@ -98,3 +98,22 @@ tests:
             exp_annotations:
               impact: No worker is reporting; uploads, deletions and rights revocations may have stopped.
               runbook: docs/09-operations/runbooks.md#queue-backlog
+
+  - name: held payments open a ticket
+    interval: 1m
+    input_series:
+      - series: 'rabit_payment_events_total{provider="app_store",type="DID_RENEW",outcome="held"}'
+        values: '0 0 1 1 1'
+      - series: 'rabit_payment_reconcile_mismatches_total{kind="payment_not_recorded"}'
+        values: '0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: PaymentEventsHeld
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              impact: A payment, refund or App Store notification could not be applied; a customer may have paid without access or lost access they paid for.
+              runbook: docs/09-operations/runbooks.md#payments-held
+      - eval_time: 4m
+        alertname: PaymentReconcileMismatch
+        exp_alerts: []
