@@ -86,8 +86,8 @@ describe('rendition ladder (ADR-0008 amendment 2026-10-20)', () => {
     ].map((m) => ({ name: m[3], peak: Number(m[1]), average: Number(m[2]) }));
     expect(variants.map((v) => v.name)).toEqual(['standard', 'low', 'high']);
     const by = Object.fromEntries(variants.map((v) => [v.name, v.average]));
-    expect(by['low']!).toBeLessThan(by['standard']!);
-    expect(by['standard']!).toBeLessThan(by['high']!);
+    expect(by['low']).toBeLessThan(by['standard']);
+    expect(by['standard']).toBeLessThan(by['high']);
     for (const v of variants) expect(v.peak).toBeGreaterThanOrEqual(v.average);
   });
 });
