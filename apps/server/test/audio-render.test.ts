@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -60,10 +60,35 @@ describe('rendition sample rate (ADR-0008 amendment 2026-10-20)', () => {
   it('renders a 96 kHz master at 48 kHz', async () => {
     const { out } = await render(tone('hires.flac', 96_000, 96_000, 'flac'));
     expect(out.sampleRate).toBe(48_000);
-    expect(await readEditList(join(out.dir, 'init.mp4'))).toMatchObject({
+    expect(await readEditList(join(out.dir, 'standard', 'init.mp4'))).toMatchObject({
       movieTimescale: 48_000,
       segmentDuration: 48_000,
     });
+  });
+});
+
+describe('rendition ladder (ADR-0008 amendment 2026-10-20)', () => {
+  it('writes three renditions behind a master playlist, standard first', async () => {
+    const { out } = await render(tone('ladder.wav', 44_100, 441_000));
+    for (const r of ['low', 'standard', 'high']) {
+      expect(out.files).toContain(`${r}/index.m3u8`);
+      expect(out.files).toContain(`${r}/init.mp4`);
+      expect(out.files).toContain(`${r}/seg_00000.m4s`);
+      expect(await readEditList(join(out.dir, r, 'init.mp4'))).toMatchObject({
+        mediaTime: AAC_PRIMING_SAMPLES,
+      });
+    }
+    const master = readFileSync(join(out.dir, 'master.m3u8'), 'utf8');
+    const variants = [
+      ...master.matchAll(
+        /BANDWIDTH=(\d+),AVERAGE-BANDWIDTH=(\d+),CODECS="mp4a.40.2"\n(\w+)\/index\.m3u8/g,
+      ),
+    ].map((m) => ({ name: m[3], peak: Number(m[1]), average: Number(m[2]) }));
+    expect(variants.map((v) => v.name)).toEqual(['standard', 'low', 'high']);
+    const by = Object.fromEntries(variants.map((v) => [v.name, v.average]));
+    expect(by['low']).toBeLessThan(by['standard']);
+    expect(by['standard']).toBeLessThan(by['high']);
+    for (const v of variants) expect(v.peak).toBeGreaterThanOrEqual(v.average);
   });
 });
 
@@ -76,7 +101,7 @@ describe('gapless edit list (AUD-013)', () => {
     const { info, out } = await render(src);
     expect(info.samples).toBe(SAMPLES);
     expect(out.gapless).toBe(true);
-    expect(await readEditList(join(out.dir, 'init.mp4'))).toEqual({
+    expect(await readEditList(join(out.dir, 'standard', 'init.mp4'))).toEqual({
       movieTimescale: 44_100,
       segmentDuration: SAMPLES,
       mediaTime: AAC_PRIMING_SAMPLES,
@@ -87,7 +112,7 @@ describe('gapless edit list (AUD-013)', () => {
     const src = tone('phase.wav', 44_100, SAMPLES);
     const { out } = await render(src);
     const a = pcm(src, 44_100);
-    const b = pcm(join(out.dir, 'index.m3u8'), 44_100);
+    const b = pcm(join(out.dir, 'standard', 'index.m3u8'), 44_100);
     // ffmpeg honours the edit's start; it keeps the trailing padding, which
     // AVFoundation trims by the edit's duration.
     expect(b.length - a.length).toBeGreaterThanOrEqual(0);

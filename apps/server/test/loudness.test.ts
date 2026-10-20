@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loudnessGain } from '../src/modules/playback/sessions.js';
+import { loudnessGain, renditionsOf } from '../src/modules/playback/sessions.js';
 
 describe('loudness normalisation gain (ADR-0008 amendment 2026-10-20)', () => {
   it('turns a loud master down to the target', () => {
@@ -20,5 +20,14 @@ describe('loudness normalisation gain (ADR-0008 amendment 2026-10-20)', () => {
     expect(loudnessGain({}, -14)).toBeNull();
     expect(loudnessGain(null, -14)).toBeNull();
     expect(loudnessGain({ integrated_lufs: -9 }, -14)).toBeNull();
+  });
+});
+
+describe('rendition ladder in sessions (ADR-0008 amendment 2026-10-20)', () => {
+  it('reads the ladder from the version, or falls back to the single legacy rendition', () => {
+    expect(renditionsOf({ renditions_kbps: [96, 160, 256] })).toEqual([96, 160, 256]);
+    expect(renditionsOf({ integrated_lufs: -9 })).toBeNull();
+    expect(renditionsOf({ renditions_kbps: [] })).toBeNull();
+    expect(renditionsOf(null)).toBeNull();
   });
 });

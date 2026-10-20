@@ -138,7 +138,10 @@ public enum PlayTarget: Hashable, Sendable {
 public struct PlaybackSession: Codable, Hashable, Sendable {
   public struct Quality: Codable, Hashable, Sendable {
     public let codec: String
+    /// Highest rendition.
     public let bitrateKbps: Int
+    /// Bitrates the player switches between (ADR-0008 ladder); nil from older servers.
+    public let renditionsKbps: [Int]?
     public let lossless: Bool
     public let provisional: Bool
   }

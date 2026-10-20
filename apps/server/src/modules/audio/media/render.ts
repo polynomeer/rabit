@@ -1,20 +1,36 @@
-import { mkdir, readdir } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runProcess } from '../../../platform/process.js';
 import { AAC_PRIMING_SAMPLES, writeGaplessEditList } from './gapless.js';
 
 /**
- * Provisional codec ladder (ADR-0008): one AAC-LC stereo rendition with fMP4 HLS
- * segments. Numbers are placeholders pending listening tests. The sample rate
- * follows the source family (see `outputSampleRate`).
+ * Codec ladder (ADR-0008 amendment 2026-10-20, owner decision): three AAC-LC stereo
+ * renditions behind one master playlist, so players switch with the network. The
+ * low rung is AAC-LC because HE-AAC needs a non-free encoder. Bitrates stay
+ * provisional until the listening test (O-26). The sample rate follows the source
+ * family (see `outputSampleRate`).
  */
 export const LADDER = {
   codec: 'aac',
-  bitrateKbps: 160,
+  /** Listed in master-playlist order: the first is where players start. */
+  renditions: [
+    { name: 'standard', bitrateKbps: 160 },
+    { name: 'low', bitrateKbps: 96 },
+    { name: 'high', bitrateKbps: 256 },
+  ],
   channels: 2,
   segmentSeconds: 4,
   provisional: true,
 } as const;
+
+export type RenditionName = (typeof LADDER.renditions)[number]['name'];
+
+/** Bitrates of the ladder, ascending (what a session advertises). */
+export const LADDER_KBPS = LADDER.renditions.map((r) => r.bitrateKbps).sort((a, b) => a - b);
+
+/** Files a rendition directory may hold, and the master playlist (gateway whitelist). */
+export const HLS_FILE =
+  /^(master\.m3u8|((low|standard|high)\/)?(index\.m3u8|init\.mp4|seg_\d{5}\.m4s))$/;
 
 /**
  * 44.1 kHz for sources of the 44.1 kHz family (CD masters, 88.2, 176.4), 48 kHz
@@ -45,7 +61,31 @@ export async function ffmpegVersion(ffmpegPath: string): Promise<string> {
   return /ffmpeg version (\S+)/.exec(r.stdout.toString('utf8'))?.[1] ?? 'unknown';
 }
 
-/** Transcodes to HLS. Returns null when ffmpeg rejects the input (treated as permanent). */
+/** Peak and average bits per second of a rendition, from its playlist and segment sizes. */
+async function measureBandwidth(dir: string): Promise<{ peak: number; average: number }> {
+  const playlist = await readFile(join(dir, 'index.m3u8'), 'utf8');
+  let peak = 0;
+  let bits = 0;
+  let seconds = 0;
+  let duration = 0;
+  for (const line of playlist.split('\n')) {
+    const inf = /^#EXTINF:([\d.]+)/.exec(line);
+    if (inf) duration = Number(inf[1]);
+    else if (/^seg_\d{5}\.m4s$/.test(line.trim()) && duration > 0) {
+      const b = (await stat(join(dir, line.trim()))).size * 8;
+      peak = Math.max(peak, b / duration);
+      bits += b;
+      seconds += duration;
+    }
+  }
+  return { peak: Math.ceil(peak), average: Math.ceil(seconds > 0 ? bits / seconds : 0) };
+}
+
+/**
+ * Transcodes to the HLS ladder: one decode, one encode per rendition into
+ * `hls/<rendition>/`, then `hls/master.m3u8`. Returns the files relative to
+ * `hls/`. A failure means ffmpeg rejected the input (treated as permanent).
+ */
 export async function transcodeHls(
   ffmpegPath: string,
   input: string,
@@ -60,65 +100,60 @@ export async function transcodeHls(
 ): Promise<{ ok: true; output: HlsOutput } | { ok: false; timedOut: boolean; stderr: string }> {
   const dir = join(workDir, 'hls');
   const rate = outputSampleRate(opts.sampleRate);
-  await mkdir(dir, { recursive: true });
-  const timeoutMs = Math.max(120_000, Math.ceil(opts.durationMs * 4));
+  const outputs: string[] = [];
+  for (const r of LADDER.renditions) {
+    const rdir = join(dir, r.name);
+    await mkdir(rdir, { recursive: true });
+    outputs.push(
+      ...['-map', '0:a:0', '-vn', '-sn', '-dn'],
+      ...['-c:a', 'aac', '-b:a', `${r.bitrateKbps}k`],
+      ...['-ar', String(rate), '-ac', String(LADDER.channels)],
+      ...['-f', 'hls', '-hls_time', String(LADDER.segmentSeconds), '-hls_playlist_type', 'vod'],
+      ...['-hls_segment_type', 'fmp4', '-hls_fmp4_init_filename', 'init.mp4'],
+      ...['-hls_segment_filename', join(rdir, 'seg_%05d.m4s'), join(rdir, 'index.m3u8')],
+    );
+  }
+  // Decoding once and encoding three times costs about three single encodes.
+  const timeoutMs = Math.max(180_000, Math.ceil(opts.durationMs * 6));
   const res = await runProcess(
     ffmpegPath,
-    [
-      ...SAFE_INPUT,
-      '-loglevel',
-      'error',
-      '-i',
-      input,
-      '-map',
-      '0:a:0',
-      '-vn',
-      '-sn',
-      '-dn',
-      '-threads',
-      '2',
-      '-c:a',
-      'aac',
-      '-b:a',
-      `${LADDER.bitrateKbps}k`,
-      '-ar',
-      String(rate),
-      '-ac',
-      String(LADDER.channels),
-      '-f',
-      'hls',
-      '-hls_time',
-      String(LADDER.segmentSeconds),
-      '-hls_playlist_type',
-      'vod',
-      '-hls_segment_type',
-      'fmp4',
-      '-hls_fmp4_init_filename',
-      'init.mp4',
-      '-hls_segment_filename',
-      join(dir, 'seg_%05d.m4s'),
-      join(dir, 'index.m3u8'),
-    ],
+    [...SAFE_INPUT, '-loglevel', 'error', '-i', input, '-threads', '2', ...outputs],
     { timeoutMs, maxStdoutBytes: 1_000_000, ...(opts.signal ? { signal: opts.signal } : {}) },
   );
   if (res.timedOut || res.code !== 0)
     return { ok: false, timedOut: res.timedOut, stderr: res.stderr };
-  const files = (await readdir(dir))
-    .filter((f) => /^(index\.m3u8|init\.mp4|seg_\d{5}\.m4s)$/.test(f))
-    .sort();
-  if (!files.includes('index.m3u8') || !files.includes('init.mp4')) {
-    return { ok: false, timedOut: false, stderr: 'missing hls outputs' };
+
+  const files: string[] = [];
+  let gapless = true;
+  const variants: string[] = [];
+  for (const r of LADDER.renditions) {
+    const rdir = join(dir, r.name);
+    const own = (await readdir(rdir)).filter((f) => HLS_FILE.test(f)).sort();
+    if (!own.includes('index.m3u8') || !own.includes('init.mp4')) {
+      return { ok: false, timedOut: false, stderr: `missing hls outputs for ${r.name}` };
+    }
+    files.push(...own.map((f) => `${r.name}/${f}`));
+    // A layout this code does not expect (another ffmpeg version) costs gapless
+    // playback, never the rendition itself.
+    gapless &&= await writeGaplessEditList(join(rdir, 'init.mp4'), {
+      sampleRate: rate,
+      samples: Math.round((opts.samples * rate) / opts.sampleRate),
+      priming: AAC_PRIMING_SAMPLES,
+    }).then(
+      () => true,
+      () => false,
+    );
+    const bw = await measureBandwidth(rdir);
+    variants.push(
+      `#EXT-X-STREAM-INF:BANDWIDTH=${bw.peak},AVERAGE-BANDWIDTH=${bw.average},CODECS="mp4a.40.2"`,
+      `${r.name}/index.m3u8`,
+    );
   }
-  // A layout this code does not expect (another ffmpeg version) costs gapless
-  // playback, never the rendition itself.
-  const gapless = await writeGaplessEditList(join(dir, 'init.mp4'), {
-    sampleRate: rate,
-    samples: Math.round((opts.samples * rate) / opts.sampleRate),
-    priming: AAC_PRIMING_SAMPLES,
-  }).then(
-    () => true,
-    () => false,
+  await writeFile(
+    join(dir, 'master.m3u8'),
+    ['#EXTM3U', '#EXT-X-VERSION:7', '#EXT-X-INDEPENDENT-SEGMENTS', ...variants, ''].join('\n'),
   );
+  files.unshift('master.m3u8');
   return {
     ok: true,
     output: { dir, files, toolVersion: await ffmpegVersion(ffmpegPath), sampleRate: rate, gapless },

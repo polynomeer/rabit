@@ -12,7 +12,13 @@ import { PermanentJobError, type JobContext, type JobHandler } from '../../platf
 import { metrics } from '../../platform/metrics.js';
 import { BUCKETS, type Bucket } from '../../platform/storage/blob-store.js';
 import { probe, sniff } from './media/inspect.js';
-import { computeWaveform, LADDER, measureLoudness, transcodeHls } from './media/render.js';
+import {
+  computeWaveform,
+  LADDER,
+  LADDER_KBPS,
+  measureLoudness,
+  transcodeHls,
+} from './media/render.js';
 import { getSourceUnchecked, mediaBucket, originalsBucket, type SourceRow } from './sources.js';
 import { expireUploadSessions } from './uploads.js';
 
@@ -209,7 +215,7 @@ export async function processSource(
         key: `${prefix}/hls/`,
         sha256: null,
         bytes: hlsBytes.reduce((a, b) => a + b, 0),
-        codec: `${LADDER.codec}/${LADDER.bitrateKbps}k`,
+        codec: `${LADDER.codec}/${LADDER_KBPS.join(',')}k`,
         toolVersion: `ffmpeg ${hls.output.toolVersion}`,
       });
       if (waveform) {
@@ -236,6 +242,7 @@ export async function processSource(
             lossless: info.lossless,
             bits_per_sample: info.bitsPerSample,
             rendition_sample_rate: hls.output.sampleRate,
+            renditions_kbps: LADDER_KBPS,
             gapless: hls.output.gapless,
             ...(loudness
               ? { integrated_lufs: loudness.integratedLufs, true_peak_dbtp: loudness.truePeakDbtp }

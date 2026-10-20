@@ -67,6 +67,15 @@ export function loudnessGain(
   };
 }
 
+/** The single rendition of audio processed before the ladder. */
+const LEGACY_KBPS = 160;
+
+/** Bitrates of a version's ladder, or null for a single legacy rendition. */
+export function renditionsOf(technical: unknown): number[] | null {
+  const r = (technical as { renditions_kbps?: unknown } | null)?.renditions_kbps;
+  return Array.isArray(r) && r.length > 0 && r.every((n) => typeof n === 'number') ? r : null;
+}
+
 async function versionTechnical(db: DbOrTx, versionId: string): Promise<unknown> {
   const row = await db
     .selectFrom('audio_version')
@@ -102,24 +111,25 @@ async function sessionView(
     prefix: source.storage_prefix,
     exp,
   });
+  const technical = await versionTechnical(ctx.db, source.audio_version_id);
+  // Audio processed before the ladder (2026-10-20) has one rendition at the top level.
+  const ladder = renditionsOf(technical);
   return {
     session_id: s.id,
     audio_source_id: s.audio_source_id,
-    manifest_url: `${ctx.config.http.mediaPublicBaseUrl}/media/v1/${token}/index.m3u8`,
+    manifest_url: `${ctx.config.http.mediaPublicBaseUrl}/media/v1/${token}/${ladder ? 'master' : 'index'}.m3u8`,
     expires_at: s.expires_at.toISOString(),
     media_token_expires_at: new Date(exp * 1000).toISOString(),
     source: source.origin,
     quality: {
       codec: LADDER.codec,
-      bitrate_kbps: LADDER.bitrateKbps,
+      bitrate_kbps: Math.max(...(ladder ?? [LEGACY_KBPS])),
+      renditions_kbps: ladder ?? [LEGACY_KBPS],
       lossless: false,
       provisional: LADDER.provisional,
     },
     capabilities: { seek: true, offline: false, stems: false, transform: false },
-    loudness: loudnessGain(
-      await versionTechnical(ctx.db, source.audio_version_id),
-      ctx.config.playback.loudnessTargetLufs,
-    ),
+    loudness: loudnessGain(technical, ctx.config.playback.loudnessTargetLufs),
   };
 }
 

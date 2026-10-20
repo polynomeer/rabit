@@ -37,7 +37,7 @@
 | O-23 | Legal review: storing users' copies of third-party audio, removal obligations at contract end | G-LOCKER, RQ-01 | Removal API and restore reconcile exist (R10, R9) |
 | O-24 | Privacy notice, retention periods, cross-border rules for analysis | Q13, DM-02 | Data stays in Seoul (ADR-0012) |
 | O-25 | Supported devices and offline scope | Q06 | Web and iOS 26+ (ADR-0023); Android, desktop and offline open |
-| O-26 | Codec ladder after a listening test | R20, ADR-0008 | Provisional AAC 160 kbps |
+| O-26 | Codec ladder bitrates after a listening test | R20, ADR-0008 | Ladder decided 2026-10-20 (AAC-LC 96 / 160 / 256 kbps, adaptive); the bitrates stay provisional until the test |
 | O-27 | Operations staffing, on-call rotation, rights-holder response deadlines | Q18 | Runbooks and game day exist (R17) |
 | O-28 | Budget ceilings (free usage, minimum guarantees, runway) | Q12 | Cost model in the hosting comparison and ADR-0012 |
 | O-29 | Brand and visual design | — | Web client uses a neutral provisional style |

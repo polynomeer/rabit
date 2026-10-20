@@ -1,13 +1,12 @@
 import cors from '@fastify/cors';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { MediaTokenCodec } from '../platform/media-token.js';
 import { createHttpApp } from '../platform/http/app.js';
 import { metrics } from '../platform/metrics.js';
 import { BUCKETS } from '../platform/storage/blob-store.js';
+import { HLS_FILE } from '../modules/audio/index.js';
 import { mediaAccessAllowed } from '../modules/playback/index.js';
 import { readinessChecks, type AppContext } from './context.js';
-
-const FILE = /^(index\.m3u8|init\.mp4|seg_\d{5}\.m4s)$/;
 
 /**
  * Data-plane gateway (ADR-0008). Verifies the HMAC media token and the live
@@ -28,14 +27,17 @@ export async function buildMediaApp(ctx: AppContext): Promise<FastifyInstance> {
   });
   const codec = new MediaTokenCodec(ctx.config.secrets.mediaToken);
 
-  app.get('/media/v1/:token/:file', async (req, reply) => {
-    const { token, file } = req.params as { token: string; file: string };
+  // `:file` or `:rendition/:file` (ADR-0008 ladder); HLS_FILE whitelists both.
+  const serve = async (req: FastifyRequest, reply: FastifyReply) => {
+    const p = req.params as { token: string; rendition?: string; file: string };
+    const { token } = p;
+    const file = p.rendition ? `${p.rendition}/${p.file}` : p.file;
     const kind = file.endsWith('.m3u8') ? 'manifest' : 'segment';
     const deny = (status: number, outcome: string) => {
       metrics.mediaRequests.inc({ kind, outcome });
       return reply.status(status).header('cache-control', 'no-store').send();
     };
-    if (!FILE.test(file)) return deny(404, 'bad_path');
+    if (!HLS_FILE.test(file)) return deny(404, 'bad_path');
     const claims = codec.verify(token);
     if (!claims) return deny(403, 'bad_token');
     if (!(await mediaAccessAllowed(ctx.db, claims))) return deny(403, 'session_inactive');
@@ -51,6 +53,8 @@ export async function buildMediaApp(ctx: AppContext): Promise<FastifyInstance> {
       .header('content-length', String(obj.bytes))
       .header('cache-control', kind === 'manifest' ? 'no-store' : `private, max-age=${remaining}`)
       .send(obj.body);
-  });
+  };
+  app.get('/media/v1/:token/:file', serve);
+  app.get('/media/v1/:token/:rendition/:file', serve);
   return app;
 }

@@ -22,7 +22,7 @@ export { storageUsage } from './uploads.js';
 export { processSource, deleteSourceNow } from './jobs.js';
 export { createCatalogSource, markSourceFailed, resetSourceForRetry } from './catalog-sources.js';
 export type { RecordingExists } from './audio-logs.js';
-export { LADDER } from './media/render.js';
+export { HLS_FILE, LADDER } from './media/render.js';
 
 /** Account deletion: tombstone and delete every source in the workspace (idempotent). */
 export const deleteAccountAudio: AccountDataDeleter = async (ctx, account) => {
