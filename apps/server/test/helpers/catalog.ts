@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { ingestCatalog, type CatalogManifest } from '../../src/modules/catalog/index.js';
 import { ulid } from '../../src/platform/ids.js';
 import { fixtures } from './audio-fixtures.js';
@@ -126,7 +129,12 @@ export async function seedCatalog(h: Harness, opts: { grant?: boolean } = {}) {
     flac: fixtures.flac,
     mp3: fixtures.mp3,
   };
-  const result = await ingestCatalog(h.ctx, manifest, (ref) => Promise.resolve(audio[ref]!()));
+  // The FLAC master comes from a file, as the ingest CLI passes it (streamed upload).
+  const flacPath = join(await mkdtemp(join(tmpdir(), 'rabit-ingest-')), 'master.flac');
+  await writeFile(flacPath, fixtures.flac());
+  const result = await ingestCatalog(h.ctx, manifest, (ref) =>
+    Promise.resolve(ref === 'flac' ? { path: flacPath } : audio[ref]!()),
+  );
   await h.worker.drain();
   return result;
 }

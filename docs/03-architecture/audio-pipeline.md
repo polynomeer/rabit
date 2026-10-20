@@ -16,7 +16,7 @@ flowchart LR
     P --> ST[stream: playback session → media gateway]
 ```
 
-Catalog ingest uses the same validate/transcode/analyze steps with catalog buckets and the catalog workspace, triggered by the ingest CLI.
+Catalog ingest uses the same validate/transcode/analyze steps with catalog buckets and the catalog workspace, triggered by the ingest CLI. The CLI hashes each master and streams it from disk to storage one at a time, so memory use does not grow with the delivery; a master may be at most 5 GiB (single-request upload and server-side copy limits).
 
 ## 2. Step details
 

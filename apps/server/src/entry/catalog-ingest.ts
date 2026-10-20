@@ -22,7 +22,10 @@ try {
   const manifestPath = resolve(path);
   const manifest = manifestSchema.parse(JSON.parse(await readFile(manifestPath, 'utf8')));
   const base = dirname(manifestPath);
-  const result = await ingestCatalog(ctx, manifest, (ref) => readFile(resolve(base, ref)));
+  // Masters are streamed from disk, never read whole into memory.
+  const result = await ingestCatalog(ctx, manifest, (ref) =>
+    Promise.resolve({ path: resolve(base, ref) }),
+  );
   log.info(
     { entities: Object.keys(result.ids).length, audio: Object.keys(result.sources).length },
     'catalog ingested; processing queued',
