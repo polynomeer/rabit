@@ -9,6 +9,7 @@ struct AccountView: View {
   @Environment(AppModel.self) private var model
   @Environment(\.dismiss) private var dismiss
   @AppStorage(ThemeChoice.storageKey) private var theme: ThemeChoice = .system
+  @AppStorage(Normalization.storageKey) private var normalize = true
   @State private var me: Me?
   @State private var subscription: Subscription?
   @State private var entitlements: [Entitlement] = []
@@ -50,6 +51,14 @@ struct AccountView: View {
           }
           .pickerStyle(.segmented)
           .labelsHidden()
+        }
+        Section {
+          Toggle("곡마다 다른 음량을 비슷하게 맞춰요", isOn: $normalize)
+            .onChange(of: normalize) { model.player.applyNormalization() }
+        } header: {
+          Text("음량 평준화")
+        } footer: {
+          Text("이 기기에만 저장돼요. 큰 곡은 줄이고, 작은 곡은 원래 음량으로 재생해요.")
         }
         Section("서버") {
           LabeledContent("API", value: model.config.apiBaseURL.absoluteString)

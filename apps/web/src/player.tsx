@@ -13,6 +13,7 @@ import {
 import { api, ApiError } from './api';
 import { Cover, Icon, Mark } from './brand';
 import { t, type MessageKey } from './i18n';
+import { normalizeEnabled, onNormalizeChange, volumeFor } from './normalize';
 import { nowPlayingHref, useRoute } from './route';
 
 /** A queue entry references an id — never a file URL (PB Phase 13). */
@@ -60,6 +61,7 @@ interface Session {
   expires_at: string;
   quality: { codec: string; bitrate_kbps: number; lossless: boolean; provisional: boolean };
   source: string;
+  loudness: { gain_db: number } | null;
 }
 
 interface PlayerApi {
@@ -156,6 +158,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setSession(data);
       const el = audio.current;
       if (!el) return;
+      el.volume = volumeFor(data.loudness?.gain_db, normalizeEnabled());
       hls.current?.destroy();
       // hls.js is loaded on first playback to keep the initial bundle small.
       const { default: HlsLib } = await import('hls.js');
@@ -177,6 +180,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setMessage(t('player.cannotPlay', { reason: key ? t(key) : (e as Error).message }));
     }
   }, []);
+
+  // Normalisation can be switched under Account while a track plays.
+  useEffect(
+    () =>
+      onNormalizeChange(() => {
+        if (audio.current)
+          audio.current.volume = volumeFor(session?.loudness?.gain_db, normalizeEnabled());
+      }),
+    [session],
+  );
 
   // Refresh the session (and media token) while playing; the server re-checks rights.
   useEffect(() => {

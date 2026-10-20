@@ -68,13 +68,15 @@ let base = URL(string: "http://localhost:8080")!
     {"session_id":"pbs_1","audio_source_id":"aus_1","manifest_url":"http://localhost:8081/media/v1/abc.def/index.m3u8",
      "expires_at":"2026-10-15T10:00:00.000Z","media_token_expires_at":"2026-10-15T09:56:00Z","source":"catalog",
      "quality":{"codec":"aac","bitrate_kbps":160,"lossless":false,"provisional":true},
-     "capabilities":{"seek":true,"offline":false,"stems":false,"transform":false}}
+     "capabilities":{"seek":true,"offline":false,"stems":false,"transform":false},
+     "loudness":{"integrated_lufs":-8,"true_peak_dbtp":0.5,"target_lufs":-14,"gain_db":-6}}
     """
   let t = StubTransport([(201, session)])
   let api = APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)
   let s = try await PlaybackService(api: api, deviceId: "dev-1").start(.recording(RecordingID("rec_1")))
   #expect(s.sessionId == PlaybackSessionID("pbs_1"))
   #expect(s.quality.provisional)
+  #expect(s.loudness?.gainDb == -6)
   let sent = try JSONSerialization.jsonObject(with: t.requests[0].httpBody!) as! [String: String]
   #expect(sent == ["recording_id": "rec_1", "device_id": "dev-1"])
 }
@@ -531,4 +533,11 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   #expect(basis == [.verifiedFact, .unknown])
   let kinds = try decoder.decode([SearchResult.Kind].self, from: Data(#"["release","podcast"]"#.utf8))
   #expect(kinds == [.release, .unknown])
+}
+
+@Test func normalizationOnlyAttenuates() {
+  #expect(Normalization.volume(gainDb: -6, enabled: true) == Float(pow(10, -6.0 / 20)))
+  #expect(Normalization.volume(gainDb: 3, enabled: true) == 1)
+  #expect(Normalization.volume(gainDb: -6, enabled: false) == 1)
+  #expect(Normalization.volume(gainDb: nil, enabled: true) == 1)
 }

@@ -155,6 +155,10 @@ export const ko = {
   'account.theme.dark': '다크',
   'account.theme.light': '라이트',
   'account.theme.note': '이 기기에만 저장돼요.',
+  'account.normalize.heading': '음량 평준화',
+  'account.normalize.label': '곡마다 다른 음량을 비슷하게 맞춰요',
+  'account.normalize.note':
+    '이 기기에만 저장돼요. 큰 곡은 줄이고, 작은 곡은 원래 음량으로 재생해요.',
   'account.subscription': '구독',
   'account.licenseCountry': '라이선스 지역',
   'account.licenseCountry.unset': '미설정',

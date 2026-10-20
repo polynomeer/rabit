@@ -35,6 +35,11 @@ Playback must be authorized at access time, revocation must stop new and active 
 - **Gapless was not delivered.** The statement above ("verified by test fixture") had no fixture behind it: ffmpeg's HLS muxer writes an empty edit list into `init.mp4`, so every rendition played 1,024 samples of encoder priming at the start and up to one frame of padding at the end. The worker now rewrites the edit list in place (movie timescale = sample rate, media time = priming, duration = source samples); `test/audio-render.test.ts` checks the boxes and that the decoded rendition is in phase with the source. Whether a source got the edit list is recorded as `gapless` in the version's technical data; a layout the patcher does not recognise costs gapless playback, not the rendition.
 - Players that honour edit lists (AVFoundation) trim both ends. Seamless joins between tracks also need the next track loaded before the current one ends (client queue, separate change).
 
+## Amendment 2026-10-20: loudness normalisation
+- The worker already measures integrated loudness and true peak (EBU R128). A playback session now returns `loudness.gain_db` = min(target − integrated, −1 dBTP − true peak), so a quiet track is raised only as far as its peak allows. The target is `PLAYBACK_LOUDNESS_TARGET_LUFS`, default −14 LUFS (the common streaming reference).
+- Clients apply the gain unless the listener turns normalisation off (per device, on by default). The web and iOS players can only lower the volume (`volume` ≤ 1), so positive gains are ignored for now; amplification needs a Web Audio gain node or an AVAudioMix tap.
+- Track gain only: an album played in order is levelled per track. Album gain needs the release's tracks measured together (open).
+
 ## Consequences
 The media gateway is on the data path in MVP; capacity scales with egress. Replacing it with a CDN changes deployment, not the API.
 

@@ -127,6 +127,8 @@ describe('OpenAPI contract (ADR-0010)', () => {
       payload: { recording_id: ids['r1'], device_id: 'device-test-1' },
     });
     validate('post', '/v1/playback-sessions', 201, play.json());
+    // The fixture tone is measured, so the session carries its normalisation gain.
+    expect(play.json().loudness).toMatchObject({ target_lufs: -14 });
 
     const pl = await h.api.inject({
       method: 'POST',

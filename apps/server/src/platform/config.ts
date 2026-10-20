@@ -106,6 +106,11 @@ const envSchema = z
     /** Monthly plan price in KRW with VAT. A placeholder until pricing is decided (Q03, Q04). */
     SUBSCRIPTION_PRICE_MINOR: positiveInt.default(10_900),
     /**
+     * Loudness that playback normalises to (ADR-0008 amendment 2026-10-20). −14 LUFS
+     * is the common streaming reference; clients apply the per-track gain.
+     */
+    PLAYBACK_LOUDNESS_TARGET_LUFS: z.coerce.number().min(-30).max(-5).default(-14),
+    /**
      * The Listen subscription as an App Store in-app purchase (ADR-0024). `off`
      * disables it; `Xcode` and `LocalTesting` (unsigned StoreKit testing) never in
      * production.
@@ -302,6 +307,7 @@ export interface Config {
   rateLimit: { enabled: boolean; store: 'postgres' | 'memory' };
   payments: { provider: 'none' } | { provider: 'mock'; webhookSecret: string };
   subscription: { plan: string; priceMinor: number };
+  playback: { loudnessTargetLufs: number };
   appStore: AppStoreConfig | null;
   worker: {
     concurrency: number;
@@ -406,6 +412,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
         ? { provider: 'mock', webhookSecret: e.PAYMENTS_MOCK_WEBHOOK_SECRET ?? '' }
         : { provider: 'none' },
     subscription: { plan: 'listen_monthly', priceMinor: e.SUBSCRIPTION_PRICE_MINOR },
+    playback: { loudnessTargetLufs: e.PLAYBACK_LOUDNESS_TARGET_LUFS },
     appStore:
       e.APP_STORE_ENVIRONMENT === 'off'
         ? null
