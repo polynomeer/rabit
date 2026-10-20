@@ -188,6 +188,43 @@ export interface PlaybackSessionTable {
   entitlement_version: number | null;
   refreshed_count: Generated<number>;
   revoked_reason: string | null;
+  /** Catalog sessions: the account's territory and the access granted (ADR-0025). */
+  territory: string | null;
+  access_origin: 'subscription' | 'purchase' | 'grant' | null;
+}
+
+export interface UsageStatementTable {
+  month: ColumnType<string, string, never>;
+  policy: string;
+  streams: number;
+  line_count: number;
+  closed_at: CreatedAt;
+}
+
+export interface UsageStatementLineTable {
+  month: string;
+  recording_id: string;
+  isrc: string | null;
+  rights_grant_id: string;
+  rights_holder: string;
+  contract_ref: string;
+  territory: string;
+  access_origin: 'subscription' | 'purchase' | 'grant';
+  streams: number;
+  listeners: number;
+  played_ms: number;
+}
+
+export interface UsageCarryoverTable {
+  id: Generated<number>;
+  month: string;
+  recording_id: string;
+  rights_grant_id: string;
+  territory: string;
+  access_origin: 'subscription' | 'purchase' | 'grant';
+  streams: number;
+  played_ms: number;
+  created_at: CreatedAt;
 }
 
 export interface AudioLogTable {
@@ -761,6 +798,9 @@ export interface Database {
   audio_asset: AudioAssetTable;
   upload_session: UploadSessionTable;
   playback_session: PlaybackSessionTable;
+  usage_statement: UsageStatementTable;
+  usage_statement_line: UsageStatementLineTable;
+  usage_carryover: UsageCarryoverTable;
   app_user: AppUserTable;
   workspace: WorkspaceTable;
   membership: MembershipTable;

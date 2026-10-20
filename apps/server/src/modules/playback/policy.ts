@@ -29,6 +29,8 @@ export type CatalogDecision =
       allowed: true;
       rightsGrantId: string;
       rightsVersion: number;
+      /** The account's licence territory the grant was matched for. */
+      territory: string;
       entitlementId: string;
       entitlementVersion: number;
       entitlementOrigin: 'subscription' | 'purchase' | 'grant';
@@ -60,7 +62,7 @@ export type PolicyDecision =
   | {
       allow: true;
       source: SourceRow;
-      rights: { grantId: string; version: number } | null;
+      rights: { grantId: string; version: number; territory: string } | null;
       entitlement: {
         id: string;
         version: number;
@@ -168,7 +170,7 @@ export async function evaluatePolicies(
           {
             allow: true,
             source,
-            rights: { grantId: a.rightsGrantId, version: a.rightsVersion },
+            rights: { grantId: a.rightsGrantId, version: a.rightsVersion, territory: a.territory },
             entitlement: {
               id: a.entitlementId,
               version: a.entitlementVersion,

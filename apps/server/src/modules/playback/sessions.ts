@@ -157,6 +157,8 @@ export async function createPlaybackSession(
       entitlement_id: decision.entitlement?.id ?? null,
       entitlement_version: decision.entitlement?.version ?? null,
       revoked_reason: null,
+      territory: decision.rights?.territory ?? null,
+      access_origin: decision.entitlement?.origin ?? null,
     })
     .returning(['id', 'audio_source_id', 'expires_at'])
     .executeTakeFirstOrThrow();
@@ -202,6 +204,8 @@ export async function refreshPlaybackSession(
       rights_version: decision.rights?.version ?? null,
       entitlement_id: decision.entitlement?.id ?? null,
       entitlement_version: decision.entitlement?.version ?? null,
+      territory: decision.rights?.territory ?? null,
+      access_origin: decision.entitlement?.origin ?? null,
     }))
     .where('id', '=', s.id)
     .where('status', '=', 'active')

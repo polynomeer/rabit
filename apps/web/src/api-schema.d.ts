@@ -1251,6 +1251,42 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/ops/usage-statements': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Closed monthly usage statements for rights holders (ADR-0025), newest first. A month (Asia/Seoul) closes three days after it ends and never changes afterwards. */
+    get: operations['opsListUsageStatements'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/ops/usage-statements/{month}/lines': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        month: string;
+      };
+      cookie?: never;
+    };
+    /** @description One closed month per recording, rights grant, territory and access (subscription, purchase, grant). No user data: `listeners` is a count. `format=csv` returns RFC 4180 CSV for the rights holders' reporting. Every export is audited. */
+    get: operations['opsUsageStatementLines'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/ops/jobs': {
     parameters: {
       query?: never;
@@ -4892,6 +4928,78 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Me'];
+        };
+      };
+      403: components['responses']['Error'];
+      404: components['responses']['Error'];
+    };
+  };
+  opsListUsageStatements: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Statements */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              month: string;
+              /** @description Counting rules, e.g. usage/v1 (30 s, or half of a shorter track; one stream per session) */
+              policy: string;
+              streams: number;
+              line_count: number;
+              closed_at: components['schemas']['Timestamp'];
+            }[];
+          };
+        };
+      };
+      403: components['responses']['Error'];
+    };
+  };
+  opsUsageStatementLines: {
+    parameters: {
+      query?: {
+        format?: 'json' | 'csv';
+      };
+      header?: never;
+      path: {
+        month: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Statement lines */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            month: string;
+            items: {
+              recording_id: components['schemas']['Id'];
+              isrc: string | null;
+              rights_grant_id: components['schemas']['Id'];
+              rights_holder: string;
+              contract_ref: string;
+              territory: string;
+              /** @enum {string} */
+              access_origin: 'subscription' | 'purchase' | 'grant';
+              streams: number;
+              listeners: number;
+              played_ms: number;
+            }[];
+          };
+          'text/csv': string;
         };
       };
       403: components['responses']['Error'];

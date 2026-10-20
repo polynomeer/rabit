@@ -6,7 +6,10 @@ import { routeLimit } from '../../platform/http/app.js';
 import { withIdempotency } from '../../platform/http/idempotency.js';
 import { requirePrincipal } from '../../platform/http/principal.js';
 import { idempotencyKeyFrom, idOf, isoTimestamp, parse } from '../../platform/http/validation.js';
+import { audit } from '../../platform/audit.js';
+import { requireOperator } from '../../platform/http/principal.js';
 import { recordListeningEvents } from './listening.js';
+import { listUsageStatements, usageCsv, usageStatementLines } from './usage.js';
 import { createPlaybackSession, refreshPlaybackSession, type PlaybackDeps } from './sessions.js';
 
 const createBody = z
@@ -72,6 +75,44 @@ export function playbackRoutes(deps: PlaybackDeps) {
         req.body,
       );
       return reply.status(202).send(await recordListeningEvents(ctx.db, p, body.events));
+    });
+
+    // Monthly usage statements for rights holders (ADR-0025): operators only.
+    app.get('/v1/ops/usage-statements', async (req) => {
+      requireOperator(req.principal);
+      return { items: await listUsageStatements(ctx.db) };
+    });
+
+    app.get('/v1/ops/usage-statements/:month/lines', async (req, reply) => {
+      const op = requireOperator(req.principal);
+      const { month } = parse(
+        z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/) }),
+        req.params,
+      );
+      const { format } = parse(
+        z.object({ format: z.enum(['json', 'csv']).default('json') }),
+        req.query,
+      );
+      const statements = await listUsageStatements(ctx.db);
+      if (!statements.some((s) => s.month === month)) throw errors.notFound();
+      const lines = await usageStatementLines(ctx.db, month);
+      await audit(ctx.db, {
+        actorType: 'operator',
+        actorId: op.userId,
+        action: 'usage_statement.exported',
+        subjectType: 'usage_statement',
+        subjectId: month,
+        reason: null,
+        correlationId: req.id,
+        details: { format, lines: lines.length },
+      });
+      if (format === 'csv') {
+        return reply
+          .header('content-type', 'text/csv; charset=utf-8')
+          .header('content-disposition', `attachment; filename="rabit-usage-${month}.csv"`)
+          .send(usageCsv(month, lines));
+      }
+      return { month, items: lines };
     });
   };
 }

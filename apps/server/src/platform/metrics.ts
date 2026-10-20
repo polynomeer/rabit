@@ -48,6 +48,11 @@ export const metrics = {
     labelNames: ['origin', 'decision'] as const,
     registers: [registry],
   }),
+  usageStreams: new Counter({
+    name: 'rabit_usage_streams_closed_total',
+    help: 'Qualifying streams written to closed monthly usage statements (ADR-0025)',
+    registers: [registry],
+  }),
   mediaRequests: new Counter({
     name: 'rabit_media_requests_total',
     help: 'Media gateway requests by outcome',

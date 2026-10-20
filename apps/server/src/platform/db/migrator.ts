@@ -18,6 +18,7 @@ import * as m0015 from './migrations/0015_subscription_billing.js';
 import * as m0016 from './migrations/0016_app_store.js';
 import * as m0017 from './migrations/0017_commerce_integrity.js';
 import * as m0018 from './migrations/0018_retention_indexes.js';
+import * as m0019 from './migrations/0019_usage_statements.js';
 
 // Migrations operate on the raw schema, independent of the current table types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,6 +47,7 @@ export const migrations: Record<string, Migration> = {
   '0016_app_store': m0016,
   '0017_commerce_integrity': m0017,
   '0018_retention_indexes': m0018,
+  '0019_usage_statements': m0019,
 };
 
 export function createMigrator(db: AnyDb): Migrator {

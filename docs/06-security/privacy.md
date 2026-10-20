@@ -15,7 +15,8 @@
 | Physical Collection (format, title, artist, barcode, catalog no., edition, notes) | Record of what the user owns (COL-001) | `physical_item` | until deleted or account deletion | edit, delete, export; support sees counts by format/state only |
 | Upload declared filename | Default title | `audio_source.title` only | until deleted | edit |
 | Playback sessions | Access control | `playback_session` | until their listening events are purged (90 days), then deleted | revoked on account deletion |
-| Listening events | Popularity (Deep Cut), future settlement | `listening_event` | 90 days raw | deleted with the account; included in export (P1) |
+| Listening events | Popularity (Deep Cut), usage statements (ADR-0025) | `listening_event` | 90 days raw, and never before their month's usage statement is closed | deleted with the account (its qualifying streams of open months are kept first as anonymous carry-over); included in export (P1) |
+| Usage statements | Reports to rights holders (ADR-0025) | `usage_statement`, `usage_statement_line`, `usage_carryover` | at least 5 years; carry-over until its month closes | no user data (counts only) |
 | Library, playlists, DIG sessions | User features | DB | until deleted | delete, export |
 | Reports | Trust | `report` | Legal | — |
 | Audit log | Accountability | `audit_log` | Legal | — |
