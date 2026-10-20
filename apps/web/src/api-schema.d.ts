@@ -5094,7 +5094,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Master playlist (ladder) */
+      /** @description Master playlist (ladder), or the playlist and segments of audio processed before the ladder */
       200: {
         headers: {
           [name: string]: unknown;

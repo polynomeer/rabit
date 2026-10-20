@@ -1195,7 +1195,7 @@ paths:
         - { name: token, in: path, required: true, schema: { type: string } }
         - { name: file, in: path, required: true, schema: { type: string, pattern: '^(master\\.m3u8|index\\.m3u8|init\\.mp4|seg_\\d{5}\\.m4s)$' } }
       responses:
-        '200': { description: Master playlist (ladder), or the playlist and segments of audio processed before the ladder }
+        '200': { description: 'Master playlist (ladder), or the playlist and segments of audio processed before the ladder' }
         '403': { description: Token invalid/expired or session revoked }
         '404': { description: Unknown path }
 
