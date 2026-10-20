@@ -567,9 +567,11 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   q.waiting(now: t0 + .milliseconds(3_300))  // a seek is not a stall
   q.playing(now: t0 + .milliseconds(3_500))
   q.paused(now: t0 + .milliseconds(4_500))
-  let r = try #require(q.report(now: t0 + .milliseconds(9_000)))
+  let first = q.report(now: t0 + .milliseconds(9_000))
+  let r = try #require(first)
   #expect(r == QualityReport(startupMs: 700, playedMs: 3_000, stallCount: 1, stallMs: 500, error: nil))
-  #expect(q.report() == nil)
+  let again = q.report()
+  #expect(again == nil)
 }
 
 @Test func qualityReportSendsEveryKeyEvenWhenEmpty() throws {
