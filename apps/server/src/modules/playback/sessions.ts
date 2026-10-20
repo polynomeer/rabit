@@ -39,16 +39,57 @@ export function denialError(reason: DenyReason) {
   }
 }
 
+/** Highest true peak a gain may lift a track to: 1 dB below full scale. */
+export const PEAK_CEILING_DBTP = -1;
+
+/**
+ * Per-track gain to the target loudness (ADR-0008 amendment 2026-10-20). A quiet
+ * track is raised only as far as its true peak allows, so normalisation never
+ * clips. Null when loudness was not measured (analysis never blocks playback).
+ */
+export function loudnessGain(
+  technical: unknown,
+  targetLufs: number,
+): {
+  integrated_lufs: number;
+  true_peak_dbtp: number;
+  target_lufs: number;
+  gain_db: number;
+} | null {
+  const t = (technical ?? {}) as { integrated_lufs?: unknown; true_peak_dbtp?: unknown };
+  if (typeof t.integrated_lufs !== 'number' || typeof t.true_peak_dbtp !== 'number') return null;
+  const gain = Math.min(targetLufs - t.integrated_lufs, PEAK_CEILING_DBTP - t.true_peak_dbtp);
+  return {
+    integrated_lufs: t.integrated_lufs,
+    true_peak_dbtp: t.true_peak_dbtp,
+    target_lufs: targetLufs,
+    gain_db: Math.round(gain * 10) / 10,
+  };
+}
+
+async function versionTechnical(db: DbOrTx, versionId: string): Promise<unknown> {
+  const row = await db
+    .selectFrom('audio_version')
+    .select('technical')
+    .where('id', '=', versionId)
+    .executeTakeFirst();
+  return row?.technical ?? null;
+}
+
 interface SessionRow {
   id: string;
   audio_source_id: string;
   expires_at: Date;
 }
 
-function sessionView(
+async function sessionView(
   ctx: AppContext,
   s: SessionRow,
-  source: { origin: 'catalog' | 'private_upload' | 'audio_log'; storage_prefix: string },
+  source: {
+    origin: 'catalog' | 'private_upload' | 'audio_log';
+    storage_prefix: string;
+    audio_version_id: string;
+  },
 ) {
   const codec = new MediaTokenCodec(ctx.config.secrets.mediaToken);
   const exp = Math.min(
@@ -75,6 +116,10 @@ function sessionView(
       provisional: LADDER.provisional,
     },
     capabilities: { seek: true, offline: false, stems: false, transform: false },
+    loudness: loudnessGain(
+      await versionTechnical(ctx.db, source.audio_version_id),
+      ctx.config.playback.loudnessTargetLufs,
+    ),
   };
 }
 

@@ -1687,6 +1687,13 @@ export interface components {
         stems: boolean;
         transform: boolean;
       };
+      /** @description Loudness normalisation (ADR-0008 amendment 2026-10-20). Clients multiply the output by 10^(gain_db/20) unless the listener turned normalisation off; a positive gain never lifts the true peak above −1 dBTP. Null when the audio was not measured. */
+      loudness: null | {
+        integrated_lufs: number;
+        true_peak_dbtp: number;
+        target_lufs: number;
+        gain_db: number;
+      };
     };
     ListeningEvent: {
       /** Format: uuid */

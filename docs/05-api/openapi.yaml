@@ -1517,7 +1517,7 @@ components:
         mode: { type: string, enum: [original], default: original }
     PlaybackSession:
       type: object
-      required: [session_id, audio_source_id, manifest_url, expires_at, media_token_expires_at, quality, capabilities, source]
+      required: [session_id, audio_source_id, manifest_url, expires_at, media_token_expires_at, quality, capabilities, source, loudness]
       properties:
         session_id: { $ref: '#/components/schemas/Id' }
         audio_source_id: { $ref: '#/components/schemas/Id' }
@@ -1541,6 +1541,21 @@ components:
             offline: { type: boolean }
             stems: { type: boolean }
             transform: { type: boolean }
+        loudness:
+          description: >-
+            Loudness normalisation (ADR-0008 amendment 2026-10-20). Clients multiply the
+            output by 10^(gain_db/20) unless the listener turned normalisation off; a
+            positive gain never lifts the true peak above −1 dBTP. Null when the audio
+            was not measured.
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [integrated_lufs, true_peak_dbtp, target_lufs, gain_db]
+              properties:
+                integrated_lufs: { type: number }
+                true_peak_dbtp: { type: number }
+                target_lufs: { type: number }
+                gain_db: { type: number }
     ListeningEvent:
       type: object
       additionalProperties: false

@@ -149,6 +149,31 @@ public struct PlaybackSession: Codable, Hashable, Sendable {
   public let mediaTokenExpiresAt: Date
   public let source: String
   public let quality: Quality
+  /// Gain to the target loudness (ADR-0008 amendment 2026-10-20); nil when not measured.
+  public let loudness: Loudness?
+
+  public struct Loudness: Codable, Hashable, Sendable {
+    public let integratedLufs: Double
+    public let truePeakDbtp: Double
+    public let targetLufs: Double
+    public let gainDb: Double
+  }
+}
+
+/// Loudness normalisation on this device: on by default (ADR-0008 amendment 2026-10-20).
+public enum Normalization {
+  public static let storageKey = "rabit.normalize"
+
+  public static var isEnabled: Bool {
+    UserDefaults.standard.object(forKey: storageKey) as? Bool ?? true
+  }
+
+  /// Player volume for a track gain. AVPlayer cannot amplify (volume ≤ 1), so quiet
+  /// tracks play as mastered and loud ones are turned down.
+  public static func volume(gainDb: Double?, enabled: Bool) -> Float {
+    guard enabled, let gainDb else { return 1 }
+    return Float(min(1, pow(10, gainDb / 20)))
+  }
 }
 
 /// One listening event (PLY usage reporting); sent in batches.

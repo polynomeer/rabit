@@ -91,6 +91,11 @@ final class PlayerController {
     publishNowPlaying()
   }
 
+  /// Re-applies the loudness preference to the playing track (Account toggle).
+  func applyNormalization() {
+    player.volume = Normalization.volume(gainDb: session?.loudness?.gainDb, enabled: Normalization.isEnabled)
+  }
+
   func stop() {
     endSession(reporting: .paused)
     player.replaceCurrentItem(with: nil)
@@ -128,6 +133,7 @@ final class PlayerController {
       self.loader = loader
       session = s
       quality = s.quality
+      player.volume = Normalization.volume(gainDb: s.loudness?.gainDb, enabled: Normalization.isEnabled)
       log = ListeningLog(session: s.sessionId)
       observeEnd(of: item)
       activateAudioSession()

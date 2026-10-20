@@ -15,6 +15,7 @@ import { usePlayer, type QueueEntry } from './player';
 import { Cover, Icon, Mark } from './brand';
 import { Orders, SubscriptionPanel } from './purchase';
 import { setTheme, storedTheme, THEMES, type Theme } from './theme';
+import { normalizeEnabled, setNormalizeEnabled } from './normalize';
 import { entityHref, navigate, searchHref } from './route';
 
 export function Status({ p }: { p: Playability }) {
@@ -688,6 +689,7 @@ export function Account() {
         </div>
       ) : null}
       <ThemeChoice />
+      <NormalizeChoice />
       <Entitlements />
       <SubscriptionPanel />
       <Orders />
@@ -763,6 +765,28 @@ function ThemeChoice() {
         ))}
       </fieldset>
       <p className="small muted">{t('account.theme.note')}</p>
+    </section>
+  );
+}
+
+/** Loudness normalisation on this device (ADR-0008 amendment 2026-10-20). */
+function NormalizeChoice() {
+  const [on, setOn] = useState(normalizeEnabled);
+  return (
+    <section className="card" aria-labelledby="normalize-h">
+      <h3 id="normalize-h">{t('account.normalize.heading')}</h3>
+      <label>
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => {
+            setOn(e.target.checked);
+            setNormalizeEnabled(e.target.checked);
+          }}
+        />{' '}
+        {t('account.normalize.label')}
+      </label>
+      <p className="small muted">{t('account.normalize.note')}</p>
     </section>
   );
 }
