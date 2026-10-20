@@ -54,6 +54,11 @@ mock_provider "aws" {
       arn = "arn:aws:secretsmanager:ap-northeast-2:111122223333:secret:mock"
     }
   }
+  mock_resource "aws_appautoscaling_policy" {
+    defaults = {
+      arn = "arn:aws:autoscaling:ap-northeast-2:111122223333:scalingPolicy:mock:resource/ecs/service/mock/transcoder:policyName/mock"
+    }
+  }
   mock_resource "aws_ecs_cluster" {
     defaults = {
       arn = "arn:aws:ecs:ap-northeast-2:111122223333:cluster/mock"
@@ -177,7 +182,16 @@ run "worker_is_isolated" {
     error_message = "The worker must run in the isolated subnets."
   }
   assert {
-    condition     = alltrue([for s in aws_ecs_service.role : s.network_configuration[0].assign_public_ip == false])
+    condition     = toset(aws_ecs_service.transcoder.network_configuration[0].subnets) == toset(aws_subnet.isolated[*].id)
+    error_message = "The transcoder decodes untrusted media and must run in the isolated subnets (ADR-0007)."
+  }
+  assert {
+    condition     = aws_ecs_service.transcoder.network_configuration[0].security_groups == toset([aws_security_group.worker.id])
+    error_message = "The transcoder uses the worker's egress-restricted security group."
+  }
+  assert {
+    condition = alltrue([for s in concat(values(aws_ecs_service.role), [aws_ecs_service.transcoder]) :
+    s.network_configuration[0].assign_public_ip == false])
     error_message = "No task gets a public IP."
   }
   assert {

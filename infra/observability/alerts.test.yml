@@ -7,8 +7,11 @@ tests:
   - name: revocation lag pages when the queue stalls
     interval: 1m
     input_series:
-      - series: rabit_job_oldest_queued_seconds
+      - series: 'rabit_job_oldest_queued_seconds{kind="playback.revoke_for_source"}'
         values: '0 0 120x5'
+      # A transcoding backlog alone never pages for revocations.
+      - series: 'rabit_job_oldest_queued_seconds{kind="audio.process"}'
+        values: '0 0 600x5'
       - series: rabit_outbox_pending
         values: '0x7'
     alert_rule_test:
@@ -80,6 +83,30 @@ tests:
             exp_annotations:
               impact: Some uploads failed for non-user reasons and need an operator retry.
               runbook: docs/09-operations/runbooks.md#dead-letter-queue
+
+  - name: a catalog ingest backlog opens a ticket but pages nobody
+    interval: 1m
+    input_series:
+      - series: 'rabit_job_oldest_queued_seconds{kind="catalog.process"}'
+        values: '30000x40'
+      - series: 'rabit_job_oldest_queued_seconds{kind="audio.process"}'
+        values: '0x40'
+      - series: rabit_outbox_pending
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: CatalogIngestBacklog
+        exp_alerts:
+          - exp_labels: { severity: ticket, kind: catalog.process }
+            exp_annotations:
+              impact: Newly delivered catalog recordings stay unavailable for more than 6 hours.
+              runbook: docs/09-operations/runbooks.md#queue-backlog
+      - eval_time: 35m
+        alertname: UploadsStuck
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: RevocationLagging
+        exp_alerts: []
 
   - name: missing worker metrics page after 5 minutes
     interval: 1m

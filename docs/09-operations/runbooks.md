@@ -15,9 +15,12 @@ Rehearse locally with `pnpm gameday` (after `pnpm build`): it breaks storage, th
 2. `rabit_media_requests_total{outcome}`: `bad_token` → clock skew or `MEDIA_TOKEN_SECRET` mismatch between api and media; `session_inactive` → sessions expired (client refresh broken) or revoked; `missing` → derivative objects missing (restore or re-process the source via job retry).
 
 ## queue-backlog
-1. `rabit_jobs{status}` and `rabit_job_oldest_queued_seconds`. Are workers running? Each worker logs `worker started`.
-2. Stuck `running` jobs are reclaimed when their lease expires (hourly housekeeping + every worker every 30 s).
-3. Scale workers horizontally; the queue is safe for concurrent workers (`SKIP LOCKED`).
+1. `rabit_jobs{status}` and `rabit_job_oldest_queued_seconds{kind}`: which kind is waiting? Each worker logs `worker started` with its `pool`.
+2. Media kinds (`audio.process`, `catalog.process`) run on the `transcoder` service, everything else on `worker` (ADR-0005 amendment 2026-10-20). Check the matching service's running tasks.
+3. The transcoder scales on the CloudWatch metric `Rabit/<environment> MediaJobsReady` (alarms `*-media-backlog-high` / `-empty`). No data points means the general worker is down: it writes the metric.
+4. A `catalog.process` backlog alone (`CatalogIngestBacklog`) is expected during a large delivery; raise `transcoder_max_count` if it must finish sooner. User uploads are claimed before catalog jobs.
+5. Stuck `running` jobs are reclaimed when their lease expires (hourly housekeeping + every worker every 30 s).
+6. Scale either service horizontally; the queue is safe for concurrent workers (`SKIP LOCKED`).
 
 ## dead-letter-queue
 1. `GET /v1/ops/jobs?status=dead` (payloads are never shown).

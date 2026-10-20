@@ -34,12 +34,21 @@ groups:
           impact: Playback stops mid-track because segments are missing.
           runbook: docs/09-operations/runbooks.md#playback-failures
 
+      # Catalog ingest is bulk work with its own ticket below; it must not page.
       - alert: UploadsStuck
-        expr: rabit_job_oldest_queued_seconds > 900
+        expr: max(rabit_job_oldest_queued_seconds{kind!="catalog.process"}) > 900
         for: 5m
         labels: { severity: page }
         annotations:
           impact: New uploads and Audio Logs stay "processing"; deletions and revocations are delayed.
+          runbook: docs/09-operations/runbooks.md#queue-backlog
+
+      - alert: CatalogIngestBacklog
+        expr: rabit_job_oldest_queued_seconds{kind="catalog.process"} > 21600
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          impact: Newly delivered catalog recordings stay unavailable for more than 6 hours.
           runbook: docs/09-operations/runbooks.md#queue-backlog
 
       # Queue gauges are exported by the worker only: with every worker down, the
@@ -53,7 +62,10 @@ groups:
           runbook: docs/09-operations/runbooks.md#queue-backlog
 
       - alert: RevocationLagging
-        expr: rabit_outbox_pending > 500 or rabit_job_oldest_queued_seconds > 60
+        # Media processing runs on its own pool and cannot hold revocations back.
+        expr: >-
+          rabit_outbox_pending > 500
+          or max(rabit_job_oldest_queued_seconds{kind!~"audio\\.process|catalog\\.process"}) > 60
         for: 2m
         labels: { severity: page }
         annotations:

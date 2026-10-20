@@ -14,6 +14,9 @@ export function catalogJobs(ctx: AppContext): JobHandler[] {
     {
       kind: 'catalog.process',
       leaseMs: 30 * 60_000,
+      pool: 'media',
+      // Bulk: user uploads are claimed first.
+      priority: 1,
       async handle(job) {
         const p = payload.parse(job.job.payload);
         const source = await getSourceUnchecked(ctx.db, p.audio_source_id);

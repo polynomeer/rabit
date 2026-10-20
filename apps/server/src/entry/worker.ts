@@ -11,11 +11,11 @@ const config = loadConfig();
 const log = createLogger({ level: config.logLevel, name: 'worker' });
 const ctx = createContext(config, log);
 const worker = buildWorker(ctx, allModules());
-registerQueueMetrics(() => queueHealth(ctx.db));
+registerQueueMetrics(() => queueHealth(ctx.db, worker.kinds));
 const metricsServer = startMetricsServer(config.http.metricsPort + 1);
 
 worker.start();
-log.info({ concurrency: config.worker.concurrency }, 'worker started');
+log.info({ concurrency: config.worker.concurrency, pool: config.worker.pool }, 'worker started');
 
 // Jobs get SHUTDOWN_GRACE_MS, then are released; the process must still exit
 // before ECS's stopTimeout (120 s) sends SIGKILL.

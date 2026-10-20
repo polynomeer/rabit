@@ -40,5 +40,12 @@ From the architecture review:
 - **Timeouts.** Application connections set `statement_timeout` (30 s) and `idle_in_transaction_session_timeout` (60 s); migrations run without them.
 - **Ordering** is still per job, not per subject: handlers must stay commutative (version or tombstone checks).
 
+## Amendment (2026-10-20): worker pools and priority
+From the audio pipeline review: transcoding shared two job slots with payment events, renewals and revocations, so a catalog delivery of thousands of recordings could hold those back for hours.
+- **Pools.** A handler declares `pool: 'media'` (decoding and transcoding: `audio.process`, `catalog.process`) or runs in the default `general` pool. `WORKER_POOL` selects what a worker process runs: `general` (everything else, plus the outbox dispatcher and schedules), `media`, or `all` (development and tests).
+- **Priority.** Within a pool, kinds with a lower `priority` are claimed first. `catalog.process` has priority 1, so user uploads are never queued behind a catalog delivery.
+- **Deployment.** The `transcoder` ECS service runs the media pool (2 vCPU, 4 GB, the worker's isolated subnets, security group and IAM role). Application Auto Scaling adds tasks while `MediaJobsReady` exceeds 4 and removes one after 15 minutes with nothing waiting (1 to 6 tasks by default). The general worker writes that metric every 30 s as an Embedded Metric Format log line.
+- **Metrics.** `rabit_job_oldest_queued_seconds` and `rabit_jobs_ready` are labelled by job kind. Revocation and upload alerts exclude catalog processing; a catalog backlog older than 6 hours opens a ticket.
+
 ## Revisit trigger
 Sustained queue latency above SLO at measured load; need for event replay across services; listening-event volume (moved to analytics store per AP-05).

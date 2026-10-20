@@ -16,9 +16,9 @@ describe('queue health', () => {
       dedupeKey: `${kind}:1`,
       runAfter: new Date(Date.now() - 120_000),
     });
-    const h = await queueHealth(ctx.db);
+    const h = await queueHealth(ctx.db, [kind]);
     expect(h.byStatus['queued']).toBeGreaterThanOrEqual(1);
-    expect(h.oldestQueuedSeconds).toBeGreaterThanOrEqual(119);
+    expect(h.byKind[kind]?.oldestSeconds).toBeGreaterThanOrEqual(119);
     expect(h.outboxPending).toBeGreaterThanOrEqual(0);
     await ctx.db.deleteFrom('job').where('kind', '=', kind).execute();
   });

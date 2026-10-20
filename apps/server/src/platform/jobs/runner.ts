@@ -31,6 +31,8 @@ export interface JobContext {
   signal: AbortSignal;
 }
 
+export type JobPool = 'general' | 'media';
+
 export interface JobHandler {
   kind: string;
   /**
@@ -39,6 +41,17 @@ export interface JobHandler {
    * crashed worker's job is picked up again within that window.
    */
   leaseMs: number;
+  /**
+   * Worker pool that runs the job. `media` jobs (decoding, transcoding) run on their
+   * own autoscaled service so a catalog backlog cannot delay payments or
+   * revocations (ADR-0005 amendment 2026-10-20). Default `general`.
+   */
+  pool?: JobPool;
+  /**
+   * Claim order within a pool: lower runs first. Bulk work (catalog ingest) uses a
+   * higher number so user uploads are not queued behind it. Default 0.
+   */
+  priority?: number;
   handle(ctx: JobContext): Promise<void>;
   /** Called once when the job goes to the DLQ, for compensating state changes. */
   onDead?(ctx: JobContext, error: unknown): Promise<void>;
@@ -57,6 +70,8 @@ export interface RunnerOptions {
 export class JobRunner {
   readonly workerId = `${hostname()}:${process.pid}:${ulid().slice(-6)}`;
   private readonly handlers: Map<string, JobHandler>;
+  /** Handler kinds grouped by priority, lowest first. */
+  private readonly tiers: string[][];
   private running = 0;
   private stopped = false;
   private wake: (() => void) | null = null;
@@ -67,6 +82,10 @@ export class JobRunner {
 
   constructor(private readonly opts: RunnerOptions) {
     this.handlers = new Map(opts.handlers.map((h) => [h.kind, h]));
+    const by = new Map<number, string[]>();
+    for (const h of opts.handlers)
+      by.set(h.priority ?? 0, [...(by.get(h.priority ?? 0) ?? []), h.kind]);
+    this.tiers = [...by.entries()].sort(([a], [b]) => a - b).map(([, kinds]) => kinds);
   }
 
   /** Processes ready jobs until none are left. Used by tests and by the loop. */
@@ -172,13 +191,18 @@ export class JobRunner {
   }
 
   private async tick(limit: number, wait = true): Promise<number> {
-    const kinds = [...this.handlers.keys()];
-    const jobs = await claimJobs(this.opts.db, {
-      workerId: this.workerId,
-      kinds,
-      limit,
-      leaseMs: this.window,
-    });
+    const jobs: ClaimedJob[] = [];
+    for (const kinds of this.tiers) {
+      if (jobs.length >= limit) break;
+      jobs.push(
+        ...(await claimJobs(this.opts.db, {
+          workerId: this.workerId,
+          kinds,
+          limit: limit - jobs.length,
+          leaseMs: this.window,
+        })),
+      );
+    }
     const runs = jobs.map((j) => this.execute(j));
     if (wait) await Promise.all(runs);
     else for (const r of runs) void r;

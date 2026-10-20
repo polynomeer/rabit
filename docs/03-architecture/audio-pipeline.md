@@ -35,6 +35,7 @@ Catalog ingest uses the same validate/transcode/analyze steps with catalog bucke
 Fingerprinting is a no-op step reserved for ADR-0019.
 
 ## 3. Idempotency, retries, partial failure
+- Processing runs in the `media` worker pool (the autoscaled `transcoder` service), apart from payments and revocations; user uploads are claimed before catalog deliveries (ADR-0005 amendment 2026-10-20).
 
 - Job `audio.process` dedupe key: `audio.process:<audio_source_id>`. A retry re-runs from the start. Object keys are deterministic per source: `<storage_prefix>/original`, `<storage_prefix>/hls/…`, `<storage_prefix>/waveform.json`, where `storage_prefix = <asr id>/<random>` is chosen once when the source is created. Retries overwrite instead of duplicating, and asset rows are upserted on `(audio_source_id, kind)`.
 - Retry policy: max 5 attempts, exponential backoff (2^n × 5 s, jitter). Validation failures (`UNSUPPORTED_MEDIA`, `CORRUPT_MEDIA`, `DURATION_EXCEEDED`, `CHECKSUM_MISMATCH`) are **permanent**: no retry; source `failed`, quota reservation released, quarantine object deleted.

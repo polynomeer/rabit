@@ -345,7 +345,7 @@ pause "Check the values above, then press Enter."
 # ── 7 ────────────────────────────────────────────────────────────────────
 stage "Plan the infrastructure"
 say "Services start with zero tasks: no image exists until the deploy workflow builds one."
-ZERO=(-var-file=environments/staging.tfvars -var api_desired_count=0 -var media_desired_count=0 -var worker_desired_count=0)
+ZERO=(-var-file=environments/staging.tfvars -var api_desired_count=0 -var media_desired_count=0 -var worker_desired_count=0 -var transcoder_min_count=0)
 tofu_ init -input=false -backend-config=environments/staging.backend.hcl
 tofu_ plan -input=false "${ZERO[@]}" -out=staging-bootstrap.plan | tail -25
 note "Expected: about 150 resources to add, 0 to change, 0 to destroy."

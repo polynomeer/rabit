@@ -90,7 +90,7 @@ data "aws_iam_policy_document" "deploy" {
   }
   statement {
     actions   = ["ecs:UpdateService", "ecs:DescribeServices"]
-    resources = [for s in aws_ecs_service.role : s.id]
+    resources = concat([for s in aws_ecs_service.role : s.id], [aws_ecs_service.transcoder.id])
   }
   statement {
     actions   = ["ecs:RunTask"]
