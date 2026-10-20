@@ -1,4 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { z } from 'zod';
 import type { AppContext } from '../../app/context.js';
 import type { DbOrTx } from '../../platform/db/db.js';
@@ -138,6 +140,24 @@ export const manifestSchema = z.strictObject({
 /** Input shape (defaults applied on parse). */
 export type CatalogManifest = z.input<typeof manifestSchema>;
 
+/**
+ * A master referenced by the manifest: bytes in memory (tests, small fixtures) or a
+ * file on disk, which is hashed and uploaded as a stream so a delivery of 24-bit
+ * masters never has to fit in memory.
+ */
+export type AudioInput = Buffer | { path: string };
+
+export const MAX_MASTER_BYTES = 5 * 1024 ** 3;
+
+async function sha256Of(input: AudioInput): Promise<{ sha256: string; bytes: number }> {
+  if (Buffer.isBuffer(input)) {
+    return { sha256: createHash('sha256').update(input).digest('hex'), bytes: input.length };
+  }
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(input.path)) hash.update(chunk as Buffer);
+  return { sha256: hash.digest('hex'), bytes: (await stat(input.path)).size };
+}
+
 export interface IngestResult {
   ids: Record<string, string>;
   sources: Record<string, string>;
@@ -169,27 +189,30 @@ async function insertEntity(
 export async function ingestCatalog(
   ctx: AppContext,
   manifest: CatalogManifest,
-  readAudio: (ref: string) => Promise<Buffer>,
+  readAudio: (ref: string) => Promise<AudioInput>,
 ): Promise<IngestResult> {
   const m = manifestSchema.parse(manifest);
-  const audio = new Map<string, Buffer>();
-  for (const r of m.recordings) if (r.audio) audio.set(r.key, await readAudio(r.audio));
 
   // Audio is uploaded before the transaction and its processing job is enqueued
   // inside it, so a crash can leave at most unreferenced objects, never a source
   // stuck in `processing` without a job (review #11).
   const planned = new Map<string, { sourceId: string; prefix: string; sha256: string }>();
-  for (const [key, bytes] of audio) {
+  // One master at a time: hashed, then streamed to storage.
+  for (const r of m.recordings) {
+    if (!r.audio) continue;
+    const input = await readAudio(r.audio);
+    const { sha256, bytes } = await sha256Of(input);
+    // Single-request uploads and server-side copies stop at 5 GiB (S3 limits).
+    if (bytes > MAX_MASTER_BYTES) {
+      throw new Error(`master ${r.audio} is ${bytes} bytes; the limit is ${MAX_MASTER_BYTES}`);
+    }
     const sourceId = newId('audioSource');
     const prefix = `${sourceId}/${randomBytes(12).toString('hex')}`;
-    planned.set(key, {
-      sourceId,
-      prefix,
-      sha256: createHash('sha256').update(bytes).digest('hex'),
-    });
-    await ctx.blobs.put(BUCKETS.catalogOriginals, `${prefix}/original`, bytes, {
+    planned.set(r.key, { sourceId, prefix, sha256 });
+    const body = Buffer.isBuffer(input) ? input : createReadStream(input.path);
+    await ctx.blobs.put(BUCKETS.catalogOriginals, `${prefix}/original`, body, {
       contentType: 'application/octet-stream',
-      bytes: bytes.length,
+      bytes,
     });
   }
 
