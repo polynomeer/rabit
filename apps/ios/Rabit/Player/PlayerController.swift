@@ -1,8 +1,10 @@
 import AVFoundation
 import RabitKit
 
-/// The app's player: one queue, one AVPlayer, one playback session at a time. The server
+/// The app's player: one queue, one AVQueuePlayer, one playing session at a time. The server
 /// decides playability on start and on every refresh; a failed refresh stops playback.
+/// Near the end of a track the next one is opened and queued behind it, so AVFoundation
+/// moves on without a gap (gapless edit lists, ADR-0008 amendment 2026-10-20).
 @Observable
 final class PlayerController {
   private(set) var queue: [QueueEntry] = []
@@ -20,8 +22,11 @@ final class PlayerController {
   var hasNext: Bool { index + 1 < queue.count }
 
   private let playback: PlaybackService
-  private let player = AVPlayer()
+  private let player = AVQueuePlayer()
   @ObservationIgnored private var loader: MediaLoader?
+  /// The next queue entry, opened and queued behind the current item.
+  @ObservationIgnored private var upcoming: Upcoming?
+  @ObservationIgnored private var preparing = false
   @ObservationIgnored private var session: PlaybackSession?
   @ObservationIgnored private var log: ListeningLog?
   @ObservationIgnored private var refreshTask: Task<Void, Never>?
@@ -97,6 +102,7 @@ final class PlayerController {
   }
 
   func stop() {
+    dropUpcoming()
     endSession(reporting: .paused)
     player.replaceCurrentItem(with: nil)
     queue = []
@@ -108,6 +114,21 @@ final class PlayerController {
   // MARK: - Session lifecycle
 
   private func jump(to newIndex: Int) {
+    // "Next" onto the queued track: move to it instead of opening another session.
+    if let u = upcoming, u.index == newIndex, player.items().contains(u.item) {
+      upcoming = nil
+      startTask?.cancel()
+      endSession(reporting: .ended, pausing: false)
+      index = newIndex
+      message = nil
+      position = 0
+      duration = 0
+      player.advanceToNextItem()
+      adopt(session: u.session, loader: u.loader, item: u.item)
+      player.play()
+      return
+    }
+    dropUpcoming()
     endSession(reporting: .ended)
     index = newIndex
     message = nil
@@ -126,23 +147,11 @@ final class PlayerController {
         message = "재생 주소가 올바르지 않아요."
         return
       }
-      let loader = MediaLoader(locator: locator)
-      let asset = AVURLAsset(url: locator.playerURL)
-      asset.resourceLoader.setDelegate(loader, queue: loader.queue)
-      let item = AVPlayerItem(asset: asset)
-      self.loader = loader
-      session = s
-      quality = s.quality
-      player.volume = Normalization.volume(gainDb: s.loudness?.gainDb, enabled: Normalization.isEnabled)
-      log = ListeningLog(session: s.sessionId)
-      observeEnd(of: item)
+      let (loader, item) = Self.item(for: locator)
       activateAudioSession()
       player.replaceCurrentItem(with: item)
+      adopt(session: s, loader: loader, item: item)
       player.play()
-      isPlaying = true
-      record(.started, wasPlaying: false)
-      startTimers()
-      publishNowPlaying()
     } catch is CancellationError {
     } catch {
       isPlaying = false
@@ -150,16 +159,71 @@ final class PlayerController {
     }
   }
 
+  private static func item(for locator: MediaLocator) -> (MediaLoader, AVPlayerItem) {
+    let loader = MediaLoader(locator: locator)
+    let asset = AVURLAsset(url: locator.playerURL)
+    asset.resourceLoader.setDelegate(loader, queue: loader.queue)
+    return (loader, AVPlayerItem(asset: asset))
+  }
+
+  /// Makes `s` the playing session: the item is (or just became) the player's current one.
+  private func adopt(session s: PlaybackSession, loader: MediaLoader, item: AVPlayerItem) {
+    self.loader = loader
+    session = s
+    quality = s.quality
+    player.volume = Normalization.volume(gainDb: s.loudness?.gainDb, enabled: Normalization.isEnabled)
+    log = ListeningLog(session: s.sessionId)
+    observeEnd(of: item)
+    isPlaying = true
+    record(.started, wasPlaying: false)
+    startTimers()
+    publishNowPlaying()
+  }
+
   /// Reports the end of the current session (when there is one) and stops its timers.
-  private func endSession(reporting kind: ListeningEvent.Kind) {
+  private func endSession(reporting kind: ListeningEvent.Kind, pausing: Bool = true) {
     if session != nil { record(kind, wasPlaying: isPlaying) }
     refreshTask?.cancel()
     heartbeatTask?.cancel()
-    player.pause()
+    if pausing { player.pause() }
     isPlaying = false
     session = nil
     log = nil
     loader = nil
+  }
+
+  // MARK: - Next track
+
+  private struct Upcoming {
+    let index: Int
+    let session: PlaybackSession
+    let loader: MediaLoader
+    let item: AVPlayerItem
+  }
+
+  /// Opens the next entry's session and queues its item behind the current one.
+  private func prepareNext() async {
+    let at = index + 1
+    guard queue.indices.contains(at), upcoming == nil, !preparing, let current = player.currentItem
+    else { return }
+    preparing = true
+    defer { preparing = false }
+    let entry = queue[at]
+    // Not playable now: the end of the track starts it the usual way and shows why.
+    guard let s = try? await playback.start(entry.target),
+      let locator = MediaLocator(manifestURL: s.manifestUrl),
+      index + 1 == at, queue.indices.contains(at), queue[at].id == entry.id,
+      player.currentItem === current
+    else { return }
+    let (loader, item) = Self.item(for: locator)
+    guard player.canInsert(item, after: current) else { return }
+    player.insert(item, after: current)
+    upcoming = Upcoming(index: at, session: s, loader: loader, item: item)
+  }
+
+  private func dropUpcoming() {
+    if let upcoming { player.remove(upcoming.item) }
+    upcoming = nil
   }
 
   private func startTimers() {
@@ -179,8 +243,19 @@ final class PlayerController {
     }
   }
 
+  /// Keeps a queued session's token fresh while the current track still plays.
+  private func refreshUpcoming() async {
+    guard let u = upcoming,
+      let next = try? await playback.refresh(u.session.sessionId),
+      upcoming?.session.sessionId == u.session.sessionId
+    else { return }
+    upcoming = Upcoming(index: u.index, session: next, loader: u.loader, item: u.item)
+    if let fresh = MediaLocator(manifestURL: next.manifestUrl) { u.loader.update(token: fresh.token) }
+  }
+
   /// Renews the session and rotates the media token; the server re-checks rights.
   private func refresh() async {
+    await refreshUpcoming()
     guard let s = session else { return }
     do {
       let next = try await playback.refresh(s.sessionId)
@@ -208,11 +283,19 @@ final class PlayerController {
       duration = d.seconds
       publishNowPlaying()
     }
+    if session != nil, upcoming == nil, !preparing, hasNext, duration > 0,
+      duration - position <= Self.prepareNextSeconds
+    {
+      Task { await prepareNext() }
+    }
     if player.currentItem?.status == .failed, session != nil {
       endSession(reporting: .paused)
       message = "재생하지 못했어요. 잠시 후 다시 시도해 주세요."
     }
   }
+
+  /// How long before a track ends the next one is opened and queued.
+  static let prepareNextSeconds: Double = 30
 
   private func observeEnd(of item: AVPlayerItem) {
     if let endObserver { NotificationCenter.default.removeObserver(endObserver) }
@@ -221,7 +304,15 @@ final class PlayerController {
     ) { [weak self] _ in
       MainActor.assumeIsolated {
         guard let self else { return }
-        if self.hasNext {
+        if let next = self.upcoming, next.index == self.index + 1 {
+          // AVQueuePlayer has already moved on to the queued item: hand over the session.
+          self.upcoming = nil
+          self.endSession(reporting: .ended, pausing: false)
+          self.index = next.index
+          self.position = 0
+          self.duration = 0
+          self.adopt(session: next.session, loader: next.loader, item: next.item)
+        } else if self.hasNext {
           self.next()
         } else {
           self.endSession(reporting: .ended)
