@@ -3,7 +3,7 @@ import RabitKit
 import Synchronization
 import UniformTypeIdentifiers
 
-/// Serves the player's `rabit-media://` requests (ADR-0023). The playlist is fetched here
+/// Serves the player's `rabit-media://` requests (ADR-0023). Playlists are fetched here
 /// so its relative segment URIs stay on the custom scheme; each segment request is then
 /// redirected to the media gateway with the newest media token, which the session
 /// refresh rotates every 40 s (tokens live ≤ 60 s, ADR-0008).
@@ -28,7 +28,9 @@ nonisolated final class MediaLoader: NSObject, AVAssetResourceLoaderDelegate, Se
       let target = locator.withLock({ $0.gatewayURL(for: url) })
     else { return false }
 
-    if url.lastPathComponent == "index.m3u8" {
+    // Playlists (master and per rendition) are served here so their relative URIs stay
+    // on the custom scheme; segments are redirected to the gateway.
+    if url.pathExtension == "m3u8" {
       let pending = Pending(request: loadingRequest)
       session.dataTask(with: target) { data, response, error in
         let request = pending.request

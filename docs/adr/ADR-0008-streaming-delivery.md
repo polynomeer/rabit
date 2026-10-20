@@ -40,6 +40,18 @@ Playback must be authorized at access time, revocation must stop new and active 
 - Clients apply the gain unless the listener turns normalisation off (per device, on by default). The web and iOS players can only lower the volume (`volume` ≤ 1), so positive gains are ignored for now; amplification needs a Web Audio gain node or an AVAudioMix tap.
 - Track gain only: an album played in order is levelled per track. Album gain needs the release's tracks measured together (open).
 
+## Amendment 2026-10-20: three-rung ladder (owner decision)
+- The product owner chose an adaptive ladder over the single rendition. Each source is encoded once per rung into `hls/<rung>/`, and a master playlist `hls/master.m3u8` lists the rungs:
+  - `standard` 160 kbps, listed first, so players start there;
+  - `low` 96 kbps;
+  - `high` 256 kbps.
+- Each rung is AAC-LC stereo with the same segments and gapless edit lists. The master's `BANDWIDTH` and `AVERAGE-BANDWIDTH` are measured from the segments.
+- The low rung is AAC-LC, not HE-AAC. ffmpeg's built-in encoder has no HE-AAC, and the encoder that has it (fdk-aac) is non-free.
+- Sessions point at `master.m3u8` and report `quality.renditions_kbps`. Audio processed before the ladder keeps its single top-level rendition and `index.m3u8`, decided by `renditions_kbps` in the version's technical data. Re-encoding old audio is a backfill job for when there is any in production.
+- The gateway serves `/media/v1/{token}/{rendition}/{file}` with the same checks.
+- Storage per source is about 3.2 times the single rendition (96 + 160 + 256 kbps against 160 kbps). Encoding decodes once and runs three encoders.
+- Bitrates stay provisional until the listening test (O-26). Lossless is not part of this decision (Q02).
+
 ## Consequences
 The media gateway is on the data path in MVP; capacity scales with egress. Replacing it with a CDN changes deployment, not the API.
 

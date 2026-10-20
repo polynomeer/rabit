@@ -1353,6 +1353,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/media/v1/{token}/{rendition}/{file}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description One rendition of the ladder (ADR-0008 amendment 2026-10-20), referenced by the master playlist. Same token and session checks as above. */
+    get: operations['getMediaRendition'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/webhooks/payments/{provider}': {
     parameters: {
       query?: never;
@@ -1676,7 +1693,10 @@ export interface components {
       source: 'catalog' | 'private_upload' | 'audio_log';
       quality: {
         codec: string;
+        /** @description Highest rendition */
         bitrate_kbps: number;
+        /** @description Bitrates the player can switch between, ascending (one entry for audio processed before the ladder) */
+        renditions_kbps: number[];
         lossless: boolean;
         /** @description True while the codec ladder is provisional (ADR-0008) */
         provisional: boolean;
@@ -5074,7 +5094,43 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Manifest or segment bytes */
+      /** @description Master playlist (ladder) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Token invalid/expired or session revoked */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown path */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMediaRendition: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+        rendition: 'low' | 'standard' | 'high';
+        file: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Rendition playlist or segment bytes */
       200: {
         headers: {
           [name: string]: unknown;

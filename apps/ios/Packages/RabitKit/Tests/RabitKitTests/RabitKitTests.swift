@@ -100,6 +100,20 @@ let base = URL(string: "http://localhost:8080")!
   #expect(next.gatewayURL(for: URL(string: "rabit-media://session/init.mp4")!) != nil)
 }
 
+@Test func mediaLocatorServesTheLadderThroughItsMasterPlaylist() throws {
+  let loc = try #require(MediaLocator(manifestURL: URL(string: "https://cdn.example/media/v1/tok1/master.m3u8")!))
+  #expect(loc.playerURL.absoluteString == "rabit-media://session/master.m3u8")
+  #expect(loc.gatewayURL(for: loc.playerURL)?.absoluteString == "https://cdn.example/media/v1/tok1/master.m3u8")
+  let variant = URL(string: "low/index.m3u8", relativeTo: loc.playerURL)!.absoluteURL
+  #expect(loc.gatewayURL(for: variant)?.absoluteString == "https://cdn.example/media/v1/tok1/low/index.m3u8")
+  let seg = URL(string: "seg_00002.m4s", relativeTo: variant)!.absoluteURL
+  #expect(loc.withToken("tok2").gatewayURL(for: seg)?.absoluteString == "https://cdn.example/media/v1/tok2/low/seg_00002.m4s")
+  #expect(loc.gatewayURL(for: URL(string: "rabit-media://session/ultra/index.m3u8")!) == nil)
+  #expect(loc.gatewayURL(for: URL(string: "rabit-media://session/low/master.m3u8")!) == nil)
+  #expect(loc.gatewayURL(for: URL(string: "rabit-media://session/low/low/init.mp4")!) == nil)
+  #expect(MediaLocator(manifestURL: URL(string: "https://cdn.example/media/v1/tok1/seg_00001.m4s")!) == nil)
+}
+
 @Test func mediaLocatorRefusesOtherFilesAndSchemes() throws {
   let loc = try #require(MediaLocator(manifestURL: URL(string: "http://localhost:8081/media/v1/t/index.m3u8")!))
   #expect(loc.gatewayURL(for: URL(string: "rabit-media://session/../secret")!) == nil)

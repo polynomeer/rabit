@@ -1193,9 +1193,24 @@ paths:
       description: Data-plane gateway. Token is HMAC-signed, ≤ 60 s, bound to a playback session; the session must still be active.
       parameters:
         - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: file, in: path, required: true, schema: { type: string, pattern: '^(master\\.m3u8|index\\.m3u8|init\\.mp4|seg_\\d{5}\\.m4s)$' } }
+      responses:
+        '200': { description: Master playlist (ladder), or the playlist and segments of audio processed before the ladder }
+        '403': { description: Token invalid/expired or session revoked }
+        '404': { description: Unknown path }
+
+  /media/v1/{token}/{rendition}/{file}:
+    get:
+      tags: [media]
+      operationId: getMediaRendition
+      security: []
+      description: One rendition of the ladder (ADR-0008 amendment 2026-10-20), referenced by the master playlist. Same token and session checks as above.
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: rendition, in: path, required: true, schema: { type: string, enum: [low, standard, high] } }
         - { name: file, in: path, required: true, schema: { type: string, pattern: '^(index\\.m3u8|init\\.mp4|seg_\\d{5}\\.m4s)$' } }
       responses:
-        '200': { description: Manifest or segment bytes }
+        '200': { description: Rendition playlist or segment bytes }
         '403': { description: Token invalid/expired or session revoked }
         '404': { description: Unknown path }
 
@@ -1527,10 +1542,14 @@ components:
         source: { type: string, enum: [catalog, private_upload, audio_log] }
         quality:
           type: object
-          required: [codec, bitrate_kbps, lossless, provisional]
+          required: [codec, bitrate_kbps, renditions_kbps, lossless, provisional]
           properties:
             codec: { type: string }
-            bitrate_kbps: { type: integer }
+            bitrate_kbps: { type: integer, description: Highest rendition }
+            renditions_kbps:
+              type: array
+              items: { type: integer }
+              description: Bitrates the player can switch between, ascending (one entry for audio processed before the ladder)
             lossless: { type: boolean }
             provisional: { type: boolean, description: True while the codec ladder is provisional (ADR-0008) }
         capabilities:

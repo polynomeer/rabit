@@ -116,12 +116,20 @@ struct NowPlayingView: View {
 private struct QualityBadge: View {
   let quality: PlaybackSession.Quality
 
+  /// "96–256" for the adaptive ladder, the single bitrate otherwise.
+  private var rate: String {
+    guard let r = quality.renditionsKbps, r.count > 1, let low = r.min() else {
+      return "\(quality.bitrateKbps)"
+    }
+    return "\(low)–\(quality.bitrateKbps)"
+  }
+
   var body: some View {
-    Text("\(quality.codec.uppercased()) \(quality.bitrateKbps)kbps")
+    Text("\(quality.codec.uppercased()) \(rate)kbps")
       .font(.caption2.weight(.bold))
       .padding(.horizontal, 8)
       .padding(.vertical, 3)
       .background(Palette.line, in: .rect(cornerRadius: 6))
-      .accessibilityLabel("음질 \(quality.codec) \(quality.bitrateKbps)킬로비트")
+      .accessibilityLabel("음질 \(quality.codec) \(rate)킬로비트")
   }
 }

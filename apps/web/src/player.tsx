@@ -59,7 +59,13 @@ interface Session {
   session_id: string;
   manifest_url: string;
   expires_at: string;
-  quality: { codec: string; bitrate_kbps: number; lossless: boolean; provisional: boolean };
+  quality: {
+    codec: string;
+    bitrate_kbps: number;
+    renditions_kbps: number[];
+    lossless: boolean;
+    provisional: boolean;
+  };
   source: string;
   loudness: { gain_db: number } | null;
 }
@@ -249,7 +255,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     ? [
         t('player.quality', {
           codec: session.quality.codec.toUpperCase(),
-          kbps: session.quality.bitrate_kbps,
+          // The ladder adapts to the network: show its range (ADR-0008).
+          kbps:
+            session.quality.renditions_kbps.length > 1
+              ? `${Math.min(...session.quality.renditions_kbps)}–${session.quality.bitrate_kbps}`
+              : session.quality.bitrate_kbps,
         }),
         session.quality.lossless ? t('player.quality.lossless') : '',
         session.quality.provisional ? t('player.quality.provisional') : '',

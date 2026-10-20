@@ -131,13 +131,18 @@ describe('private audio: happy path (upload → process → library → playback
       60_000,
     );
 
-    const manifest = await h.media.inject({ url: mediaPath(session.manifest_url) });
+    expect(session.quality.renditions_kbps).toEqual([96, 160, 256]);
+    expect(session.manifest_url).toMatch(/\/master\.m3u8$/);
+    const master = await h.media.inject({ url: mediaPath(session.manifest_url) });
+    expect(master.statusCode).toBe(200);
+    expect(master.headers['content-type']).toContain('mpegurl');
+    expect(master.body).toContain('standard/index.m3u8');
+    const base = mediaPath(session.manifest_url).replace(/master\.m3u8$/, '');
+    const manifest = await h.media.inject({ url: `${base}low/index.m3u8` });
     expect(manifest.statusCode).toBe(200);
-    expect(manifest.headers['content-type']).toContain('mpegurl');
     expect(manifest.body).toContain('#EXT-X-MAP:URI="init.mp4"');
     const segment = /seg_\d{5}\.m4s/.exec(manifest.body)![0];
-    const base = mediaPath(session.manifest_url).replace(/index\.m3u8$/, '');
-    for (const f of ['init.mp4', segment]) {
+    for (const f of ['low/init.mp4', `low/${segment}`]) {
       const r = await h.media.inject({ url: `${base}${f}` });
       expect(r.statusCode).toBe(200);
       expect(r.headers['content-type']).toBe('audio/mp4');
@@ -718,7 +723,16 @@ describe('private audio: expired and forged media access (T07, T08)', () => {
 
   it('rejects path traversal and unknown files', async () => {
     const token = mediaPath(session.manifest_url).split('/')[3]!;
-    for (const f of ['..%2F..%2Foriginal', 'original', 'waveform.json', 'seg_1.m4s', '.env']) {
+    for (const f of [
+      '..%2F..%2Foriginal',
+      'original',
+      'waveform.json',
+      'seg_1.m4s',
+      '.env',
+      'ultra/index.m3u8',
+      'low/master.m3u8',
+      'low/..%2F..%2Foriginal',
+    ]) {
       const r = await h.media.inject({ url: `/media/v1/${token}/${f}` });
       expect([403, 404]).toContain(r.statusCode);
     }
