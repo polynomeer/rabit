@@ -109,15 +109,34 @@ variable "task_sizes" {
     memory = number
   }))
   default = {
-    api    = { cpu = 512, memory = 1024 }
-    media  = { cpu = 512, memory = 1024 }
-    worker = { cpu = 1024, memory = 2048 }
+    api        = { cpu = 512, memory = 1024 }
+    media      = { cpu = 512, memory = 1024 }
+    worker     = { cpu = 1024, memory = 2048 }
+    transcoder = { cpu = 2048, memory = 4096 }
   }
 }
 
 variable "worker_concurrency" {
   type    = number
   default = 2
+}
+
+variable "transcoder_concurrency" {
+  description = "Media jobs per transcoder task; each ffmpeg run uses up to 2 threads."
+  type        = number
+  default     = 2
+}
+
+variable "transcoder_min_count" {
+  description = "Transcoder tasks kept running with an empty media backlog (0 while bootstrapping)."
+  type        = number
+  default     = 1
+}
+
+variable "transcoder_max_count" {
+  description = "Upper bound for the transcoder service while a backlog drains."
+  type        = number
+  default     = 6
 }
 
 variable "github_repository" {

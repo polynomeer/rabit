@@ -79,7 +79,7 @@ resource "aws_ecr_pull_through_cache_rule" "ecr_public" {
 
 locals {
   # Each role's internal metrics port (apps/server/src/entry/*.ts).
-  metrics_port = { api = local.ports.metrics, worker = local.ports.metrics + 1, media = local.ports.metrics + 2 }
+  metrics_port = { api = local.ports.metrics, worker = local.ports.metrics + 1, transcoder = local.ports.metrics + 1, media = local.ports.metrics + 2 }
 
   collector_image = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/${aws_ecr_pull_through_cache_rule.ecr_public.ecr_repository_prefix}/aws-observability/aws-otel-collector:${var.collector_image_tag}"
 
@@ -143,7 +143,8 @@ data "aws_iam_policy_document" "remote_write" {
 }
 
 resource "aws_iam_role_policy" "remote_write" {
-  for_each = local.metrics_port
+  # Per IAM role: the transcoder shares the worker's.
+  for_each = toset([for r in keys(local.metrics_port) : local.roles[r].task_role])
   name     = "prometheus-remote-write"
   role     = aws_iam_role.task[each.key].id
   policy   = data.aws_iam_policy_document.remote_write.json

@@ -16,9 +16,7 @@ const rules = (
 ).groups.flatMap((g) => g.rules);
 const runbook = readFileSync(new URL('docs/09-operations/runbooks.md', root), 'utf8');
 
-registerQueueMetrics(() =>
-  Promise.resolve({ byStatus: {}, oldestQueuedSeconds: 0, outboxPending: 0 }),
-);
+registerQueueMetrics(() => Promise.resolve({ byStatus: {}, byKind: {}, outboxPending: 0 }));
 const SUFFIXES = ['_bucket', '_count', '_sum'];
 function labelsOf(series: string): string[] | null {
   const direct = registry.getSingleMetric(series);

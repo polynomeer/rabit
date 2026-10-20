@@ -125,6 +125,17 @@ const envSchema = z
     APP_STORE_ROOT_CERTS: z.string().default(''),
 
     WORKER_CONCURRENCY: positiveInt.default(2),
+    /**
+     * Which jobs this worker runs: `all` (development, tests), `general` (everything
+     * but media processing; also dispatches the outbox and enqueues schedules) or
+     * `media` (decoding and transcoding only), ADR-0005 amendment 2026-10-20.
+     */
+    WORKER_POOL: z.enum(['all', 'general', 'media']).default('all'),
+    /**
+     * CloudWatch namespace for the media backlog the transcoder pool scales on,
+     * written as Embedded Metric Format log lines. Unset: not written.
+     */
+    METRICS_CLOUDWATCH_NAMESPACE: z.string().min(1).optional(),
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
     FFPROBE_PATH: z.string().min(1).default('ffprobe'),
 
@@ -286,7 +297,13 @@ export interface Config {
   payments: { provider: 'none' } | { provider: 'mock'; webhookSecret: string };
   subscription: { plan: string; priceMinor: number };
   appStore: AppStoreConfig | null;
-  worker: { concurrency: number; ffmpegPath: string; ffprobePath: string };
+  worker: {
+    concurrency: number;
+    pool: 'all' | 'general' | 'media';
+    cloudwatchNamespace: string | null;
+    ffmpegPath: string;
+    ffprobePath: string;
+  };
   quota: {
     maxTotalBytes: number;
     maxFileBytes: number;
@@ -397,6 +414,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
           },
     worker: {
       concurrency: e.WORKER_CONCURRENCY,
+      pool: e.WORKER_POOL,
+      cloudwatchNamespace: e.METRICS_CLOUDWATCH_NAMESPACE ?? null,
       ffmpegPath: e.FFMPEG_PATH,
       ffprobePath: e.FFPROBE_PATH,
     },

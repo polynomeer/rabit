@@ -7,7 +7,7 @@ resource "aws_ecs_cluster" "main" {
 }
 
 resource "aws_cloudwatch_log_group" "role" {
-  for_each          = toset(["api", "media", "worker", "ops"])
+  for_each          = toset(["api", "media", "worker", "transcoder", "ops"])
   name              = "/rabit/${var.environment}/${each.key}"
   retention_in_days = var.log_retention_days
 }
@@ -41,7 +41,6 @@ locals {
     { name = "AUTH_OPERATOR_AUDIENCE", value = aws_cognito_user_pool_client.web["operators"].id },
     { name = "AUTH_DEV_ISSUER_ENABLED", value = "false" },
     { name = "RATE_LIMIT_STORE", value = "postgres" },
-    { name = "WORKER_CONCURRENCY", value = tostring(var.worker_concurrency) },
     ], var.app_store_environment == "off" ? [] : [
     # App Store in-app purchase (ADR-0024); Apple's root certificate is baked into the image.
     { name = "APP_STORE_ENVIRONMENT", value = var.app_store_environment },
@@ -60,13 +59,30 @@ locals {
     { name = "CURSOR_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:CURSOR_SECRET::" },
   ]
 
+  # Per-role settings on top of `environment`: the worker runs everything but media
+  # processing, the transcoder only media processing (ADR-0005 amendment 2026-10-20).
+  role_environment = {
+    worker = [
+      { name = "WORKER_POOL", value = "general" },
+      { name = "WORKER_CONCURRENCY", value = tostring(var.worker_concurrency) },
+      { name = "METRICS_CLOUDWATCH_NAMESPACE", value = local.backlog_namespace },
+    ]
+    transcoder = [
+      { name = "WORKER_POOL", value = "media" },
+      { name = "WORKER_CONCURRENCY", value = tostring(var.transcoder_concurrency) },
+    ]
+  }
+
   # Long-running roles. `ops` (migrations, restore reconcile, catalog ingest) is a
   # one-off task definition run by CI or on-call with a command override.
   roles = {
     api    = { port = local.ports.api, subnets = aws_subnet.private[*].id, sg = aws_security_group.api.id, size = var.task_sizes.api, count = var.api_desired_count, task_role = "api" }
     media  = { port = local.ports.media, subnets = aws_subnet.private[*].id, sg = aws_security_group.media.id, size = var.task_sizes.media, count = var.media_desired_count, task_role = "media" }
     worker = { port = null, subnets = aws_subnet.isolated[*].id, sg = aws_security_group.worker.id, size = var.task_sizes.worker, count = var.worker_desired_count, task_role = "worker" }
+    # Same isolation and IAM role as the worker; its task count follows the media backlog.
+    transcoder = { port = null, subnets = aws_subnet.isolated[*].id, sg = aws_security_group.worker.id, size = var.task_sizes.transcoder, count = var.transcoder_min_count, task_role = "worker" }
   }
+  services = { for k, v in local.roles : k => v if k != "transcoder" }
 }
 
 resource "aws_ecs_task_definition" "role" {
@@ -94,17 +110,17 @@ resource "aws_ecs_task_definition" "role" {
     name                   = each.key
     image                  = local.image
     essential              = true
-    command                = each.key == "ops" ? ["migrate", "up"] : [each.key]
+    command                = each.key == "ops" ? ["migrate", "up"] : each.key == "transcoder" ? ["worker"] : [each.key]
     readonlyRootFilesystem = true
     user                   = "10001"
     linuxParameters        = { capabilities = { drop = ["ALL"] }, initProcessEnabled = false }
     mountPoints            = [{ sourceVolume = "tmp", containerPath = "/tmp", readOnly = false }]
     portMappings           = each.value.port == null ? [] : [{ containerPort = each.value.port, protocol = "tcp" }]
-    environment            = local.environment
+    environment            = concat(local.environment, lookup(local.role_environment, each.key, []))
     secrets                = local.secrets
     # The worker hands unfinished jobs back after a 90 s grace (SHUTDOWN_GRACE_MS);
     # 120 s is Fargate's maximum.
-    stopTimeout = each.key == "worker" ? 120 : 60
+    stopTimeout = contains(["worker", "transcoder"], each.key) ? 120 : 60
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -117,7 +133,7 @@ resource "aws_ecs_task_definition" "role" {
 }
 
 resource "aws_ecs_service" "role" {
-  for_each        = local.roles
+  for_each        = local.services
   name            = each.key
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.role[each.key].arn
@@ -153,4 +169,31 @@ resource "aws_ecs_service" "role" {
   }
 
   depends_on = [aws_lb_listener.https]
+}
+
+# The transcoder's task count belongs to Application Auto Scaling (autoscaling.tf),
+# so OpenTofu sets it only on creation.
+resource "aws_ecs_service" "transcoder" {
+  name            = "transcoder"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.role["transcoder"].arn
+  desired_count   = var.transcoder_min_count
+  launch_type     = "FARGATE"
+
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+
+  network_configuration {
+    subnets          = local.roles.transcoder.subnets
+    security_groups  = [local.roles.transcoder.sg]
+    assign_public_ip = false
+  }
+
+  lifecycle {
+    ignore_changes = [task_definition, desired_count]
+  }
 }

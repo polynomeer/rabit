@@ -322,6 +322,7 @@ export function audioJobs(ctx: AppContext): JobHandler[] {
     {
       kind: 'audio.process',
       leaseMs: 30 * 60_000,
+      pool: 'media',
       async handle(job) {
         const p = processPayload.parse(job.job.payload);
         const source = await getSourceUnchecked(ctx.db, p.audio_source_id);

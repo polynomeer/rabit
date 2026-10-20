@@ -4,8 +4,8 @@ Infrastructure for [ADR-0012](../../docs/adr/ADR-0012-deployment.md), written fo
 
 | Part | Resources |
 |---|---|
-| Network | VPC in 2 zones; public (load balancer, NAT), private (api, media), isolated (worker, database: no internet route) subnets; S3 gateway endpoint; ECR, Logs, Secrets Manager and KMS interface endpoints |
-| Compute | ECS cluster on Fargate ARM64; services `api`, `media`, `worker`; one-off task `ops` (migrations, restore reconcile) |
+| Network | VPC in 2 zones; public (load balancer, NAT), private (api, media), isolated (worker, transcoder, database: no internet route) subnets; S3 gateway endpoint; ECR, Logs, Secrets Manager and KMS interface endpoints |
+| Compute | ECS cluster on Fargate ARM64; services `api`, `media`, `worker`, `transcoder` (media processing, autoscaled on the media backlog: `autoscaling.tf`); one-off task `ops` (migrations, restore reconcile) |
 | Data | RDS PostgreSQL 16 (encrypted, PITR, 14-day backups, TLS only); six S3 buckets (ADR-0004) with SSE-KMS, TLS-only and key-enforcing policies, 2-day expiry on quarantine and exports |
 | Sign-in | Cognito user pool (email verified, optional MFA) and operator pool (MFA required, admin-created only), hosted sign-in domains, code-flow browser clients without secrets (ADR-0009) |
 | Keys, secrets | One customer-managed KMS key with yearly rotation; RDS-managed master password and generated app secrets in Secrets Manager |
@@ -57,8 +57,8 @@ cd infra/aws
 cp environments/staging.tfvars.example environments/staging.tfvars          # fill in
 cp environments/staging.backend.hcl.example environments/staging.backend.hcl
 tofu init -backend-config=environments/staging.backend.hcl
-tofu plan  -var-file=environments/staging.tfvars -var api_desired_count=0 -var media_desired_count=0 -var worker_desired_count=0
-tofu apply -var-file=environments/staging.tfvars -var api_desired_count=0 -var media_desired_count=0 -var worker_desired_count=0
+tofu plan  -var-file=environments/staging.tfvars -var api_desired_count=0 -var media_desired_count=0 -var worker_desired_count=0 -var transcoder_min_count=0
+tofu apply -var-file=environments/staging.tfvars -var api_desired_count=0 -var media_desired_count=0 -var worker_desired_count=0 -var transcoder_min_count=0
 ```
 
 The services start with zero tasks because no image exists yet. Then:

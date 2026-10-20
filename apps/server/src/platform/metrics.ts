@@ -80,13 +80,13 @@ export const metrics = {
 };
 
 /**
- * Queue health gauges, sampled on scrape (worker metrics endpoint). `sample`
- * returns jobs per status and the age of the oldest ready job.
+ * Queue health gauges, sampled on scrape (worker metrics endpoint): jobs per
+ * status, and per job kind the ready count and the age of the oldest ready job.
  */
 export function registerQueueMetrics(
   sample: () => Promise<{
     byStatus: Record<string, number>;
-    oldestQueuedSeconds: number;
+    byKind: Record<string, { ready: number; oldestSeconds: number }>;
     outboxPending: number;
   }>,
 ): void {
@@ -105,11 +105,24 @@ export function registerQueueMetrics(
     },
   });
   new Gauge({
-    name: 'rabit_job_oldest_queued_seconds',
-    help: 'Age of the oldest job ready to run',
+    name: 'rabit_jobs_ready',
+    help: 'Jobs ready to run, by kind',
+    labelNames: ['kind'] as const,
     registers: [registry],
     collect() {
-      this.set(last?.oldestQueuedSeconds ?? 0);
+      this.reset();
+      for (const [kind, k] of Object.entries(last?.byKind ?? {})) this.set({ kind }, k.ready);
+    },
+  });
+  new Gauge({
+    name: 'rabit_job_oldest_queued_seconds',
+    help: 'Age of the oldest job ready to run, by kind',
+    labelNames: ['kind'] as const,
+    registers: [registry],
+    collect() {
+      this.reset();
+      for (const [kind, k] of Object.entries(last?.byKind ?? {}))
+        this.set({ kind }, k.oldestSeconds);
     },
   });
   new Gauge({

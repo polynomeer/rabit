@@ -3,7 +3,7 @@
 # with AWS credentials from GitHub OIDC; can also be run by on-call with the same role.
 #
 # Order: register task definitions → run migrations (expand-only, erd §5) → roll
-# out api, media, worker → wait until stable. A failed migration stops the deploy
+# out api, media, worker, transcoder → wait until stable. A failed migration stops the deploy
 # before any service changes; a failed rollout is rolled back by the ECS circuit breaker.
 #
 # Required env: AWS_REGION, ENVIRONMENT, IMAGE (full ECR URI with tag),
@@ -26,7 +26,7 @@ register() {
 }
 
 declare -A TD
-for role in ops api media worker; do
+for role in ops api media worker transcoder; do
   TD[$role]=$(register "$role")
   echo "registered ${TD[$role]}"
 done
@@ -58,9 +58,9 @@ if [ "$CODE" != "0" ]; then
   exit 1
 fi
 
-for role in api media worker; do
+for role in api media worker transcoder; do
   aws ecs update-service --cluster "$CLUSTER" --service "$role" \
     --task-definition "${TD[$role]}" --query service.serviceName --output text
 done
-aws ecs wait services-stable --cluster "$CLUSTER" --services api media worker
+aws ecs wait services-stable --cluster "$CLUSTER" --services api media worker transcoder
 echo "deployed $IMAGE to $ENVIRONMENT"
