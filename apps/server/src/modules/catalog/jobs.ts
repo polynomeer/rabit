@@ -28,6 +28,7 @@ export function catalogJobs(ctx: AppContext): JobHandler[] {
           // Catalog masters may be longer than the free-tier cap; 6 h hard limit.
           maxDurationMs: 6 * 60 * 60 * 1000,
           uploadSessionId: null,
+          requireLossless: ctx.config.catalog.requireLossless,
           onReady: async (tx, info) => {
             if (source.recording_id)
               await setRecordingDuration(tx, source.recording_id, info.durationMs);

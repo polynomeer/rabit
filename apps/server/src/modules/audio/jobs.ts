@@ -91,6 +91,8 @@ export interface ProcessInput {
    * skip it (review #11). The catalog records the recording's duration here.
    */
   onReady?: (tx: DbOrTx, info: { durationMs: number }) => Promise<void>;
+  /** Refuse lossy sources (catalog masters when CATALOG_REQUIRE_LOSSLESS is on). */
+  requireLossless?: boolean;
 }
 
 /**
@@ -122,11 +124,17 @@ export async function processSource(
     });
     if (!probed.ok) throw new PermanentJobError(probed.failure, probed.reason);
     const info = probed.result;
+    if (p.requireLossless && !info.lossless) {
+      throw new PermanentJobError('MASTER_NOT_LOSSLESS', info.codec);
+    }
 
     const hls = await transcodeHls(ctx.config.worker.ffmpegPath, inputPath, work, {
       durationMs: info.durationMs,
+      sampleRate: info.sampleRate,
+      samples: info.samples,
       signal: job.signal,
     });
+    if (hls.ok && !hls.output.gapless) log.warn('gapless edit list not written');
     if (!hls.ok) {
       if (job.signal.aborted) throw new Error('aborted');
       throw new PermanentJobError(hls.timedOut ? 'TRANSCODE_TIMEOUT' : 'TRANSCODE_FAILED');
@@ -225,6 +233,10 @@ export async function processSource(
             channels: info.channels,
             codec: info.codec,
             container: info.container,
+            lossless: info.lossless,
+            bits_per_sample: info.bitsPerSample,
+            rendition_sample_rate: hls.output.sampleRate,
+            gapless: hls.output.gapless,
             ...(loudness
               ? { integrated_lufs: loudness.integratedLufs, true_peak_dbtp: loudness.truePeakDbtp }
               : {}),
