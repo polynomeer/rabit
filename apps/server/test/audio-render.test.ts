@@ -108,6 +108,19 @@ describe('gapless edit list (AUD-013)', () => {
     });
   });
 
+  it('lists exactly the edited length in every playlist, so players reach the end', async () => {
+    const { out } = await render(tone('length.wav', 44_100, SAMPLES));
+    for (const r of ['low', 'standard', 'high']) {
+      const playlist = readFileSync(join(out.dir, r, 'index.m3u8'), 'utf8');
+      const seconds = [...playlist.matchAll(/^#EXTINF:([\d.]+),/gm)].reduce(
+        (n, m) => n + Number(m[1]),
+        0,
+      );
+      // ffmpeg's own values include priming and padding (about 40 ms more).
+      expect(Math.abs(seconds - SAMPLES / 44_100), r).toBeLessThan(0.00001 * 10);
+    }
+  });
+
   it('decodes in phase with the source: the priming silence is not played', async () => {
     const src = tone('phase.wav', 44_100, SAMPLES);
     const { out } = await render(src);
