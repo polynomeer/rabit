@@ -59,6 +59,7 @@ interface Session {
   session_id: string;
   manifest_url: string;
   expires_at: string;
+  media_token_expires_at: string;
   quality: {
     codec: string;
     bitrate_kbps: number;
@@ -131,12 +132,56 @@ function stalledAtEnd(a: HTMLAudioElement): boolean {
   return n > 0 && a.buffered.end(n - 1) >= a.duration - END_SLACK_S;
 }
 
+/** How long before a track ends the next one is prepared. */
+export const PREPARE_NEXT_S = 30;
+
+interface Prepared {
+  /** Queue position and entry key the session was opened for. */
+  index: number;
+  key: string;
+  session: Session;
+}
+
+function openSession(entry: QueueEntry) {
+  return api<Session>('POST', '/v1/playback-sessions', {
+    ...(entry.audio_source_id
+      ? { audio_source_id: entry.audio_source_id }
+      : { recording_id: entry.recording_id }),
+    device_id: deviceId(),
+  }).then(({ data }) => data);
+}
+
+/**
+ * Fetches the playlists, init segment and first media segment of a prepared
+ * session, so the browser cache answers hls.js when the track starts. Ladder
+ * sessions warm the `standard` rung, where players start (ADR-0008). Segment
+ * responses are cacheable for the token's lifetime; failures only cost the head start.
+ */
+async function warm(s: Session): Promise<void> {
+  const base = s.manifest_url.replace(/(master|index)\.m3u8$/, '');
+  const rung = s.manifest_url.endsWith('/master.m3u8') ? 'standard/' : '';
+  const files = [
+    ...(rung ? ['master.m3u8'] : []),
+    `${rung}index.m3u8`,
+    `${rung}init.mp4`,
+    `${rung}seg_00000.m4s`,
+  ];
+  for (const file of files) {
+    const res = await fetch(`${base}${file}`);
+    if (!res.ok) return;
+    await res.arrayBuffer();
+  }
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audio = useRef<HTMLAudioElement>(null);
   const hls = useRef<Hls | null>(null);
   const token = useRef('');
   /** Session whose end was handled (by `ended` or a stall at the end), at most once. */
   const finished = useRef<string | null>(null);
+  const prepared = useRef<Prepared | null>(null);
+  /** Queue position whose session is being (or was) prepared. */
+  const preparing = useRef(-1);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [index, setIndex] = useState(-1);
   const [session, setSession] = useState<Session | null>(null);
@@ -167,15 +212,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }).catch(() => undefined);
   }, []);
 
-  const start = useCallback(async (entry: QueueEntry) => {
+  const start = useCallback(async (entry: QueueEntry, at: number) => {
     setMessage(null);
     try {
-      const { data } = await api<Session>('POST', '/v1/playback-sessions', {
-        ...(entry.audio_source_id
-          ? { audio_source_id: entry.audio_source_id }
-          : { recording_id: entry.recording_id }),
-        device_id: deviceId(),
-      });
+      // A session opened ahead of time for this entry (prepareNext) saves a round trip;
+      // its media token is renewed when it is close to expiry.
+      const ready = prepared.current;
+      prepared.current = null;
+      preparing.current = -1;
+      let data: Session;
+      if (ready && ready.index === at && ready.key === entry.key) {
+        data =
+          new Date(ready.session.media_token_expires_at).getTime() - Date.now() > 15_000
+            ? ready.session
+            : (
+                await api<Session>(
+                  'POST',
+                  `/v1/playback-sessions/${ready.session.session_id}/refresh`,
+                )
+              ).data;
+      } else {
+        data = await openSession(entry);
+      }
       token.current = tokenOf(data.manifest_url);
       seq.current = 0;
       lastBeat.current = 0;
@@ -242,8 +300,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const entry = queue[index];
-    if (entry) void start(entry);
+    if (entry) void start(entry, index);
   }, [index, queue, start]);
+
+  /** Opens and warms the next entry's session near the end of the current track. */
+  const prepareNext = () => {
+    const el = audio.current;
+    const nextEntry = queue[index + 1];
+    if (!el || !nextEntry || preparing.current === index + 1) return;
+    if (!Number.isFinite(el.duration) || el.duration - el.currentTime > PREPARE_NEXT_S) return;
+    preparing.current = index + 1;
+    const at = index + 1;
+    openSession(nextEntry).then(
+      (s) => {
+        prepared.current = { index: at, key: nextEntry.key, session: s };
+        return warm(s);
+      },
+      // Not playable or offline: starting the track reports it as usual.
+      () => undefined,
+    );
+  };
 
   const playNext = () => {
     if (session) send('ended', session);
@@ -378,6 +454,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           setPlaying(false);
           if (session) send('paused', session);
         }}
+        onTimeUpdate={prepareNext}
         onEnded={() => {
           if (finished.current === session?.session_id) return;
           finished.current = session?.session_id ?? null;
