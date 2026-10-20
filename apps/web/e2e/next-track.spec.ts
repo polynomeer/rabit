@@ -26,15 +26,16 @@ test('prepares the next track before the current one ends', async ({ page }) => 
   await page.goto(`/#/release/${String(release?.id)}`);
   await page.getByRole('button', { name: '전체 재생' }).click();
   await expectPlaying(page);
-  expect(sessions).toHaveLength(1);
 
-  // Jump close to the end: the next session is opened and warmed while this one plays.
-  const audio = page.getByLabel('오디오 컨트롤');
-  await audio.evaluate((a: HTMLAudioElement) => {
-    a.currentTime = Math.max(0, a.duration - 3);
-  });
+  // Within 30 s of the end (the fixture tracks are shorter than that) the next
+  // session is opened and its first segment warmed while this track plays.
   await expect.poll(() => sessions.length).toBe(2);
   await expect.poll(() => segments.length).toBeGreaterThanOrEqual(2);
+  const audio = page.getByLabel('오디오 컨트롤');
+  expect(await audio.evaluate((a: HTMLAudioElement) => a.ended)).toBe(false);
+  await audio.evaluate((a: HTMLAudioElement) => {
+    a.currentTime = Math.max(0, a.duration - 1);
+  });
 
   // The next track starts on the prepared session.
   const tracks = page.getByRole('list', { name: '트랙' });
