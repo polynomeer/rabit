@@ -291,8 +291,8 @@ ask BUCKET_PREFIX "Bucket prefix [suggested: rabit-stg-$SUFFIX]:"
 BUCKET_PREFIX="${BUCKET_PREFIX:-rabit-stg-$SUFFIX}"
 ask STATE_BUCKET "OpenTofu state bucket [suggested: rabit-tfstate-$SUFFIX]:"
 STATE_BUCKET="${STATE_BUCKET:-rabit-tfstate-$SUFFIX}"
-ask BUDGET_USD "Monthly budget in USD [300]:"
-BUDGET_USD="${BUDGET_USD:-300}"
+ask BUDGET_USD "Monthly budget in USD [400]:"
+BUDGET_USD="${BUDGET_USD:-400}"
 ask BUDGET_EMAILS "Budget alert addresses, comma-separated:"
 ask ALERT_EMAILS "On-call alert addresses, comma-separated:"
 for k in BUCKET_PREFIX STATE_BUCKET BUDGET_USD BUDGET_EMAILS ALERT_EMAILS; do write_env "$k" "${!k}"; done
@@ -348,12 +348,12 @@ say "Services start with zero tasks: no image exists until the deploy workflow b
 ZERO=(-var-file=environments/staging.tfvars -var api_desired_count=0 -var media_desired_count=0 -var worker_desired_count=0 -var transcoder_min_count=0)
 tofu_ init -input=false -backend-config=environments/staging.backend.hcl
 tofu_ plan -input=false "${ZERO[@]}" -out=staging-bootstrap.plan | tail -25
-note "Expected: about 150 resources to add, 0 to change, 0 to destroy."
+note "Expected: about 160 resources to add, 0 to change, 0 to destroy."
 pause
 
 # ── 8 ────────────────────────────────────────────────────────────────────
 stage "Create the infrastructure"
-warn "This creates billable resources (≈ USD 220/month at alpha size, ADR-0012)."
+warn "This creates billable resources (≈ USD 290/month at alpha size, ADR-0012)."
 note "RDS and CloudFront take 15–25 minutes."
 confirm "Apply the plan now?" || { warn "stopped before apply"; exit 1; }
 tofu_ apply -input=false staging-bootstrap.plan

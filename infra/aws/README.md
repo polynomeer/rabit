@@ -24,7 +24,7 @@ Security invariants are tested without an AWS account (`tests/security.tftest.hc
 tofu init -backend=false && tofu test
 ```
 
-Estimated cost for staging (alpha size, Seoul list prices, 2026-10): about USD 220/month. See ADR-0012.
+Estimated cost for staging (alpha size, Seoul list prices, 2026-10): about USD 290/month, of which ≈ USD 70 is the always-on transcoder task. See ADR-0012.
 
 ## What only the owner can do
 
