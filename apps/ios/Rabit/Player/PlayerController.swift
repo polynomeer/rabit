@@ -27,6 +27,9 @@ final class PlayerController {
   /// The next queue entry, opened and queued behind the current item.
   @ObservationIgnored private var upcoming: Upcoming?
   @ObservationIgnored private var preparing = false
+  /// Quality measurement of the playing session (QoE), reported when it ends.
+  @ObservationIgnored private var qoe: PlaybackQuality?
+  @ObservationIgnored private var statusObservation: NSKeyValueObservation?
   @ObservationIgnored private var session: PlaybackSession?
   @ObservationIgnored private var log: ListeningLog?
   @ObservationIgnored private var refreshTask: Task<Void, Never>?
@@ -38,6 +41,12 @@ final class PlayerController {
   init(playback: PlaybackService) {
     self.playback = playback
     NowPlayingCenter.connect(self)
+    // Playing, stalled or paused, for the session's quality report.
+    statusObservation = player.observe(\.timeControlStatus) { @Sendable [weak self] player, _ in
+      let status = player.timeControlStatus
+      let stalled = player.reasonForWaitingToPlay == .toMinimizeStalls
+      Task { @MainActor in self?.qualityChanged(status, stalled: stalled) }
+    }
     timeObserver = player.addPeriodicTimeObserver(
       forInterval: CMTime(seconds: 0.5, preferredTimescale: 600), queue: .main
     ) { [weak self] time in
@@ -90,6 +99,7 @@ final class PlayerController {
   }
 
   func seek(to seconds: Double) {
+    qoe?.seekStarted()
     player.seek(to: CMTime(seconds: seconds, preferredTimescale: 600))
     position = seconds
     record(.seek, wasPlaying: isPlaying)
@@ -124,7 +134,7 @@ final class PlayerController {
       position = 0
       duration = 0
       player.advanceToNextItem()
-      adopt(session: u.session, loader: u.loader, item: u.item)
+      adopt(session: u.session, loader: u.loader, item: u.item, requestedAt: .now)
       player.play()
       return
     }
@@ -140,6 +150,7 @@ final class PlayerController {
 
   private func start() async {
     guard let entry = current else { return }
+    let requestedAt = ContinuousClock.now
     do {
       let s = try await playback.start(entry.target)
       guard !Task.isCancelled else { return }
@@ -150,7 +161,7 @@ final class PlayerController {
       let (loader, item) = Self.item(for: locator)
       activateAudioSession()
       player.replaceCurrentItem(with: item)
-      adopt(session: s, loader: loader, item: item)
+      adopt(session: s, loader: loader, item: item, requestedAt: requestedAt)
       player.play()
     } catch is CancellationError {
     } catch {
@@ -167,7 +178,13 @@ final class PlayerController {
   }
 
   /// Makes `s` the playing session: the item is (or just became) the player's current one.
-  private func adopt(session s: PlaybackSession, loader: MediaLoader, item: AVPlayerItem) {
+  private func adopt(
+    session s: PlaybackSession, loader: MediaLoader, item: AVPlayerItem,
+    requestedAt: ContinuousClock.Instant
+  ) {
+    qoe = PlaybackQuality(requestedAt: requestedAt)
+    // A queued item takes over while the player keeps playing: no status change follows.
+    if player.timeControlStatus == .playing { qoe?.playing() }
     self.loader = loader
     session = s
     quality = s.quality
@@ -183,6 +200,11 @@ final class PlayerController {
   /// Reports the end of the current session (when there is one) and stops its timers.
   private func endSession(reporting kind: ListeningEvent.Kind, pausing: Bool = true) {
     if session != nil { record(kind, wasPlaying: isPlaying) }
+    if let s = session, let report = qoe?.report() {
+      let playback = playback
+      Task { await playback.reportQuality(s.sessionId, report) }
+    }
+    qoe = nil
     refreshTask?.cancel()
     heartbeatTask?.cancel()
     if pausing { player.pause() }
@@ -289,8 +311,19 @@ final class PlayerController {
       Task { await prepareNext() }
     }
     if player.currentItem?.status == .failed, session != nil {
+      let error = player.currentItem?.error as? URLError
+      qoe?.failed(error == nil ? .media : .network)
       endSession(reporting: .paused)
       message = "재생하지 못했어요. 잠시 후 다시 시도해 주세요."
+    }
+  }
+
+  private func qualityChanged(_ status: AVPlayer.TimeControlStatus, stalled: Bool) {
+    switch status {
+    case .playing: qoe?.playing()
+    case .waitingToPlayAtSpecifiedRate: if stalled { qoe?.waiting() }
+    case .paused: qoe?.paused()
+    @unknown default: break
     }
   }
 
@@ -311,7 +344,8 @@ final class PlayerController {
           self.index = next.index
           self.position = 0
           self.duration = 0
-          self.adopt(session: next.session, loader: next.loader, item: next.item)
+          // A queued track starts without a request: its start-up time is ~0.
+          self.adopt(session: next.session, loader: next.loader, item: next.item, requestedAt: .now)
         } else if self.hasNext {
           self.next()
         } else {
