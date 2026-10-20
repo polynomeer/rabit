@@ -115,10 +115,28 @@ function withToken(url: string, token: string): string {
 }
 const tokenOf = (manifest: string) => /\/media\/v1\/([^/]+)\//.exec(manifest)?.[1] ?? '';
 
+/** How close to the end a stall counts as the end of the track (see `onWaiting`). */
+const END_SLACK_S = 0.3;
+
+/**
+ * The media is buffered to its end and playback stopped just short of it. With
+ * gapless edit lists (ADR-0008) Chrome trims the encoder padding, and hls.js then
+ * never signals the end of the stream, so `ended` never fires.
+ */
+function stalledAtEnd(a: HTMLAudioElement): boolean {
+  if (a.paused || !Number.isFinite(a.duration) || a.duration - a.currentTime > END_SLACK_S) {
+    return false;
+  }
+  const n = a.buffered.length;
+  return n > 0 && a.buffered.end(n - 1) >= a.duration - END_SLACK_S;
+}
+
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const audio = useRef<HTMLAudioElement>(null);
   const hls = useRef<Hls | null>(null);
   const token = useRef('');
+  /** Session whose end was handled (by `ended` or a stall at the end), at most once. */
+  const finished = useRef<string | null>(null);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [index, setIndex] = useState(-1);
   const [session, setSession] = useState<Session | null>(null);
@@ -361,8 +379,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           if (session) send('paused', session);
         }}
         onEnded={() => {
+          if (finished.current === session?.session_id) return;
+          finished.current = session?.session_id ?? null;
           setPlaying(false);
           playNext();
+        }}
+        onWaiting={(e) => {
+          const el = e.currentTarget;
+          if (!stalledAtEnd(el) || finished.current === session?.session_id) return;
+          finished.current = session?.session_id ?? null;
+          if (index + 1 < queue.length) {
+            setPlaying(false);
+            playNext();
+          } else {
+            el.pause();
+          }
         }}
       />
     </Ctx.Provider>

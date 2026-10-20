@@ -1,4 +1,4 @@
-import { open } from 'node:fs/promises';
+import { open, readFile, writeFile } from 'node:fs/promises';
 
 /**
  * Gapless metadata for the fMP4 HLS rendition (ADR-0008, AUD-013).
@@ -101,6 +101,38 @@ export async function writeGaplessEditList(
   } finally {
     await fh.close();
   }
+}
+
+/**
+ * Shortens the media playlist to the edited length. ffmpeg's `#EXTINF` values add
+ * up to every encoded frame, priming and padding included; after the edit list the
+ * media is exactly `samples` long. The first segment loses the priming and the last
+ * one the padding, so the playlist ends where the media does.
+ */
+export async function trimPlaylistToEdit(
+  playlistPath: string,
+  g: { sampleRate: number; samples: number; priming: number },
+): Promise<void> {
+  const lines = (await readFile(playlistPath, 'utf8')).split('\n');
+  const inf = lines.flatMap((l, i) => {
+    const m = /^#EXTINF:([\d.]+),/.exec(l);
+    return m ? [{ i, seconds: Number(m[1]) }] : [];
+  });
+  const first = inf[0];
+  const last = inf[inf.length - 1];
+  if (!first || !last) return;
+  const total = inf.reduce((n, x) => n + x.seconds, 0);
+  let excess = total - g.samples / g.sampleRate;
+  if (!(excess > 0)) return;
+  const set = (x: { i: number; seconds: number }, seconds: number) => {
+    x.seconds = seconds;
+    lines[x.i] = `#EXTINF:${seconds.toFixed(6)},`;
+  };
+  const priming = Math.min(excess, g.priming / g.sampleRate, first.seconds);
+  set(first, first.seconds - priming);
+  excess -= priming;
+  if (excess > 0) set(last, Math.max(0, last.seconds - excess));
+  await writeFile(playlistPath, lines.join('\n'));
 }
 
 /** Reads the edit list back (tests and diagnostics). */

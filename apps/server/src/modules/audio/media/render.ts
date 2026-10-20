@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runProcess } from '../../../platform/process.js';
-import { AAC_PRIMING_SAMPLES, writeGaplessEditList } from './gapless.js';
+import { AAC_PRIMING_SAMPLES, trimPlaylistToEdit, writeGaplessEditList } from './gapless.js';
 
 /**
  * Codec ladder (ADR-0008 amendment 2026-10-20, owner decision): three AAC-LC stereo
@@ -135,14 +135,19 @@ export async function transcodeHls(
     files.push(...own.map((f) => `${r.name}/${f}`));
     // A layout this code does not expect (another ffmpeg version) costs gapless
     // playback, never the rendition itself.
-    gapless &&= await writeGaplessEditList(join(rdir, 'init.mp4'), {
+    const g = {
       sampleRate: rate,
       samples: Math.round((opts.samples * rate) / opts.sampleRate),
       priming: AAC_PRIMING_SAMPLES,
-    }).then(
+    };
+    const edited = await writeGaplessEditList(join(rdir, 'init.mp4'), g).then(
       () => true,
       () => false,
     );
+    // The playlist must last what the edit list leaves, or players wait at the end
+    // for media that was trimmed away (hls.js never reaches `ended`).
+    if (edited) await trimPlaylistToEdit(join(rdir, 'index.m3u8'), g);
+    gapless &&= edited;
     const bw = await measureBandwidth(rdir);
     variants.push(
       `#EXT-X-STREAM-INF:BANDWIDTH=${bw.peak},AVERAGE-BANDWIDTH=${bw.average},CODECS="mp4a.40.2"`,
