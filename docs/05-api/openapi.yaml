@@ -1093,6 +1093,74 @@ paths:
         '200': { description: Set, content: { application/json: { schema: { $ref: '#/components/schemas/Me' } } } }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/usage-statements:
+    get:
+      tags: [ops]
+      operationId: opsListUsageStatements
+      description: >-
+        Closed monthly usage statements for rights holders (ADR-0025), newest first. A month
+        (Asia/Seoul) closes three days after it ends and never changes afterwards.
+      responses:
+        '200':
+          description: Statements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [month, policy, streams, line_count, closed_at]
+                      properties:
+                        month: { type: string, pattern: '^\\d{4}-\\d{2}$' }
+                        policy: { type: string, description: 'Counting rules, e.g. usage/v1 (30 s, or half of a shorter track; one stream per session)' }
+                        streams: { type: integer }
+                        line_count: { type: integer }
+                        closed_at: { $ref: '#/components/schemas/Timestamp' }
+        '403': { $ref: '#/components/responses/Error' }
+  /v1/ops/usage-statements/{month}/lines:
+    parameters: [ { name: month, in: path, required: true, schema: { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$' } } ]
+    get:
+      tags: [ops]
+      operationId: opsUsageStatementLines
+      description: >-
+        One closed month per recording, rights grant, territory and access (subscription, purchase,
+        grant). No user data: `listeners` is a count. `format=csv` returns RFC 4180 CSV for the rights
+        holders' reporting. Every export is audited.
+      parameters:
+        - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200':
+          description: Statement lines
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [month, items]
+                properties:
+                  month: { type: string }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [recording_id, isrc, rights_grant_id, rights_holder, contract_ref, territory, access_origin, streams, listeners, played_ms]
+                      properties:
+                        recording_id: { $ref: '#/components/schemas/Id' }
+                        isrc: { oneOf: [ { type: string }, { type: 'null' } ] }
+                        rights_grant_id: { $ref: '#/components/schemas/Id' }
+                        rights_holder: { type: string }
+                        contract_ref: { type: string }
+                        territory: { type: string }
+                        access_origin: { type: string, enum: [subscription, purchase, grant] }
+                        streams: { type: integer }
+                        listeners: { type: integer }
+                        played_ms: { type: integer }
+            text/csv: { schema: { type: string } }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/ops/jobs:
     get:
       tags: [ops]

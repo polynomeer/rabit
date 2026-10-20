@@ -79,7 +79,7 @@ export const catalogAccess: CatalogAccess = async (db, principal, recordingIds, 
   for (const id of recordingIds) {
     const grant = grants.get(id);
     const ent = ents.get(id);
-    if (!grant) out.set(id, { allowed: false, reason: 'rights_unavailable' });
+    if (!grant || !country) out.set(id, { allowed: false, reason: 'rights_unavailable' });
     else if (!ent)
       out.set(id, {
         allowed: false,
@@ -90,6 +90,7 @@ export const catalogAccess: CatalogAccess = async (db, principal, recordingIds, 
         allowed: true,
         rightsGrantId: grant.id,
         rightsVersion: grant.version,
+        territory: country,
         entitlementId: ent.id,
         entitlementVersion: ent.version,
         entitlementOrigin: ent.origin,

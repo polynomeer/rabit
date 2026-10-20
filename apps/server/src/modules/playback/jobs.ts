@@ -3,6 +3,7 @@ import type { AppContext } from '../../app/context.js';
 import type { JobHandler } from '../../platform/jobs/runner.js';
 import { computePopularity, purgeListeningEvents } from './listening.js';
 import { revokeSessions } from './sessions.js';
+import { closeUsageStatements } from './usage.js';
 
 export function playbackJobs(ctx: AppContext): JobHandler[] {
   return [
@@ -91,6 +92,15 @@ export function playbackJobs(ctx: AppContext): JobHandler[] {
       async handle() {
         await computePopularity(ctx.db);
         await purgeListeningEvents(ctx.db);
+      },
+    },
+    {
+      // Monthly usage statements (ADR-0025); a no-op until a month is due.
+      kind: 'playback.close_usage_statements',
+      leaseMs: 30 * 60_000,
+      async handle(job) {
+        const months = await closeUsageStatements(ctx.db);
+        if (months.length > 0) job.log.info({ months }, 'usage statements closed');
       },
     },
     {

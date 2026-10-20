@@ -75,3 +75,10 @@ A payment, refund or App Store event could not be applied (`PaymentEventsHeld`),
 
 ## app-store
 Held App Store notifications, overlapping web and App Store subscriptions, refunds and signature failures: [App Store setup and operations](app-store.md) §3.
+
+## usage-statements
+Monthly usage statements for rights holders (ADR-0025).
+1. A month (Asia/Seoul) closes 3 days after it ends; `playback.close_usage_statements` runs every 6 hours and logs `usage statements closed` with the months. `GET /v1/ops/usage-statements` lists what is closed.
+2. Export: `GET /v1/ops/usage-statements/{YYYY-MM}/lines?format=csv` (audited). Statements never change once closed; a correction is a new, separate document agreed with the rights holder, not an edit.
+3. A month missing after its due date: check the job in `GET /v1/ops/jobs` (dead jobs show the error). Listening events of an unclosed month are never purged, so retrying the job after the fix produces the full statement.
+4. Restoring a backup older than the last close: statements closed after the backup are gone; re-run the job. Months whose events were purged before the restore cannot be rebuilt — export statements to the rights holders as they close.

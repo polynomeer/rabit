@@ -5,6 +5,7 @@ import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
 import { deleteInBatches } from '../../platform/jobs/queue.js';
 import { metrics } from '../../platform/metrics.js';
+import { closedThrough } from './usage.js';
 
 export interface ListeningEventInput {
   event_id: string;
@@ -194,12 +195,18 @@ export async function computePopularity(db: Db): Promise<number> {
   return Number(r.numAffectedRows ?? 0);
 }
 
-/** Raw events older than the retention window are purged (NFR-PRV-005 proposal). */
+/**
+ * Raw events older than the retention window are purged (NFR-PRV-005 proposal),
+ * but only once the usage statement of their month is closed (ADR-0025): until
+ * then they are the record of what rights holders are owed.
+ */
 export async function purgeListeningEvents(db: Db): Promise<number> {
+  const through = await closedThrough(db);
+  if (!through) return 0;
   // In batches: one large DELETE would hold the vacuum horizon for every hot table.
   return deleteInBatches(
     db,
     'listening_event',
-    sql`received_at < now() - make_interval(days => ${POPULARITY_WINDOW_DAYS})`,
+    sql`received_at < now() - make_interval(days => ${POPULARITY_WINDOW_DAYS}) AND received_at < ${through}`,
   );
 }

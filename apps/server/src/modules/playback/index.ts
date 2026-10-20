@@ -2,6 +2,7 @@ import type { Module } from '../../app/modules.js';
 import { playbackJobs } from './jobs.js';
 import { playbackRoutes } from './routes.js';
 import { revokeSessions, type PlaybackDeps } from './sessions.js';
+import { foldAccountUsage } from './usage.js';
 import type { AccountDataDeleter } from '../identity/index.js';
 import { sql } from 'kysely';
 import type { SupportSection } from '../../platform/support.js';
@@ -20,6 +21,7 @@ export {
   type PolicyDecision,
 } from './policy.js';
 export { computePopularity, tierFor, POPULARITY_POLICY } from './listening.js';
+export { closeUsageStatements, foldAccountUsage, USAGE_POLICY } from './usage.js';
 export {
   revokeSessions,
   mediaAccessAllowed,
@@ -31,6 +33,9 @@ export {
 /** Account deletion: end sessions and remove listening history (privacy.md §2, review #7). */
 export const deleteAccountPlayback: AccountDataDeleter = async (ctx, account) => {
   await revokeSessions(ctx.db, { userId: account.userId }, 'account_deleted');
+  // Streams of months not yet reported stay owed to rights holders: kept without
+  // any reference to the account (ADR-0025), then the history is deleted.
+  await foldAccountUsage(ctx.db, account.userId);
   await ctx.db.deleteFrom('listening_event').where('user_id', '=', account.userId).execute();
 };
 
@@ -49,6 +54,7 @@ export function playbackModule(deps: PlaybackDeps): Module {
       { kind: 'playback.expire_sessions', everyMs: 60_000 },
       { kind: 'playback.compute_popularity', everyMs: 24 * 60 * 60_000 },
       { kind: 'playback.purge_sessions', everyMs: 24 * 60 * 60_000 },
+      { kind: 'playback.close_usage_statements', everyMs: 6 * 60 * 60_000 },
     ],
   };
 }

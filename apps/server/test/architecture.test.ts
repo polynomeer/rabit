@@ -65,7 +65,8 @@ describe('architecture (ADR-0001, domain-boundaries §2)', () => {
     catalog:
       'music_entity recording recording_artist release release_artist release_track credit music_relation rights_grant',
     entitlement: 'subscription entitlement',
-    playback: 'playback_session listening_event recording_popularity',
+    playback:
+      'playback_session listening_event recording_popularity usage_statement usage_statement_line usage_carryover',
     library: 'library_item playlist playlist_item export_request',
     collection: 'physical_item',
     dig: 'dig_session dig_trail_node blind_dig blind_dig_item',
@@ -105,6 +106,8 @@ describe('architecture (ADR-0001, domain-boundaries §2)', () => {
     'ops -> audio',
     'ops -> identity',
     'playback -> audio',
+    // Usage statements name the recording (ISRC) and the grant's rights holder (ADR-0025).
+    'playback -> catalog',
     'search -> audio',
     'search -> catalog',
   ]);
