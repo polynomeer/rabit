@@ -65,6 +65,44 @@ export const metrics = {
     labelNames: ['event'] as const,
     registers: [registry],
   }),
+  // Client-reported playback quality (QoE, slo.md): platform labels only.
+  playbackStartup: new Histogram({
+    name: 'rabit_playback_startup_seconds',
+    help: 'Client time from choosing a track to the first audible frame',
+    labelNames: ['platform'] as const,
+    buckets: [0.25, 0.5, 1, 1.5, 2, 3, 5, 10, 30],
+    registers: [registry],
+  }),
+  playbackPlayedSeconds: new Counter({
+    name: 'rabit_playback_played_seconds_total',
+    help: 'Client-reported playing time, the denominator of the rebuffering ratio',
+    labelNames: ['platform'] as const,
+    registers: [registry],
+  }),
+  playbackStallSeconds: new Counter({
+    name: 'rabit_playback_stall_seconds_total',
+    help: 'Client-reported time stalled (rebuffering) after playback started',
+    labelNames: ['platform'] as const,
+    registers: [registry],
+  }),
+  playbackStalls: new Counter({
+    name: 'rabit_playback_stalls_total',
+    help: 'Client-reported stalls after playback started',
+    labelNames: ['platform'] as const,
+    registers: [registry],
+  }),
+  playbackClientErrors: new Counter({
+    name: 'rabit_playback_client_errors_total',
+    help: 'Sessions that ended in a client playback error, by error class',
+    labelNames: ['platform', 'code'] as const,
+    registers: [registry],
+  }),
+  playbackQualityReports: new Counter({
+    name: 'rabit_playback_quality_reports_total',
+    help: 'Playback quality reports by outcome (accepted, duplicate, implausible)',
+    labelNames: ['platform', 'outcome'] as const,
+    registers: [registry],
+  }),
   listeningEvents: new Counter({
     name: 'rabit_listening_events_total',
     help: 'Listening events by outcome',

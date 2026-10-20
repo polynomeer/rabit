@@ -35,6 +35,40 @@ groups:
           runbook: docs/09-operations/runbooks.md#playback-failures
 
       # Catalog ingest is bulk work with its own ticket below; it must not page.
+      # Client playback quality (QoE, slo.md). Tickets: these need a look, not a page,
+      # and only fire with enough reports to mean something.
+      - alert: PlaybackStartSlow
+        expr: >-
+          histogram_quantile(0.95, sum by (le) (rate(rabit_playback_startup_seconds_bucket[30m]))) > 2
+          and sum(rate(rabit_playback_startup_seconds_count[30m])) > 0.05
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          impact: Listeners wait more than 2 s for sound (p95, slo.md).
+          runbook: docs/09-operations/runbooks.md#playback-quality
+
+      - alert: RebufferingHigh
+        expr: >-
+          sum(rate(rabit_playback_stall_seconds_total[30m]))
+          / sum(rate(rabit_playback_played_seconds_total[30m])) > 0.005
+          and sum(rate(rabit_playback_played_seconds_total[30m])) > 1
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          impact: Playback stalls more than 0.5 % of the time (slo.md).
+          runbook: docs/09-operations/runbooks.md#playback-quality
+
+      - alert: PlaybackErrorsHigh
+        expr: >-
+          sum(rate(rabit_playback_client_errors_total[30m]))
+          / sum(rate(rabit_playback_quality_reports_total{outcome="accepted"}[30m])) > 0.02
+          and sum(rate(rabit_playback_quality_reports_total{outcome="accepted"}[30m])) > 0.05
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          impact: More than 2 % of playback sessions end in an error on the listener's device.
+          runbook: docs/09-operations/runbooks.md#playback-quality
+
       - alert: UploadsStuck
         expr: max(rabit_job_oldest_queued_seconds{kind!="catalog.process"}) > 900
         for: 5m

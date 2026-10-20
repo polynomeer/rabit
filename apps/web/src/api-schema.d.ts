@@ -225,6 +225,25 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/playback-sessions/{session_id}/quality': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description The client's one quality report for a session when it ends (QoE, slo.md): time to the first audible frame, playing and stalled time, and the error class if playback failed. Only aggregate metrics by platform are kept. A repeated report, or one claiming more time than the session has existed, is accepted and ignored. */
+    post: operations['reportPlaybackQuality'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/listening-events/batch': {
     parameters: {
       query?: never;
@@ -3051,6 +3070,40 @@ export interface operations {
       403: components['responses']['Error'];
       404: components['responses']['Error'];
       409: components['responses']['Error'];
+    };
+  };
+  reportPlaybackQuality: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        session_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          platform: 'web' | 'ios';
+          startup_ms: number | null;
+          played_ms: number;
+          stall_count: number;
+          stall_ms: number;
+          error: ('network' | 'media' | 'other') | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Recorded (or ignored as a repeat) */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['Error'];
+      404: components['responses']['Error'];
     };
   };
   submitListeningEvents: {

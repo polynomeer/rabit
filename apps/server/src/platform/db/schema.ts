@@ -191,6 +191,8 @@ export interface PlaybackSessionTable {
   /** Catalog sessions: the account's territory and the access granted (ADR-0025). */
   territory: string | null;
   access_origin: 'subscription' | 'purchase' | 'grant' | null;
+  /** The client's one quality report for this session (metrics only). */
+  quality_reported_at: Date | null;
 }
 
 export interface UsageStatementTable {

@@ -84,3 +84,11 @@ Monthly usage statements for rights holders (ADR-0025).
 2. Export: `GET /v1/ops/usage-statements/{YYYY-MM}/lines?format=csv` (audited). Statements never change once closed; a correction is a new, separate document agreed with the rights holder, not an edit.
 3. A month missing after its due date: check the job in `GET /v1/ops/jobs` (dead jobs show the error). Listening events of an unclosed month are never purged, so retrying the job after the fix produces the full statement.
 4. Restoring a backup older than the last close: statements closed after the backup are gone; re-run the job. Months whose events were purged before the restore cannot be rebuilt — export statements to the rights holders as they close.
+
+## playback-quality
+Client-reported quality (QoE): `PlaybackStartSlow`, `RebufferingHigh`, `PlaybackErrorsHigh`. Each playback session reports once when it ends; only platform-level metrics exist (`rabit_playback_*{platform}`), no per-user data.
+1. One platform or both? A single platform points at a client release; both point at delivery.
+2. Delivery: media latency and errors (`rabit_media_requests_total`, CloudFront 4xx/5xx and cache hit rate), the media role's CPU, the object storage. Low CDN hit rate after a deploy is expected for a while.
+3. Start time: `POST /v1/playback-sessions` latency (api histogram); the playlist is fetched from the origin on every start.
+4. Errors by `code`: `network` (connectivity, gateway 5xx), `media` (decode or format: check recent transcodes and the ffmpeg version), `other`.
+5. `rabit_playback_quality_reports_total{outcome="implausible"}` rising means a client reports times its sessions cannot have had (clock or client bug).
