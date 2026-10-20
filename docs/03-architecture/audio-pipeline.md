@@ -69,7 +69,7 @@ Deletion job `audio.delete_source`: revoke sessions → delete search doc → de
 
 ## 6. CDN / cache (MVP and production)
 - MVP: media gateway streams from object storage; responses `Cache-Control: private, max-age=<token remaining>`; manifests `no-store`.
-- Production (Proposed): CDN in front of the media gateway with edge token validation; segment cache key excludes the token; revocation via short token TTL + session check at origin for manifests.
+- Production (ADR-0008 amendment 2026-10-20): CloudFront checks the token of segment and init requests at the edge. Catalog segments are then cached once for all sessions, keyed by storage path and Origin, for one day. Playlists are never cached and the origin checks the session for each. A revoked session therefore stops within the token's 60 s. Private segments are not cached at the edge.
 
 ## 7. Limits (configuration; values are Q03 placeholders)
 

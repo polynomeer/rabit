@@ -76,15 +76,63 @@ locals {
 }
 
 # ---- media: CloudFront → load balancer (ADR-0008) ----
-# Each URL carries its own session token, so nothing is shared between sessions:
-# CloudFront is there for egress price and latency. Caching is disabled; the
-# media role's own cache headers still apply to the viewer.
+# Playlists carry the session token and go to the origin on every request, which
+# checks the session (caching disabled). Segments and init segments are checked at
+# the edge instead (functions/media-edge.js, amendment 2026-10-20): catalog ones are
+# then fetched by storage path from a second origin and cached once for every
+# session; private ones keep their token and are not cached (`private`).
 data "aws_cloudfront_cache_policy" "disabled" {
   name = "Managed-CachingDisabled"
 }
 
 data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
   name = "Managed-AllViewerExceptHostHeader"
+}
+
+# The media token secret, readable by the edge function (rotated with the app secret).
+resource "aws_cloudfront_key_value_store" "media" {
+  name    = "${local.name}-media"
+  comment = "Media token secret for the edge token check"
+}
+
+resource "aws_cloudfrontkeyvaluestore_key" "media_token_secret" {
+  key_value_store_arn = aws_cloudfront_key_value_store.media.arn
+  key                 = "media-token-secret"
+  value               = random_password.app["MEDIA_TOKEN_SECRET"].result
+}
+
+resource "aws_cloudfront_function" "media_edge" {
+  name                         = "${local.name}-media-edge"
+  runtime                      = "cloudfront-js-2.0"
+  comment                      = "Media token check; catalog segments by storage path"
+  code                         = file("${path.module}/functions/media-edge.js")
+  publish                      = true
+  key_value_store_associations = [aws_cloudfront_key_value_store.media.arn]
+}
+
+# Segment bytes never change under a source's storage prefix. The key holds the
+# path and the Origin header (the CORS answer differs for the web client and apps).
+resource "aws_cloudfront_cache_policy" "media_segments" {
+  name        = "${local.name}-media-segments"
+  min_ttl     = 0
+  default_ttl = 86400
+  max_ttl     = 31536000
+  parameters_in_cache_key_and_forwarded_to_origin {
+    enable_accept_encoding_brotli = false
+    enable_accept_encoding_gzip   = false
+    headers_config {
+      header_behavior = "whitelist"
+      headers {
+        items = ["Origin"]
+      }
+    }
+    cookies_config {
+      cookie_behavior = "none"
+    }
+    query_strings_config {
+      query_string_behavior = "none"
+    }
+  }
 }
 
 resource "aws_cloudfront_distribution" "media" {
@@ -110,6 +158,48 @@ resource "aws_cloudfront_distribution" "media" {
     custom_header {
       name  = "x-origin-role"
       value = "media"
+    }
+  }
+
+  # Same load balancer; only this origin carries the edge header the media role's
+  # /media/v1/edge route requires, and only the segment behaviours below use it.
+  origin {
+    origin_id   = "media-edge"
+    domain_name = local.lb_origin.domain_name
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = local.lb_origin.protocol
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+    custom_header {
+      name  = "x-origin-verify"
+      value = random_password.origin_verify.result
+    }
+    custom_header {
+      name  = "x-origin-role"
+      value = "media"
+    }
+    custom_header {
+      name  = "x-media-edge"
+      value = random_password.app["MEDIA_EDGE_SECRET"].result
+    }
+  }
+
+  dynamic "ordered_cache_behavior" {
+    for_each = ["/media/v1/*.m4s", "/media/v1/*init.mp4"]
+    content {
+      path_pattern           = ordered_cache_behavior.value
+      target_origin_id       = "media-edge"
+      viewer_protocol_policy = "https-only"
+      allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+      cached_methods         = ["GET", "HEAD"]
+      cache_policy_id        = aws_cloudfront_cache_policy.media_segments.id
+      compress               = false
+      function_association {
+        event_type   = "viewer-request"
+        function_arn = aws_cloudfront_function.media_edge.arn
+      }
     }
   }
 

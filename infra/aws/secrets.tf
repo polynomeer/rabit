@@ -2,7 +2,8 @@
 # by tainting the random_password and redeploying (media tokens live ≤ 60 s, cursors
 # are re-issued on the next page request).
 resource "random_password" "app" {
-  for_each = toset(["MEDIA_TOKEN_SECRET", "CURSOR_SECRET"])
+  # MEDIA_EDGE_SECRET: the CDN's segment origin header (ADR-0008 amendment 2026-10-20).
+  for_each = toset(["MEDIA_TOKEN_SECRET", "CURSOR_SECRET", "MEDIA_EDGE_SECRET"])
   length   = 64
   special  = false
 }

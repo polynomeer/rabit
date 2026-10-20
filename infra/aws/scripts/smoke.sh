@@ -51,6 +51,14 @@ if [ -n "${MEDIA_URL:-}" ]; then
   # Through CloudFront the gateway answers (a forged token is refused by the gateway).
   c=$(code "$MEDIA_URL/media/v1/forged-token/index.m3u8")
   expect "media gateway reachable through CloudFront, refuses a forged token" "($c)" test "$c" = 403
+  # Segments are token-checked at the edge (ADR-0008 amendment 2026-10-20); the
+  # storage-path route is never reachable by viewers.
+  c=$(code "$MEDIA_URL/media/v1/forged-token/low/seg_00000.m4s")
+  expect "edge refuses a segment with a forged token" "($c)" test "$c" = 403
+  c=$(code "$MEDIA_URL/media/v1/edge/asr_x/00/low/seg_00000.m4s")
+  expect "edge refuses the storage-path route from viewers" "($c)" test "$c" = 403
+  c=$(code "$MEDIA_URL/media/v1/edge/asr_x/00/low/index.m3u8")
+  expect "origin refuses the storage-path route without the CDN header" "($c)" test "$c" = 404 -o "$c" = 403
 fi
 if [ -n "${MEDIA_ORIGIN_URL:-}" ]; then
   # Without CloudFront's secret header the load balancer does not forward to media

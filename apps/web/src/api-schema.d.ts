@@ -1370,6 +1370,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/media/v1/edge/{source}/{key}/{file}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Internal: the CDN fetches a catalog segment by storage path after checking the media token at the edge (ADR-0008 amendment 2026-10-20). Answers only requests with the CDN's `x-media-edge` header; never serves playlists. Cacheable by every session. */
+    get: operations['getMediaEdgeSegment'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/media/v1/edge/{source}/{key}/{rendition}/{file}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description As above, for a rung of the ladder. */
+    get: operations['getMediaEdgeRenditionSegment'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/webhooks/payments/{provider}': {
     parameters: {
       query?: never;
@@ -5145,6 +5179,65 @@ export interface operations {
         content?: never;
       };
       /** @description Unknown path */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMediaEdgeSegment: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source: string;
+        key: string;
+        file: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Segment bytes */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not from the CDN, not a segment, or missing */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMediaEdgeRenditionSegment: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source: string;
+        key: string;
+        rendition: 'low' | 'standard' | 'high';
+        file: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Segment bytes */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Not from the CDN, not a segment, or missing */
       404: {
         headers: {
           [name: string]: unknown;

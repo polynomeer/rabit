@@ -1214,6 +1214,37 @@ paths:
         '403': { description: Token invalid/expired or session revoked }
         '404': { description: Unknown path }
 
+  /media/v1/edge/{source}/{key}/{file}:
+    get:
+      tags: [media]
+      operationId: getMediaEdgeSegment
+      security: []
+      description: >-
+        Internal: the CDN fetches a catalog segment by storage path after checking the media token
+        at the edge (ADR-0008 amendment 2026-10-20). Answers only requests with the CDN's
+        `x-media-edge` header; never serves playlists. Cacheable by every session.
+      parameters:
+        - { name: source, in: path, required: true, schema: { type: string } }
+        - { name: key, in: path, required: true, schema: { type: string, pattern: '^[0-9a-f]+$' } }
+        - { name: file, in: path, required: true, schema: { type: string, pattern: '^(init\\.mp4|seg_\\d{5}\\.m4s)$' } }
+      responses:
+        '200': { description: Segment bytes }
+        '404': { description: 'Not from the CDN, not a segment, or missing' }
+  /media/v1/edge/{source}/{key}/{rendition}/{file}:
+    get:
+      tags: [media]
+      operationId: getMediaEdgeRenditionSegment
+      security: []
+      description: As above, for a rung of the ladder.
+      parameters:
+        - { name: source, in: path, required: true, schema: { type: string } }
+        - { name: key, in: path, required: true, schema: { type: string, pattern: '^[0-9a-f]+$' } }
+        - { name: rendition, in: path, required: true, schema: { type: string, enum: [low, standard, high] } }
+        - { name: file, in: path, required: true, schema: { type: string, pattern: '^(init\\.mp4|seg_\\d{5}\\.m4s)$' } }
+      responses:
+        '200': { description: Segment bytes }
+        '404': { description: 'Not from the CDN, not a segment, or missing' }
+
   /webhooks/payments/{provider}:
     parameters: [ { name: provider, in: path, required: true, schema: { type: string, maxLength: 20 } } ]
     post:

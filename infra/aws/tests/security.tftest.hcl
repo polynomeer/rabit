@@ -59,6 +59,16 @@ mock_provider "aws" {
       arn = "arn:aws:autoscaling:ap-northeast-2:111122223333:scalingPolicy:mock:resource/ecs/service/mock/transcoder:policyName/mock"
     }
   }
+  mock_resource "aws_cloudfront_function" {
+    defaults = {
+      arn = "arn:aws:cloudfront::111122223333:function/mock"
+    }
+  }
+  mock_resource "aws_cloudfront_key_value_store" {
+    defaults = {
+      arn = "arn:aws:cloudfront::111122223333:key-value-store/mock"
+    }
+  }
   mock_resource "aws_ecs_cluster" {
     defaults = {
       arn = "arn:aws:ecs:ap-northeast-2:111122223333:cluster/mock"
@@ -295,6 +305,24 @@ run "database_is_private_and_recoverable" {
   assert {
     condition     = strcontains(local.database_url, "sslmode=verify-full")
     error_message = "Connections verify the RDS certificate."
+  }
+}
+
+run "media_segments_are_checked_at_the_edge" {
+  command = apply
+
+  assert {
+    condition = alltrue([for b in aws_cloudfront_distribution.media.ordered_cache_behavior :
+    length(b.function_association) == 1 && b.target_origin_id == "media-edge"])
+    error_message = "Every cached media behaviour must run the edge token check (ADR-0008)."
+  }
+  assert {
+    condition     = toset([for b in aws_cloudfront_distribution.media.ordered_cache_behavior : b.path_pattern]) == toset(["/media/v1/*.m4s", "/media/v1/*init.mp4"])
+    error_message = "Only segments and init segments are cached; playlists always reach the origin."
+  }
+  assert {
+    condition     = one([for b in aws_cloudfront_distribution.media.default_cache_behavior : b.cache_policy_id]) == data.aws_cloudfront_cache_policy.disabled.id
+    error_message = "Playlists must not be cached: the origin checks the session on each one."
   }
 }
 

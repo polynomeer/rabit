@@ -57,6 +57,7 @@ locals {
     { name = "DATABASE_PASSWORD", valueFrom = "${aws_db_instance.main.master_user_secret[0].secret_arn}:password::" },
     { name = "MEDIA_TOKEN_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:MEDIA_TOKEN_SECRET::" },
     { name = "CURSOR_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:CURSOR_SECRET::" },
+    { name = "MEDIA_EDGE_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:MEDIA_EDGE_SECRET::" },
   ]
 
   # Per-role settings on top of `environment`: the worker runs everything but media
