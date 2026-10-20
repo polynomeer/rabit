@@ -19,6 +19,11 @@ const envSchema = z
     METRICS_PORT: port.default(9464),
     API_PUBLIC_BASE_URL: z.url(),
     MEDIA_PUBLIC_BASE_URL: z.url(),
+    /**
+     * Shared with the CDN's segment origin (ADR-0008 amendment 2026-10-20): requests
+     * carrying it were token-checked at the edge. Unset: the edge route is off.
+     */
+    MEDIA_EDGE_SECRET: z.string().min(32).optional(),
     /** Comma-separated browser origins allowed by CORS (web reference client). */
     CORS_ALLOWED_ORIGINS: z.string().default(''),
 
@@ -281,6 +286,7 @@ export interface Config {
     metricsPort: number;
     apiPublicBaseUrl: string;
     mediaPublicBaseUrl: string;
+    mediaEdgeSecret: string | null;
     corsAllowedOrigins: string[];
   };
   db: { url: string; poolMax: number; timeouts: DbTimeouts };
@@ -363,6 +369,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       metricsPort: e.METRICS_PORT,
       apiPublicBaseUrl: e.API_PUBLIC_BASE_URL.replace(/\/$/, ''),
       mediaPublicBaseUrl: e.MEDIA_PUBLIC_BASE_URL.replace(/\/$/, ''),
+      mediaEdgeSecret: e.MEDIA_EDGE_SECRET ?? null,
       corsAllowedOrigins: e.CORS_ALLOWED_ORIGINS.split(',')
         .map((s) => s.trim())
         .filter((s) => s.length > 0),

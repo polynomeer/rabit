@@ -10,6 +10,8 @@ export default tseslint.config(
       '**/e2e-results/**',
       'audio-platform/**',
       'docs/**',
+      // CloudFront Functions runtime code, exercised by apps/server/test/media-edge.test.ts.
+      'infra/aws/functions/**',
       '**/*.d.ts',
     ],
   },

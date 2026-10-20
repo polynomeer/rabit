@@ -9,7 +9,7 @@ Infrastructure for [ADR-0012](../../docs/adr/ADR-0012-deployment.md), written fo
 | Data | RDS PostgreSQL 16 (encrypted, PITR, 14-day backups, TLS only); six S3 buckets (ADR-0004) with SSE-KMS, TLS-only and key-enforcing policies, 2-day expiry on quarantine and exports |
 | Sign-in | Cognito user pool (email verified, optional MFA) and operator pool (MFA required, admin-created only), hosted sign-in domains, code-flow browser clients without secrets (ADR-0009) |
 | Keys, secrets | One customer-managed KMS key with yearly rotation; RDS-managed master password and generated app secrets in Secrets Manager |
-| Edge | ALB with TLS 1.3 policy; CloudFront for media (origin locked by a secret header) and for the web client (S3 with origin access control); ACM certificates; Route 53 records |
+| Edge | ALB with TLS 1.3 policy; CloudFront for media (origin locked by a secret header; segments token-checked at the edge by a CloudFront Function, catalog segments cached for every session: `functions/media-edge.js`) and for the web client (S3 with origin access control); ACM certificates; Route 53 records |
 | Alerts | ADOT collector next to each role → Amazon Managed Prometheus with `infra/observability/alerts.yml` → Alertmanager → SNS email (R8) |
 | Governance | Monthly budget with email alerts; GitHub OIDC deploy role limited to ECR push, task definitions, the ops task, service updates and web publishing |
 

@@ -14,6 +14,8 @@ Rehearse locally with `pnpm gameday` (after `pnpm build`): it breaks storage, th
 1. `rabit_playback_decisions_total` — are denials rising for one reason (`rights_unavailable` after a grant change, `subscription_required` after an entitlement job failure)?
 2. `rabit_media_requests_total{outcome}`: `bad_token` → clock skew or `MEDIA_TOKEN_SECRET` mismatch between api and media; `session_inactive` → sessions expired (client refresh broken) or revoked; `missing` → derivative objects missing (restore or re-process the source via job retry).
 
+3. Segments fail only behind the CDN: `rabit_media_requests_total{kind="edge_segment"}` at the origin. `not_edge` means the CDN's `x-media-edge` header and the media task's `MEDIA_EDGE_SECRET` differ (redeploy after a secret change). Edge refusals (403 from the CloudFront Function) appear in CloudFront logs and metrics, not at the origin; after rotating `MEDIA_TOKEN_SECRET`, check that `tofu apply` also updated the KeyValueStore key `media-token-secret`.
+
 ## queue-backlog
 1. `rabit_jobs{status}` and `rabit_job_oldest_queued_seconds{kind}`: which kind is waiting? Each worker logs `worker started` with its `pool`.
 2. Media kinds (`audio.process`, `catalog.process`) run on the `transcoder` service, everything else on `worker` (ADR-0005 amendment 2026-10-20). Check the matching service's running tasks.

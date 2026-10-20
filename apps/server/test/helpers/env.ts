@@ -19,6 +19,7 @@ const defaults: Record<string, string> = {
   AUTH_DEV_ISSUER_ENABLED: 'true',
   MEDIA_TOKEN_SECRET: 'test-media-token-secret-0123456789abcdef0123',
   CURSOR_SECRET: 'test-cursor-secret-0123456789abcdef0123456789',
+  MEDIA_EDGE_SECRET: 'test-media-edge-secret-0123456789abcdef01234',
   WORKER_CONCURRENCY: '2',
   // The test database is rebuilt on every run (global-setup rolls everything back).
   MIGRATION_ALLOW_DATA_LOSS: 'true',

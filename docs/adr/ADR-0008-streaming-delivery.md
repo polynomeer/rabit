@@ -52,6 +52,14 @@ Playback must be authorized at access time, revocation must stop new and active 
 - Storage per source is about 3.2 times the single rendition (96 + 160 + 256 kbps against 160 kbps). Encoding decodes once and runs three encoders.
 - Bitrates stay provisional until the listening test (O-26). Lossless is not part of this decision (Q02).
 
+## Amendment 2026-10-20: catalog segments cached at the edge (owner decision)
+- The product owner accepted that, after a revocation, already issued media tokens may keep fetching segments for up to their lifetime (60 s), in exchange for caching. Playlists still go to the origin on every request and check the session, so a revoked session cannot load a new playlist. Sessions cannot be issued for removed audio.
+- **Segments at the edge.** The media distribution sends segment and init requests (`/media/v1/*.m4s`, `/media/v1/*init.mp4`) through a CloudFront Function (`infra/aws/functions/media-edge.js`). It checks the token's HMAC with the media token secret, read from a CloudFront KeyValueStore. It also checks the token's expiry and the file name.
+- **Shared cache for catalog.** For catalog tokens the function rewrites the request to the storage path, `/media/v1/edge/<prefix>/<file>`, without the token. Every session then shares one cached copy. The cache key is the path plus the `Origin` header, and the TTL is one day; segment bytes never change under a prefix.
+- **No edge cache for private uploads.** Private tokens keep their path and reach the origin. The origin answers `private`, so CloudFront does not cache them.
+- **Protecting the shared route.** The origin serves `/media/v1/edge/...` only with the `x-media-edge` header (`MEDIA_EDGE_SECRET`). Only the second CloudFront origin used by the segment behaviours sends that header, so viewers cannot reach the route directly. The route serves segments only, from the catalog media bucket.
+- Rotating the media token secret updates the KeyValueStore with the app secret (`tofu apply`).
+
 ## Consequences
 The media gateway is on the data path in MVP; capacity scales with egress. Replacing it with a CDN changes deployment, not the API.
 
