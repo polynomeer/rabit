@@ -16,7 +16,7 @@
 | O-05 | Run the first `tofu apply` for staging, then set the GitHub `staging` environment variables from `tofu output` | Deploy workflow needs the role and resource names | infra/aws/README "First deploy"; the workflow ends with `smoke.sh` post-deploy checks | `smoke.sh` is exercised in E2E against production-like instances |
 | O-06 | Add protection rules to the GitHub `production` environment (required reviewers) | A production deploy must not run unreviewed | GitHub → Settings → Environments | — |
 | O-08 | After the first deploy, move CLI sign-in off the root user: IAM Identity Center (or the IAM user `conomeer` with MFA), then `aws logout --profile conomeer` | The first deploy ran on a root `aws login` session (temporary credentials, no access keys) | infra/aws/README "What only the owner can do" | — |
-| O-07 | Approve the staging budget amount and alert addresses | Cost guard (ADR-0012: ≈ USD 220/month at alpha size) | `budget_monthly_usd`, `budget_alert_emails` | — |
+| O-07 | Approve the staging budget amount and alert addresses | Cost guard (ADR-0012: ≈ USD 290/month at alpha size, including one transcoder task) | `budget_monthly_usd`, `budget_alert_emails` | — |
 
 ## 2. Before inviting non-team testers (internal alpha)
 

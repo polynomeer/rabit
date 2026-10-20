@@ -49,7 +49,7 @@ The owner deploys staging before registering a domain (owner-actions O-02). With
 - Adding the domain later: set `domain` and `hosted_zone_id`, apply, update the GitHub environment variables. The web client's address changes, so Cognito callback URLs and the CSP follow from the same apply; existing staging sessions end.
 
 ## Consequences
-- Alpha estimate ≈ USD 220/month: the ≈ USD 150 of the comparison plus a NAT gateway (≈ USD 43) and the worker's interface endpoints (5 × USD 0.013/h ≈ USD 47 in one zone). At 10k MAU ≈ USD 2,500/month, ~72 % of it media egress.
+- Alpha estimate ≈ USD 220/month: the ≈ USD 150 of the comparison plus a NAT gateway (≈ USD 43) and the worker's interface endpoints (5 × USD 0.013/h ≈ USD 47 in one zone). Since 2026-10-20 the `transcoder` service (ADR-0005 amendment) keeps one 2 vCPU / 4 GB ARM task running: ≈ USD 70 more, ≈ USD 290/month; `transcoder_min_count = 0` saves it but uploads then wait until four media jobs queue up (the scale-out threshold). At 10k MAU ≈ USD 2,500/month, ~72 % of it media egress.
 - Production configuration refuses `S3_SSE` other than `aws:kms` and uses the task IAM role instead of static S3 keys.
 - Media egress is the cost driver; Cloudflare R2 + Workers remains the documented alternative (ADR-0008 revisit trigger).
 
