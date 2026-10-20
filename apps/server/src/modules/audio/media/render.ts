@@ -1,19 +1,29 @@
 import { mkdir, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runProcess } from '../../../platform/process.js';
+import { AAC_PRIMING_SAMPLES, writeGaplessEditList } from './gapless.js';
 
 /**
- * Provisional codec ladder (ADR-0008): one AAC-LC 48 kHz stereo rendition with
- * fMP4 HLS segments. Numbers are placeholders pending listening tests.
+ * Provisional codec ladder (ADR-0008): one AAC-LC stereo rendition with fMP4 HLS
+ * segments. Numbers are placeholders pending listening tests. The sample rate
+ * follows the source family (see `outputSampleRate`).
  */
 export const LADDER = {
   codec: 'aac',
   bitrateKbps: 160,
-  sampleRate: 48_000,
   channels: 2,
   segmentSeconds: 4,
   provisional: true,
 } as const;
+
+/**
+ * 44.1 kHz for sources of the 44.1 kHz family (CD masters, 88.2, 176.4), 48 kHz
+ * otherwise, so the common case is never resampled and the rest is resampled by an
+ * integer ratio where possible (ADR-0008 amendment 2026-10-20).
+ */
+export function outputSampleRate(sourceRate: number): 44_100 | 48_000 {
+  return sourceRate % 11_025 === 0 ? 44_100 : 48_000;
+}
 
 const SAFE_INPUT = ['-nostdin', '-hide_banner', '-protocol_whitelist', 'file,pipe'];
 
@@ -21,6 +31,10 @@ export interface HlsOutput {
   dir: string;
   files: string[];
   toolVersion: string;
+  /** Sample rate of the rendition. */
+  sampleRate: number;
+  /** Edit list written: players trim encoder priming and padding (gapless). */
+  gapless: boolean;
 }
 
 export async function ffmpegVersion(ffmpegPath: string): Promise<string> {
@@ -36,9 +50,16 @@ export async function transcodeHls(
   ffmpegPath: string,
   input: string,
   workDir: string,
-  opts: { durationMs: number; signal?: AbortSignal },
+  opts: {
+    durationMs: number;
+    /** Source sample rate and length in source samples (probe). */
+    sampleRate: number;
+    samples: number;
+    signal?: AbortSignal;
+  },
 ): Promise<{ ok: true; output: HlsOutput } | { ok: false; timedOut: boolean; stderr: string }> {
   const dir = join(workDir, 'hls');
+  const rate = outputSampleRate(opts.sampleRate);
   await mkdir(dir, { recursive: true });
   const timeoutMs = Math.max(120_000, Math.ceil(opts.durationMs * 4));
   const res = await runProcess(
@@ -61,7 +82,7 @@ export async function transcodeHls(
       '-b:a',
       `${LADDER.bitrateKbps}k`,
       '-ar',
-      String(LADDER.sampleRate),
+      String(rate),
       '-ac',
       String(LADDER.channels),
       '-f',
@@ -88,7 +109,20 @@ export async function transcodeHls(
   if (!files.includes('index.m3u8') || !files.includes('init.mp4')) {
     return { ok: false, timedOut: false, stderr: 'missing hls outputs' };
   }
-  return { ok: true, output: { dir, files, toolVersion: await ffmpegVersion(ffmpegPath) } };
+  // A layout this code does not expect (another ffmpeg version) costs gapless
+  // playback, never the rendition itself.
+  const gapless = await writeGaplessEditList(join(dir, 'init.mp4'), {
+    sampleRate: rate,
+    samples: Math.round((opts.samples * rate) / opts.sampleRate),
+    priming: AAC_PRIMING_SAMPLES,
+  }).then(
+    () => true,
+    () => false,
+  );
+  return {
+    ok: true,
+    output: { dir, files, toolVersion: await ffmpegVersion(ffmpegPath), sampleRate: rate, gapless },
+  };
 }
 
 /** EBU R128 integrated loudness and true peak. Analysis failures return null (non-blocking). */

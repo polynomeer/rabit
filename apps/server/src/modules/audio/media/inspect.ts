@@ -54,6 +54,11 @@ const probeSchema = z.object({
       codec_name: z.string().optional(),
       sample_rate: z.coerce.number().optional(),
       channels: z.number().optional(),
+      // Informational: an odd value ("N/A") must not fail the probe.
+      duration_ts: z.coerce.number().int().positive().optional().catch(undefined),
+      time_base: z.string().optional().catch(undefined),
+      bits_per_raw_sample: z.coerce.number().int().positive().optional().catch(undefined),
+      bits_per_sample: z.coerce.number().int().positive().optional().catch(undefined),
       disposition: z.object({ attached_pic: z.number().optional() }).partial().optional(),
     }),
   ),
@@ -69,7 +74,15 @@ export interface ProbeResult {
   sampleRate: number;
   channels: number;
   durationMs: number;
+  /** Length in samples at `sampleRate`: exact for PCM and FLAC, estimated for lossy codecs. */
+  samples: number;
+  /** Lossless codec (PCM, FLAC, ALAC): what a catalog master must be (audio-pipeline §2). */
+  lossless: boolean;
+  /** Bits per sample of a lossless source; null when the codec has none. */
+  bitsPerSample: number | null;
 }
+
+const LOSSLESS = /^(pcm_|flac$|alac$)/;
 
 export type ProbeFailure = 'CORRUPT_MEDIA' | 'UNSUPPORTED_MEDIA' | 'DURATION_EXCEEDED';
 
@@ -95,7 +108,7 @@ export async function probe(
       '-print_format',
       'json',
       '-show_entries',
-      'stream=codec_type,codec_name,sample_rate,channels:stream_disposition=attached_pic:format=format_name,duration',
+      'stream=codec_type,codec_name,sample_rate,channels,duration_ts,time_base,bits_per_raw_sample,bits_per_sample:stream_disposition=attached_pic:format=format_name,duration',
       filePath,
     ],
     {
@@ -139,6 +152,11 @@ export async function probe(
   if (durationMs > opts.maxDurationMs) {
     return { ok: false, failure: 'DURATION_EXCEEDED', reason: 'duration' };
   }
+  const [num, den] = (a.time_base ?? '').split('/').map(Number);
+  const exact =
+    a.duration_ts && num && den ? Math.round((a.duration_ts * num * sampleRate) / den) : 0;
+  const lossless = LOSSLESS.test(a.codec_name);
+  const bits = a.bits_per_raw_sample ?? a.bits_per_sample ?? 0;
   return {
     ok: true,
     result: {
@@ -147,6 +165,9 @@ export async function probe(
       sampleRate,
       channels,
       durationMs,
+      samples: exact > 0 ? exact : Math.round((durationMs * sampleRate) / 1000),
+      lossless,
+      bitsPerSample: lossless && bits > 0 ? bits : null,
     },
   };
 }

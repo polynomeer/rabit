@@ -136,6 +136,12 @@ const envSchema = z
      * written as Embedded Metric Format log lines. Unset: not written.
      */
     METRICS_CLOUDWATCH_NAMESPACE: z.string().min(1).optional(),
+    /**
+     * Refuse catalog masters in a lossy codec (MP3, AAC, Vorbis, Opus). Off until a
+     * supplier contract sets delivery specs (Q02); every master's codec and bit
+     * depth is recorded either way.
+     */
+    CATALOG_REQUIRE_LOSSLESS: bool.default(false),
     FFMPEG_PATH: z.string().min(1).default('ffmpeg'),
     FFPROBE_PATH: z.string().min(1).default('ffprobe'),
 
@@ -304,6 +310,7 @@ export interface Config {
     ffmpegPath: string;
     ffprobePath: string;
   };
+  catalog: { requireLossless: boolean };
   quota: {
     maxTotalBytes: number;
     maxFileBytes: number;
@@ -412,6 +419,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
               .map((s) => s.trim())
               .filter((s) => s.length > 0),
           },
+    catalog: { requireLossless: e.CATALOG_REQUIRE_LOSSLESS },
     worker: {
       concurrency: e.WORKER_CONCURRENCY,
       pool: e.WORKER_POOL,

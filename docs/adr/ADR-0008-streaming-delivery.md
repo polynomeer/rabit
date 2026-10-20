@@ -30,6 +30,11 @@ Playback must be authorized at access time, revocation must stop new and active 
 - CloudFront (pay-as-you-go, not the flat-rate plans: they throttle silently above their allowance) sits in front of the media role. Media URLs carry the session token in the path, so responses are not shared between sessions; CloudFront is for egress price and latency, not caching. Cache keys include the full path, TTL ≤ token lifetime, and `no-store` responses for denials are not cached.
 - Alternative kept on record: Cloudflare R2 + Workers (≈ USD 600 vs 2,460/month at 10k MAU); it moves the revocation check to the edge and stores data outside the Seoul region, so it needs its own decision.
 
+## Amendment 2026-10-20: sample rate and gapless (audio pipeline review)
+- **Sample rate follows the source family.** Sources of the 44.1 kHz family (11.025, 22.05, 44.1, 88.2, 176.4 kHz) render at 44.1 kHz, everything else at 48 kHz. CD masters are no longer resampled, and high-rate masters are reduced by an integer ratio. Codec, bitrate and segment length stay provisional (O-26).
+- **Gapless was not delivered.** The statement above ("verified by test fixture") had no fixture behind it: ffmpeg's HLS muxer writes an empty edit list into `init.mp4`, so every rendition played 1,024 samples of encoder priming at the start and up to one frame of padding at the end. The worker now rewrites the edit list in place (movie timescale = sample rate, media time = priming, duration = source samples); `test/audio-render.test.ts` checks the boxes and that the decoded rendition is in phase with the source. Whether a source got the edit list is recorded as `gapless` in the version's technical data; a layout the patcher does not recognise costs gapless playback, not the rendition.
+- Players that honour edit lists (AVFoundation) trim both ends. Seamless joins between tracks also need the next track loaded before the current one ends (client queue, separate change).
+
 ## Consequences
 The media gateway is on the data path in MVP; capacity scales with egress. Replacing it with a CDN changes deployment, not the API.
 
