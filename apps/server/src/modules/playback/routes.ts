@@ -9,6 +9,7 @@ import { idempotencyKeyFrom, idOf, isoTimestamp, parse } from '../../platform/ht
 import { audit } from '../../platform/audit.js';
 import { requireOperator } from '../../platform/http/principal.js';
 import { recordListeningEvents } from './listening.js';
+import { qualityReport, recordQualityReport } from './quality.js';
 import { listUsageStatements, usageCsv, usageStatementLines } from './usage.js';
 import { createPlaybackSession, refreshPlaybackSession, type PlaybackDeps } from './sessions.js';
 
@@ -37,6 +38,24 @@ export function playbackRoutes(deps: PlaybackDeps) {
       );
       return reply.status(r.status).send(r.body);
     });
+
+    // One quality report per session (QoE); metrics only.
+    app.post(
+      '/v1/playback-sessions/:session_id/quality',
+      routeLimit(120, '1 minute'),
+      async (req, reply) => {
+        const p = requirePrincipal(req.principal);
+        const params = z.object({ session_id: idOf('playbackSession') }).safeParse(req.params);
+        if (!params.success) throw errors.notFound();
+        await recordQualityReport(
+          ctx.db,
+          p,
+          params.data.session_id,
+          parse(qualityReport, req.body),
+        );
+        return reply.status(204).send();
+      },
+    );
 
     app.post(
       '/v1/playback-sessions/:session_id/refresh',

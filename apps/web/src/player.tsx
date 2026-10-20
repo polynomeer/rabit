@@ -14,6 +14,7 @@ import { api, ApiError } from './api';
 import { Cover, Icon, Mark } from './brand';
 import { t, type MessageKey } from './i18n';
 import { normalizeEnabled, onNormalizeChange, volumeFor } from './normalize';
+import { QualityTracker } from './qoe';
 import { nowPlayingHref, useRoute } from './route';
 
 /** A queue entry references an id — never a file URL (PB Phase 13). */
@@ -179,6 +180,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const token = useRef('');
   /** Session whose end was handled (by `ended` or a stall at the end), at most once. */
   const finished = useRef<string | null>(null);
+  /** Quality measurement of the current session (QoE), reported when it ends. */
+  const qoe = useRef<QualityTracker | null>(null);
   const prepared = useRef<Prepared | null>(null);
   /** Queue position whose session is being (or was) prepared. */
   const preparing = useRef(-1);
@@ -214,6 +217,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const start = useCallback(async (entry: QueueEntry, at: number) => {
     setMessage(null);
+    qoe.current?.send();
+    qoe.current = null;
+    const requestedAt = performance.now();
     try {
       // A session opened ahead of time for this entry (prepareNext) saves a round trip;
       // its media token is renewed when it is close to expiry.
@@ -235,6 +241,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         data = await openSession(entry);
       }
       token.current = tokenOf(data.manifest_url);
+      qoe.current = new QualityTracker(data.session_id, requestedAt);
       seq.current = 0;
       lastBeat.current = 0;
       setSession(data);
@@ -249,6 +256,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           xhrSetup: (xhr, url) => {
             xhr.open('GET', withToken(url, token.current), true);
           },
+        });
+        h.on(HlsLib.Events.ERROR, (_event, d) => {
+          if (!d.fatal) return;
+          qoe.current?.failed(
+            d.type === HlsLib.ErrorTypes.NETWORK_ERROR
+              ? 'network'
+              : d.type === HlsLib.ErrorTypes.MEDIA_ERROR
+                ? 'media'
+                : 'other',
+          );
+          qoe.current?.send();
         });
         h.loadSource(data.manifest_url);
         h.attachMedia(el);
@@ -273,6 +291,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [session],
   );
 
+  // Leaving the page ends the session: report its quality (best effort).
+  useEffect(() => {
+    const leave = () => {
+      qoe.current?.send();
+    };
+    window.addEventListener('pagehide', leave);
+    return () => {
+      window.removeEventListener('pagehide', leave);
+    };
+  }, []);
+
   // Refresh the session (and media token) while playing; the server re-checks rights.
   useEffect(() => {
     if (!session) return;
@@ -284,6 +313,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         .catch((e: unknown) => {
           hls.current?.destroy();
           audio.current?.pause();
+          qoe.current?.send();
           setMessage(
             t('player.stopped', { reason: e instanceof ApiError ? e.message : t('player.error') }),
           );
@@ -450,12 +480,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           setPlaying(true);
           if (session) send('started', session);
         }}
+        onPlaying={() => {
+          qoe.current?.playing();
+        }}
+        onSeeking={() => {
+          qoe.current?.seekStarted();
+        }}
+        onError={() => {
+          qoe.current?.failed('media');
+        }}
         onPause={() => {
+          qoe.current?.paused();
           setPlaying(false);
           if (session) send('paused', session);
         }}
         onTimeUpdate={prepareNext}
         onEnded={() => {
+          qoe.current?.send();
           if (finished.current === session?.session_id) return;
           finished.current = session?.session_id ?? null;
           setPlaying(false);
@@ -463,7 +504,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }}
         onWaiting={(e) => {
           const el = e.currentTarget;
+          qoe.current?.waiting(stalledAtEnd(el));
           if (!stalledAtEnd(el) || finished.current === session?.session_id) return;
+          qoe.current?.send();
           finished.current = session?.session_id ?? null;
           if (index + 1 < queue.length) {
             setPlaying(false);

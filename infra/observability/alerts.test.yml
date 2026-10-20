@@ -108,6 +108,48 @@ tests:
         alertname: RevocationLagging
         exp_alerts: []
 
+  - name: slow starts and rebuffering open tickets once there is enough playback
+    interval: 1m
+    input_series:
+      # 6 starts a minute, all slower than 3 s.
+      - series: 'rabit_playback_startup_seconds_bucket{platform="web",le="2"}'
+        values: '0x70'
+      - series: 'rabit_playback_startup_seconds_bucket{platform="web",le="3"}'
+        values: '0x70'
+      - series: 'rabit_playback_startup_seconds_bucket{platform="web",le="5"}'
+        values: '0+6x70'
+      - series: 'rabit_playback_startup_seconds_bucket{platform="web",le="+Inf"}'
+        values: '0+6x70'
+      - series: 'rabit_playback_startup_seconds_count{platform="web"}'
+        values: '0+6x70'
+      # 600 s played and 6 s stalled a minute: 1 %.
+      - series: 'rabit_playback_played_seconds_total{platform="web"}'
+        values: '0+600x70'
+      - series: 'rabit_playback_stall_seconds_total{platform="web"}'
+        values: '0+6x70'
+      - series: 'rabit_playback_quality_reports_total{platform="web",outcome="accepted"}'
+        values: '0+6x70'
+      - series: 'rabit_playback_client_errors_total{platform="web",code="network"}'
+        values: '0x70'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: PlaybackStartSlow
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              impact: Listeners wait more than 2 s for sound (p95, slo.md).
+              runbook: docs/09-operations/runbooks.md#playback-quality
+      - eval_time: 65m
+        alertname: RebufferingHigh
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              impact: Playback stalls more than 0.5 % of the time (slo.md).
+              runbook: docs/09-operations/runbooks.md#playback-quality
+      - eval_time: 65m
+        alertname: PlaybackErrorsHigh
+        exp_alerts: []
+
   - name: missing worker metrics page after 5 minutes
     interval: 1m
     input_series:

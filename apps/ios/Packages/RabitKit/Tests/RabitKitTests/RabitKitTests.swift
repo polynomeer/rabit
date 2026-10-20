@@ -555,3 +555,30 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   #expect(Normalization.volume(gainDb: -6, enabled: false) == 1)
   #expect(Normalization.volume(gainDb: nil, enabled: true) == 1)
 }
+
+@Test func playbackQualityCountsStallsOnlyAfterPlaybackStarted() throws {
+  let t0 = ContinuousClock.now
+  var q = PlaybackQuality(requestedAt: t0)
+  q.waiting(now: t0 + .milliseconds(100))  // still starting: not a stall
+  q.playing(now: t0 + .milliseconds(700))
+  q.waiting(now: t0 + .milliseconds(1_700))  // stall after 1 s of playback
+  q.playing(now: t0 + .milliseconds(2_200))
+  q.seekStarted(now: t0 + .milliseconds(3_200))
+  q.waiting(now: t0 + .milliseconds(3_300))  // a seek is not a stall
+  q.playing(now: t0 + .milliseconds(3_500))
+  q.paused(now: t0 + .milliseconds(4_500))
+  let first = q.report(now: t0 + .milliseconds(9_000))
+  let r = try #require(first)
+  #expect(r == QualityReport(startupMs: 700, playedMs: 3_000, stallCount: 1, stallMs: 500, error: nil))
+  let again = q.report()
+  #expect(again == nil)
+}
+
+@Test func qualityReportSendsEveryKeyEvenWhenEmpty() throws {
+  let e = JSONEncoder()
+  e.keyEncodingStrategy = .convertToSnakeCase
+  e.outputFormatting = .sortedKeys
+  let json = String(decoding: try e.encode(
+    QualityReport(startupMs: nil, playedMs: 0, stallCount: 0, stallMs: 0, error: nil)), as: UTF8.self)
+  #expect(json == #"{"error":null,"platform":"ios","played_ms":0,"stall_count":0,"stall_ms":0,"startup_ms":null}"#)
+}

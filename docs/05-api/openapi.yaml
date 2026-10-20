@@ -212,6 +212,35 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /v1/playback-sessions/{session_id}/quality:
+    parameters: [ { name: session_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [playback]
+      operationId: reportPlaybackQuality
+      description: >-
+        The client's one quality report for a session when it ends (QoE, slo.md): time to the first
+        audible frame, playing and stalled time, and the error class if playback failed. Only
+        aggregate metrics by platform are kept. A repeated report, or one claiming more time than
+        the session has existed, is accepted and ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [platform, startup_ms, played_ms, stall_count, stall_ms, error]
+              properties:
+                platform: { type: string, enum: [web, ios] }
+                startup_ms: { oneOf: [ { type: integer, minimum: 0, maximum: 120000 }, { type: 'null' } ] }
+                played_ms: { type: integer, minimum: 0 }
+                stall_count: { type: integer, minimum: 0 }
+                stall_ms: { type: integer, minimum: 0 }
+                error: { oneOf: [ { type: string, enum: [network, media, other] }, { type: 'null' } ] }
+      responses:
+        '204': { description: Recorded (or ignored as a repeat) }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/listening-events/batch:
     post:
       tags: [playback]

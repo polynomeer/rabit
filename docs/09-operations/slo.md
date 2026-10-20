@@ -10,8 +10,9 @@
 | Login / any authenticated call | non-5xx responses / all `/v1` requests with a valid token | `rabit_http_request_duration_seconds_count{service="api"}` by `status_class` | 99.9 % |
 | Library load | `GET /v1/library` and `/v1/playlists/:id` p95 latency | same histogram, `route` label | p95 ≤ 500 ms |
 | Play start (server part) | `POST /v1/playback-sessions` non-5xx | histogram | 99.95 % and p95 ≤ 300 ms |
-| Play start (client) | selection → audible frame | client telemetry (web client `ttfp` event, P1) | p95 ≤ 2 s |
-| Rebuffering | stall time / play time | client telemetry (P1) | ≤ 0.5 % |
+| Play start (client) | selection → audible frame | `rabit_playback_startup_seconds{platform}` (one report per session, web and iOS) | p95 ≤ 2 s |
+| Rebuffering | stall time / play time | `rabit_playback_stall_seconds_total` / `rabit_playback_played_seconds_total` | ≤ 0.5 % |
+| Client playback errors | sessions ending in an error / reported sessions | `rabit_playback_client_errors_total{code}` / `rabit_playback_quality_reports_total{outcome="accepted"}` | ≤ 2 % |
 | Media delivery | media `200` / (`200` + `5xx`) | `rabit_media_requests_total` | 99.95 % |
 | Upload finalize | `POST /v1/uploads/:id/finalize` non-5xx | histogram | 99.9 % |
 | Transcoding latency | uploaded → ready for files ≤ 10 min | `rabit_upload_events_total` + job duration logs | p95 ≤ 5 min |
