@@ -763,40 +763,38 @@ a.player-queue {
   flex-shrink: 0;
 }
 
-/* ——— Now Playing ——— */
+/* ——— Now Playing: player on the left, DIG and the queue beside it ——— */
 .now-playing {
-  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px 48px;
+  align-items: flex-start;
+}
+.now-main {
+  flex: 1 1 360px;
   max-width: 440px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
-.now-playing::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  top: -80px;
-  left: 0;
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
-  pointer-events: none;
-}
-.now-playing .eyebrow {
-  text-align: center;
-}
-.now-cover {
+.now-side {
+  flex: 1 1 320px;
+  min-width: 0;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 18px;
+}
+.now-side h3 {
+  margin: 4px 0 0;
+  font-size: 1.1rem;
 }
 .now-cover .cover,
 .now-cover .item-tile {
-  width: min(320px, 100%) !important;
+  width: 100% !important;
   height: auto !important;
   aspect-ratio: 1;
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+  border-radius: 16px !important;
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.3);
 }
 .now-title {
   display: flex;
@@ -805,10 +803,16 @@ a.player-queue {
   gap: 12px;
 }
 .now-title h2 {
-  margin: 0;
+  margin: 2px 0 0;
+  font-size: 2rem;
+  font-weight: 700;
 }
 .now-title p {
   margin: 2px 0 0;
+}
+.now-quality {
+  margin: -10px 0 0;
+  text-align: center;
 }
 .progress input[type='range'] {
   width: 100%;
@@ -826,68 +830,97 @@ a.player-queue {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 24px;
+  gap: 32px;
 }
 .now-controls .round:not(.primary) {
+  width: 56px;
+  height: 56px;
   border: none;
   background: none;
 }
 .now-controls .primary {
+  width: 76px;
+  height: 76px;
   background: var(--fg);
   border-color: var(--fg);
   color: var(--bg);
 }
 .now-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
+/* The way into DIG: a card in the DIG area colour. */
 .dig-cta {
-  flex: 1 1 220px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 56px;
-  border-radius: 28px;
-  background: var(--purple);
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px;
+  border-radius: var(--radius);
+  background: var(--area-dig);
   color: #ffffff;
-  font-weight: 600;
   text-decoration: none;
 }
-.dig-cta .symbol {
-  color: #ffffff;
+.dig-cta strong {
+  font-size: 1.25rem;
+}
+.dig-cta-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  opacity: 0.86;
+}
+.dig-cta-hint {
+  font-size: 0.875rem;
+  opacity: 0.88;
 }
 .dig-cta:hover {
   outline: 2px solid var(--accent);
 }
 .now-actions .button {
   gap: 6px;
-  min-height: 56px;
-  border-radius: 28px;
 }
 .queue {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.queue li + li {
+  border-top: 1px solid var(--line);
 }
 .queue button {
   width: 100%;
+  min-height: 56px;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
+  align-items: center;
+  gap: 12px;
   text-align: left;
   border: none;
   background: none;
-  border-radius: 14px;
-  padding: 8px 12px;
+  border-radius: 0;
+  padding: 10px 16px;
+}
+.queue-no {
+  width: 20px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.queue-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 .queue [aria-current='true'] {
   background: var(--accent-soft);
 }
-.queue [aria-current='true'] .queue-title {
-  font-weight: 600;
+.queue [aria-current='true'] .queue-title,
+.queue [aria-current='true'] .queue-no {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 /* ——— DIG ——— */
@@ -1585,32 +1618,136 @@ a.button:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 20px;
-  margin: 16px 0 12px;
+  gap: 24px 32px;
+  margin: 16px 0 32px;
+}
+.detail-hero {
+  flex: 1 1 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.detail-hero p {
+  margin: 0;
+}
+.detail-hero .actions {
+  margin-top: 8px;
 }
 .detail-head h2 {
-  margin: 4px 0 0;
-  font-size: 2rem;
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
 }
 .detail-head .cover {
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+}
+@media (max-width: 599px) {
+  .detail-head {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .detail-head .cover {
+    width: 220px;
+    height: 220px;
+  }
+  .detail-hero .actions {
+    justify-content: center;
+  }
+}
+/* Below the hero: the main content and a side column that stacks on phones. */
+.detail-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 32px;
+  align-items: flex-start;
+}
+.detail-main {
+  flex: 999 1 520px;
+  min-width: 0;
+}
+.detail-side {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.detail-main > .card:first-child,
+.detail-side > .card:first-child {
+  margin-top: 0;
+}
+/* Credits: role, name, how we know it (fact or inferred), method and verification. */
+.credits {
+  list-style: none;
+  margin: 8px 0 16px;
+  padding: 0;
+}
+.credits li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.credit-role {
+  flex: 0 0 120px;
+}
+.credit-name {
+  flex: 1 1 160px;
+  font-weight: 700;
+  color: var(--fg);
+  text-decoration: none;
+}
+.credit-source {
+  flex: 1 1 100%;
+}
+@media (min-width: 900px) {
+  .credit-source {
+    flex: 1 1 200px;
+  }
+}
+.basis-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 4px 0 8px;
+  color: var(--muted);
+}
+.badge.basis-verified_fact,
+.badge.basis-reviewed {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--ok);
+  font-weight: 700;
+}
+.badge.basis-ml_inferred,
+.badge.basis-automated {
+  border: 1.5px dashed var(--muted);
+  background: none;
+  color: var(--muted);
+  font-weight: 700;
 }
 /* Album tracks: number, title and state, play. The playing track is highlighted. */
 ol.tracks {
   list-style: none;
-  margin: 16px 0;
+  margin: 0;
   padding: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
 }
 ol.tracks li {
   display: flex;
   align-items: center;
   gap: 14px;
   min-height: 56px;
-  padding: 6px 12px;
-  border-radius: 16px;
+  padding: 8px 16px;
 }
 ol.tracks li + li {
-  margin-top: 2px;
+  border-top: 1px solid var(--line);
 }
 ol.tracks li.current {
   background: var(--accent-soft);
