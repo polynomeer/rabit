@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { get, type EntitySummary } from './api';
+import { Cover } from './brand';
 import { TIER_TEXT } from './blind';
 import { POPULARITY } from './dig';
 import { t, tCode } from './i18n';
@@ -45,7 +46,7 @@ export function CrateDigPanel() {
   };
 
   return (
-    <section aria-labelledby="crate-h" className="card">
+    <section aria-labelledby="crate-h" className="card crate">
       <h3 id="crate-h">{t('crate.title')}</h3>
       <p className="small muted">{t('crate.hint')}</p>
       <form
@@ -77,9 +78,10 @@ export function CrateDigPanel() {
       </form>
       {msg ? <p role="status">{msg}</p> : null}
       {items && items.length > 0 ? (
-        <ul className="list" aria-label={t('crate.list')}>
+        <ul className="crate-grid" aria-label={t('crate.list')}>
           {items.map((i) => (
             <li key={i.release.release_id}>
+              <Cover id={i.release.release_id} size={160} round={10} />
               <div>
                 <strong>
                   <a href={entityHref(i.release.release_id)}>{i.release.title}</a>

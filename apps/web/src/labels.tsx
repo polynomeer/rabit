@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { get, type EntitySummary } from './api';
+import { Cover } from './brand';
 import { t } from './i18n';
 import { entityHref } from './route';
 
@@ -43,13 +44,14 @@ export function LabelTimelineView({ labelId }: { labelId: string }) {
   return (
     <section aria-labelledby="label-timeline-h" className="label-timeline">
       <h3 id="label-timeline-h">{t('labels.timeline')}</h3>
-      <ol className="list" aria-label={t('labels.years')}>
+      <ol className="timeline" aria-label={t('labels.years')}>
         {data.years.map((y) => (
           <li key={y.year ?? 'undated'}>
-            <strong>{y.year ?? t('labels.undated')}</strong>
+            <strong className="timeline-year">{y.year ?? t('labels.undated')}</strong>
             <ul>
               {y.releases.map((r) => (
                 <li key={r.release_id}>
+                  <Cover id={r.release_id} size={48} round={8} />
                   <a href={entityHref(r.release_id)}>{r.title}</a>
                   {r.artists.length > 0 ? (
                     <span className="muted">

@@ -529,6 +529,8 @@ export const ko = {
   'dig.entity.label': '레이블',
   'dig.home.onlySaved': '보관한 탐험만',
   'dig.home.history': '내 DIG 기록',
+  'dig.other': '다른 방식으로 DIG',
+  'dig.node.here': '지금 여기',
   'dig.home.startedFrom': '{name}에서 시작',
   'dig.home.untitled': '탐험',
   'dig.home.meta': '{nodes}개 지점 · {date}',
