@@ -393,6 +393,7 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
     }[]
   >([]);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<SearchGroup | 'all'>('all');
   // The query lives in the URL, so returning from a detail page shows the same results.
   useEffect(() => {
     if (!query) {
@@ -420,7 +421,6 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
   }, [query]);
   return (
     <section aria-labelledby="search-h" className="search">
-      <p className="eyebrow">Listen</p>
       <h2 id="search-h">Search</h2>
       <form
         role="search"
@@ -455,60 +455,130 @@ export function Search({ query, onDig }: { query: string; onDig: (entityId: stri
           {t('search.empty', { query })}
         </p>
       ) : null}
-      <ul className="rows" aria-label={t('search.results')}>
-        {results.map((r) => (
-          <li key={r.id}>
-            <Mark id={r.primary_release_id ?? r.id} kind={r.kind} name={r.title} size={52} />
-            <div className="row-main">
-              <strong>
-                {r.scope === 'catalog' ? <a href={entityHref(r.id)}>{r.title}</a> : r.title}
-              </strong>
-              <span className="muted small">
-                {r.subtitle}
-                {r.subtitle ? ' · ' : ''}
-                {tCode(KIND_TEXT, r.kind)}
-                {r.scope === 'mine' ? ` · ${t('search.mine')}` : ''}
-              </span>
-            </div>
-            <div className="actions">
-              {r.kind === 'recording' || r.kind === 'private_audio' || r.kind === 'audio_log' ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    player.play([
-                      {
-                        key: r.id,
-                        title: r.title,
-                        subtitle: r.subtitle,
-                        ...(r.kind === 'recording'
-                          ? { recording_id: r.id, cover_id: r.primary_release_id ?? undefined }
-                          : { audio_source_id: r.id }),
-                      },
-                    ]);
-                  }}
-                >
-                  {t('common.play')}
-                </button>
-              ) : null}
-              {r.scope === 'catalog' ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onDig(r.id);
-                  }}
-                >
-                  DIG
-                </button>
-              ) : null}
-              {r.kind === 'recording' || r.kind === 'release' ? (
-                <SaveButton refType={r.kind} refId={r.id} checkSaved={false} />
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {results.length > 0 ? (
+        <div className="chips" role="group" aria-label={t('search.filter')}>
+          {(['all', ...SEARCH_GROUPS] as const).map((g) => (
+            <button
+              key={g}
+              type="button"
+              aria-pressed={filter === g}
+              onClick={() => {
+                setFilter(g);
+              }}
+            >
+              {t(g === 'all' ? 'search.group.all' : SEARCH_GROUP_TEXT[g])}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <div aria-label={t('search.results')} role="region" className="search-groups">
+        {SEARCH_GROUPS.filter((g) => filter === 'all' || filter === g).map((g) => {
+          const hits = results.filter((r) => searchGroup(r) === g);
+          if (hits.length === 0) return null;
+          if (g === 'albums')
+            return (
+              <section key={g} aria-label={t(SEARCH_GROUP_TEXT[g])}>
+                <h3 className="section-title">{t(SEARCH_GROUP_TEXT[g])}</h3>
+                <ul className="cover-grid">
+                  {hits.map((r) => (
+                    <li key={r.id}>
+                      <a href={entityHref(r.id)}>
+                        <Cover id={r.primary_release_id ?? r.id} size={170} round={10} />
+                        <strong>{r.title}</strong>
+                        {r.subtitle ? <span className="muted small">{r.subtitle}</span> : null}
+                      </a>
+                      <SaveButton refType="release" refId={r.id} checkSaved={false} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          return (
+            <section key={g} aria-label={t(SEARCH_GROUP_TEXT[g])}>
+              <h3 className="section-title">{t(SEARCH_GROUP_TEXT[g])}</h3>
+              <ul className="rows">
+                {hits.map((r) => (
+                  <li key={r.id}>
+                    <Mark
+                      id={r.primary_release_id ?? r.id}
+                      kind={r.kind}
+                      name={r.title}
+                      size={52}
+                    />
+                    <div className="row-main">
+                      <strong>
+                        {r.scope === 'catalog' ? <a href={entityHref(r.id)}>{r.title}</a> : r.title}
+                      </strong>
+                      <span className="muted small">
+                        {r.subtitle}
+                        {r.subtitle ? ' · ' : ''}
+                        {tCode(KIND_TEXT, r.kind)}
+                        {r.scope === 'mine' ? ` · ${t('search.mine')}` : ''}
+                      </span>
+                    </div>
+                    <div className="actions">
+                      {r.kind === 'recording' ||
+                      r.kind === 'private_audio' ||
+                      r.kind === 'audio_log' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            player.play([
+                              {
+                                key: r.id,
+                                title: r.title,
+                                subtitle: r.subtitle,
+                                ...(r.kind === 'recording'
+                                  ? {
+                                      recording_id: r.id,
+                                      cover_id: r.primary_release_id ?? undefined,
+                                    }
+                                  : { audio_source_id: r.id }),
+                              },
+                            ]);
+                          }}
+                        >
+                          {t('common.play')}
+                        </button>
+                      ) : null}
+                      {r.scope === 'catalog' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onDig(r.id);
+                          }}
+                        >
+                          DIG
+                        </button>
+                      ) : null}
+                      {r.kind === 'recording' || r.kind === 'release' ? (
+                        <SaveButton refType={r.kind} refId={r.id} checkSaved={false} />
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
     </section>
   );
+}
+
+type SearchGroup = 'tracks' | 'albums' | 'entities' | 'mine';
+const SEARCH_GROUPS: readonly SearchGroup[] = ['tracks', 'albums', 'entities', 'mine'];
+const SEARCH_GROUP_TEXT: Record<SearchGroup, MessageKey> = {
+  tracks: 'search.group.tracks',
+  albums: 'search.group.albums',
+  entities: 'search.group.entities',
+  mine: 'search.mine',
+};
+function searchGroup(r: { kind: string; scope: string }): SearchGroup {
+  if (r.scope === 'mine') return 'mine';
+  if (r.kind === 'recording') return 'tracks';
+  if (r.kind === 'release') return 'albums';
+  return 'entities';
 }
 
 interface Subscription {
@@ -730,6 +800,16 @@ export function Account() {
           </p>
         ) : null}
       </div>
+      <button
+        type="button"
+        className="wide"
+        onClick={() => {
+          setToken(null);
+          window.dispatchEvent(new Event(SIGNED_OUT));
+        }}
+      >
+        {t('nav.logout')}
+      </button>
       <DeleteAccount />
     </section>
   );

@@ -449,7 +449,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         <div className="player-buttons">
           <button
             type="button"
-            className="round primary"
+            className="round quiet player-previous"
+            aria-label={t('player.previous')}
+            disabled={!current}
+            onClick={previous}
+          >
+            <Icon name="previous" size={18} />
+          </button>
+          <button
+            type="button"
+            className="round player-toggle"
             aria-label={playing ? t('player.pause') : t('player.resume')}
             disabled={!current}
             onClick={toggle}
@@ -458,7 +467,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           </button>
           <button
             type="button"
-            className="round"
+            className="round quiet"
             aria-label={t('player.next')}
             disabled={index + 1 >= queue.length}
             onClick={playNext}
@@ -466,7 +475,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             <Icon name="next" size={18} />
           </button>
         </div>
-        {current ? <Progress audio={audio} thin /> : null}
+        {current ? <PlayerTimeline audio={audio} /> : null}
+        {current && session ? (
+          <span className="badge player-quality" title={quality ?? undefined}>
+            {t('player.quality', {
+              codec: session.quality.codec.toUpperCase(),
+              kbps: session.quality.bitrate_kbps,
+            })}
+          </span>
+        ) : null}
+        {current ? (
+          <a className="button player-queue" href={nowPlayingHref}>
+            <Icon name="playlists" size={16} />
+            {t('player.queue', { count: queue.length - index })}
+          </a>
+        ) : null}
         {message ? (
           <p role="status" className="warn player-message">
             {message}
@@ -560,24 +583,29 @@ export function clockText(seconds: number): string {
 }
 
 /**
- * Playback position. `thin` is the decorative line in the mini player; the full
- * version is a labelled slider (keyboard: arrows seek by 1 s) with both times.
+ * The bar's position: both times and a line on wide screens, only the line on phones.
+ * Decorative: Now Playing has the labelled slider.
  */
-export function Progress({
-  audio,
-  thin = false,
-}: {
-  audio: RefObject<HTMLAudioElement | null>;
-  thin?: boolean;
-}) {
+function PlayerTimeline({ audio }: { audio: RefObject<HTMLAudioElement | null> }) {
   const { time, duration } = useAudioClock(audio);
   const ratio = duration > 0 ? Math.min(1, time / duration) : 0;
-  if (thin)
-    return (
-      <span className="progress-thin" aria-hidden="true">
+  return (
+    <span className="player-timeline" aria-hidden="true">
+      <span className="player-time">{clockText(time)}</span>
+      <span className="progress-thin">
         <span style={{ width: `${String(ratio * 100)}%` }} />
       </span>
-    );
+      <span className="player-time">{clockText(duration)}</span>
+    </span>
+  );
+}
+
+/**
+ * Playback position: a labelled slider (keyboard: arrows seek by 1 s) with both times.
+ */
+export function Progress({ audio }: { audio: RefObject<HTMLAudioElement | null> }) {
+  const { time, duration } = useAudioClock(audio);
+  const ratio = duration > 0 ? Math.min(1, time / duration) : 0;
   return (
     <div className="progress">
       <input

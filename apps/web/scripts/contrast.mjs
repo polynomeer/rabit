@@ -64,4 +64,16 @@ if (filled < 4.5) failed++;
 say(
   `white on --purple (filled buttons) ${filled.toFixed(2)} (need 4.5) ${filled >= 4.5 ? 'pass' : 'FAIL'}`,
 );
+// Area cards and banners (DIG, Archive, Studio) carry white text on their fill.
+for (const [scheme, t] of [
+  ['dark', dark],
+  ['light', light],
+])
+  for (const area of ['area-dig', 'area-archive', 'area-studio']) {
+    const r = ratio('#ffffff', t[area]);
+    if (r < 4.5) failed++;
+    say(
+      `${scheme.padEnd(5)} white on --${area.padEnd(12)} ${r.toFixed(2).padStart(5)} (need 4.5, area fill) ${r >= 4.5 ? 'pass' : 'FAIL'}`,
+    );
+  }
 process.exitCode = failed > 0 ? 1 : 0;

@@ -1,6 +1,6 @@
 import { lazy, StrictMode, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { SIGNED_OUT, devSignIn, get, hasToken, setToken } from './api';
+import { SIGNED_OUT, devSignIn, get, hasToken } from './api';
 import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from './auth';
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
@@ -248,16 +248,6 @@ function App() {
             ) : null}
           </ul>
         </nav>
-        <button
-          type="button"
-          className="link logout"
-          onClick={() => {
-            setToken(null);
-            setSignedIn(false);
-          }}
-        >
-          {t('nav.logout')}
-        </button>
       </header>
       <main>
         {route.kind === 'recording' ? <RecordingDetail id={route.id} /> : null}

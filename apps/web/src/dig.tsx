@@ -424,7 +424,7 @@ const ENTITY_TEXT: Record<string, MessageKey> = {
 };
 
 /** Catalog items get their stand-in cover; people, artists and labels an initial. */
-function EntityMark({ entity, size }: { entity: EntitySummary; size: number }) {
+export function EntityMark({ entity, size }: { entity: EntitySummary; size: number }) {
   return (
     <Mark
       id={entity.primary_release_id ?? entity.entity_id}
