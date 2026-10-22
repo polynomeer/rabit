@@ -235,12 +235,14 @@ input[type='radio'] {
 }
 .menu [aria-current='page'] {
   background: var(--accent-soft);
-  color: var(--fg);
-  font-weight: 600;
+  color: var(--accent);
+  font-weight: 700;
 }
-.logout {
-  font-size: 0.9rem;
-  white-space: nowrap;
+/* Wide screens: the primary entries are text pills; the bottom bar on phones keeps icons. */
+@media (min-width: 900px) {
+  .menu .tabs .icon {
+    display: none;
+  }
 }
 /* Narrow desktops: secondary entries keep their icons only. */
 @media (max-width: 1199px) {
@@ -390,28 +392,30 @@ ol.list {
 
 /* ——— Home ——— */
 .home {
-  position: relative;
-}
-.home::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  /* Kept inside the content width: anything wider would scroll a phone sideways. */
-  top: -160px;
-  right: 0;
-  width: min(460px, 100%);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
-  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
 }
 .home .greeting {
   white-space: pre-line;
-  font-size: 2rem;
-  font-weight: 400;
-  margin: 16px 0 24px;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 16px 0 -16px;
+}
+.search-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 640px;
+}
+.search-row button[type='submit'] {
+  min-height: 52px;
+  padding: 0 24px;
 }
 .search-field {
+  flex: 1 1 280px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -421,7 +425,6 @@ ol.list {
   background: var(--surface);
   border: 1px solid var(--control-line);
   color: var(--muted);
-  max-width: 560px;
 }
 .search-field:focus-within {
   outline: 3px solid var(--accent);
@@ -437,23 +440,39 @@ ol.list {
 }
 .areas {
   list-style: none;
-  margin: 20px 0 0;
+  margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
 }
+/* Each area in its own colour (white text, AA on every area fill); Search stays neutral. */
 .area {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-height: 132px;
-  padding: 16px;
-  border-radius: 22px;
+  gap: 4px;
+  min-height: 168px;
+  padding: 18px;
+  border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--line);
   color: var(--fg);
   text-decoration: none;
+}
+.area-dig,
+.area-archive,
+.area-studio {
+  border-color: transparent;
+  color: #ffffff;
+}
+.area-dig {
+  background: var(--area-dig);
+}
+.area-archive {
+  background: var(--area-archive);
+}
+.area-studio {
+  background: var(--area-studio);
 }
 .area:hover {
   border-color: var(--accent);
@@ -462,30 +481,123 @@ ol.list {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   margin-bottom: auto;
-  border-radius: 18px;
-  background: var(--purple);
-  color: #ffffff;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
-.area-dig .area-icon {
-  background: var(--area-dig);
-}
-.area-archive .area-icon {
-  background: var(--area-archive);
-}
+.area-dig .area-icon,
+.area-archive .area-icon,
 .area-studio .area-icon {
-  background: var(--area-studio);
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
 }
 .area-name {
   padding-top: 16px;
-  font-size: 1.2rem;
-  font-weight: 600;
+  font-size: 1.35rem;
+  font-weight: 700;
 }
 .area-hint {
-  font-size: 0.8rem;
-  color: var(--muted);
+  font-size: 0.875rem;
+  opacity: 0.88;
+}
+.home .section-head {
+  margin: 0 0 14px;
+}
+.home .section-head h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.session-cards,
+.cover-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+.session-cards {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.session-cards a {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  text-decoration: none;
+}
+.session-cards a:hover {
+  border-color: var(--accent);
+}
+.session-card-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cover-grid {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 20px;
+}
+.cover-grid a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--fg);
+  text-decoration: none;
+}
+.cover-grid .cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  margin-bottom: 6px;
+}
+@media (max-width: 899px) {
+  .search-row {
+    flex-wrap: nowrap;
+  }
+  .search-field {
+    flex-basis: 0;
+    height: 48px;
+  }
+  .search-row button[type='submit'] {
+    min-height: 48px;
+    padding: 0 16px;
+  }
+  .areas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .area {
+    min-height: 112px;
+    padding: 14px;
+  }
+  .area-icon {
+    display: none;
+  }
+  .area-name {
+    margin-top: auto;
+    padding-top: 0;
+    font-size: 1.1rem;
+  }
+  .area-hint {
+    font-size: 0.8rem;
+  }
+  .cover-grid {
+    display: flex;
+    overflow-x: auto;
+    margin: 0 -20px;
+    padding: 0 20px;
+  }
+  .cover-grid li {
+    flex: 0 0 132px;
+  }
 }
 
 /* ——— Round icon buttons and filled actions ——— */
@@ -513,35 +625,27 @@ button.round.big {
   height: 72px;
 }
 
-/* ——— Mini player: a floating bar above the bottom menu ——— */
+/* ——— Player bar: docked at the bottom; above the bottom menu on phones ——— */
 .player {
   position: fixed;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 25;
-  width: min(1040px, calc(100% - 24px));
   display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 8px 10px 8px 8px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
   flex-wrap: wrap;
-  overflow: hidden;
+  align-items: center;
+  gap: 10px 20px;
+  /* Content width of the screens above it, with the side gutter on narrow windows. */
+  padding: 10px max(20px, calc((100% - 1180px) / 2));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
 }
 .player[hidden] {
   display: none;
 }
-@media (max-width: 899px) {
-  .player {
-    bottom: calc(var(--tabbar-h) + 8px + env(safe-area-inset-bottom));
-  }
-}
 .player-now {
-  flex: 1 1 200px;
+  flex: 1 1 220px;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -561,29 +665,96 @@ button.round.big {
 }
 .player-idle {
   flex: 1;
-  padding-left: 8px;
 }
 .player-buttons {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
 }
-.player-message {
-  flex-basis: 100%;
-  margin: 0;
-  padding: 0 8px;
+button.round.quiet {
+  background: none;
+  border-color: transparent;
 }
-.progress-thin {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
+button.round.player-toggle {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+.player-timeline {
+  flex: 2 1 260px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.player-timeline .progress-thin {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
   background: var(--line);
 }
 .progress-thin > span {
   display: block;
   height: 100%;
   background: var(--accent);
+}
+.player-quality {
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+a.player-queue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--fg);
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.player-message {
+  flex-basis: 100%;
+  margin: 0;
+}
+@media (max-width: 899px) {
+  .player {
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  .player-previous,
+  .player-time,
+  .player-quality,
+  .player-queue {
+    display: none;
+  }
+  /* Phones: the position is a hairline along the bar's lower edge. */
+  .player-timeline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  .player-timeline .progress-thin {
+    height: 2px;
+    border-radius: 0;
+  }
+  .player-message {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 100%;
+    padding: 6px 10px;
+    border-radius: 12px;
+    background: var(--surface);
+  }
 }
 .cover {
   display: block;
@@ -928,6 +1099,17 @@ button.round.big {
 .section-title {
   margin: 24px 0 8px;
 }
+.search-groups .section-title {
+  margin: 28px 0 12px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.search-groups .cover-grid li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
 .list.history li {
   justify-content: flex-start;
   align-items: center;
@@ -955,8 +1137,38 @@ button.round.big {
 }
 /* Radio buttons drawn as chips: the input stays the control, laid over its label. */
 .chips {
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin: 12px 0 8px;
+}
+/* Phones: one scrolling row of chips. */
+@media (max-width: 899px) {
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: -20px;
+    padding-inline: 20px;
+  }
+  .chips > * {
+    flex-shrink: 0;
+  }
+}
+.chips > button {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--fg);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.chips > button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
 }
 .chips legend {
   position: absolute;
@@ -970,9 +1182,9 @@ button.round.big {
   position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 18px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
   border: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.9rem;
@@ -986,10 +1198,10 @@ button.round.big {
   cursor: pointer;
 }
 .chips label:has(input:checked) {
-  border-color: var(--sage);
-  background: rgba(89, 97, 91, 0.22);
-  color: var(--fg);
-  font-weight: 600;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
 }
 .chips label:has(input:focus-visible) {
   outline: 3px solid var(--accent);

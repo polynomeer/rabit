@@ -30,6 +30,8 @@ export const ko = {
   'home.area.studio': '나만의 소리 올리고 녹음하기',
   'home.continue': '이어서 DIG',
   'home.continueAll': '전체 기록',
+  'home.saved': '최근 저장',
+  'home.savedAll': 'Archive에서 보기',
   'home.continueEmpty': '아직 DIG 기록이 없어요. 곡이나 앨범에서 DIG를 시작해 보세요.',
 
   // ——— Now Playing ———
@@ -124,6 +126,11 @@ export const ko = {
   'search.empty': '‘{query}’에 맞는 결과가 없어요. 다른 이름이나 철자로 찾아보세요.',
   'search.submit': '검색',
   'search.mine': '내 오디오',
+  'search.filter': '결과 종류',
+  'search.group.all': '전체',
+  'search.group.tracks': '곡',
+  'search.group.albums': '앨범',
+  'search.group.entities': '사람 · 레이블',
 
   // ——— Account ———
   'account.sub.state.active': '이용 중',
@@ -540,6 +547,7 @@ export const ko = {
   'player.pause': '일시정지',
   'player.resume': '이어서 재생',
   'player.open': '재생 화면 열기',
+  'player.queue': '재생 목록 {count}',
   'player.position': '재생 위치',
   'player.positionText': '{duration} 중 {time}',
 

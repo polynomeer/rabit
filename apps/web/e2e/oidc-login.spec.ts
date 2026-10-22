@@ -79,6 +79,8 @@ test('only the MFA operator pool opens the operator console, never user-pool cla
   });
   await expect(menu).toBeVisible();
   await expect(menu.getByRole('button', { name: 'Ops' })).toHaveCount(0);
+  // Signing out lives on the Account page.
+  await menu.getByRole('button', { name: 'Account' }).click();
   await page.getByRole('button', { name: '로그아웃' }).click();
 
   await signInWithProvider(page, subjectFor('oidc-op'), undefined, 'operator');
