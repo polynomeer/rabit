@@ -10,6 +10,16 @@ import { audit } from '../../platform/audit.js';
 import { requireOperator } from '../../platform/http/principal.js';
 import { recordListeningEvents } from './listening.js';
 import { qualityReport, recordQualityReport } from './quality.js';
+import {
+  addToQueue,
+  clearQueue,
+  keepItem,
+  queueView,
+  refreshSuggestions,
+  removeItem,
+  setCurrent,
+  updateSettings,
+} from './queue.js';
 import { listUsageStatements, usageCsv, usageStatementLines } from './usage.js';
 import { createPlaybackSession, refreshPlaybackSession, type PlaybackDeps } from './sessions.js';
 
@@ -94,6 +104,75 @@ export function playbackRoutes(deps: PlaybackDeps) {
         req.body,
       );
       return reply.status(202).send(await recordListeningEvents(ctx.db, p, body.events));
+    });
+
+    // ---- play queue (ADR-0026) ----
+    const queueRef = z.union([
+      z.strictObject({ recording_id: idOf('recording') }),
+      z.strictObject({ audio_source_id: idOf('audioSource') }),
+    ]);
+    const itemParams = z.object({ item_id: idOf('queueItem') });
+
+    app.get('/v1/queue', async (req) => queueView(ctx, deps, requirePrincipal(req.principal)));
+
+    app.post('/v1/queue/items', routeLimit(240, '1 minute'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      const body = parse(
+        z.strictObject({
+          items: z.array(queueRef).min(1).max(200),
+          placement: z.enum(['now', 'next', 'end']).default('end'),
+        }),
+        req.body,
+      );
+      return addToQueue(ctx, deps, p, body);
+    });
+
+    app.post('/v1/queue/current', routeLimit(240, '1 minute'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      const body = parse(z.strictObject({ item_id: idOf('queueItem') }), req.body);
+      return setCurrent(ctx, deps, p, body.item_id);
+    });
+
+    app.delete('/v1/queue/items/:item_id', async (req) => {
+      const p = requirePrincipal(req.principal);
+      const params = itemParams.safeParse(req.params);
+      if (!params.success) throw errors.notFound();
+      return removeItem(ctx, deps, p, params.data.item_id);
+    });
+
+    app.post('/v1/queue/items/:item_id/keep', async (req) => {
+      const p = requirePrincipal(req.principal);
+      const params = itemParams.safeParse(req.params);
+      if (!params.success) throw errors.notFound();
+      return keepItem(ctx, deps, p, params.data.item_id);
+    });
+
+    app.post('/v1/queue/clear', async (req) => {
+      const p = requirePrincipal(req.principal);
+      const body = parse(
+        z.strictObject({ scope: z.enum(['upcoming', 'suggestions', 'history', 'all']) }),
+        req.body,
+      );
+      return clearQueue(ctx, deps, p, body.scope);
+    });
+
+    app.post('/v1/queue/suggestions/refresh', routeLimit(60, '1 minute'), async (req) =>
+      refreshSuggestions(ctx, deps, requirePrincipal(req.principal)),
+    );
+
+    app.patch('/v1/queue/settings', async (req) => {
+      const p = requirePrincipal(req.principal);
+      const body = parse(
+        z
+          .strictObject({
+            mode: z.enum(['queue', 'radio']).optional(),
+            autoplay: z.boolean().optional(),
+            include_inferred: z.boolean().optional(),
+          })
+          .refine((b) => Object.keys(b).length > 0, { message: 'nothing to change' }),
+        req.body,
+      );
+      return updateSettings(ctx, deps, p, body);
     });
 
     // Monthly usage statements for rights holders (ADR-0025): operators only.

@@ -38,6 +38,7 @@
 | [0023](ADR-0023-ios-client.md) | Native iOS client in SwiftUI, iOS 26 and later | Accepted (platform, stack, playback, sign-in) / Proposed (offline, Android) | — (Q06) |
 | [0024](ADR-0024-app-store-subscription.md) | The Listen subscription as an App Store in-app purchase on iOS | Accepted (scope, price, linking) / Proposed (VAT and commission accounting) | COM-008, Q04 |
 | [0025](ADR-0025-usage-statements.md) | Monthly usage statements for rights holders | Accepted (counting rule, month, retention, export) / Proposed (report formats, fraud filtering) | PLY-015, Q02 |
+| [0026](ADR-0026-play-queue-and-autoplay.md) | Play queue with history, saved playlists and track-based autoplay | Accepted (queue, autoplay sources) / Proposed (default mode: 재생목록 + autoplay on) | PLY-001, DSC-003–006 |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 

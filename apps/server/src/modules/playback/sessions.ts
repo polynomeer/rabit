@@ -7,6 +7,7 @@ import { MediaTokenCodec } from '../../platform/media-token.js';
 import { metrics } from '../../platform/metrics.js';
 import { LADDER } from '../audio/index.js';
 import { evaluatePolicy, type CatalogAccess, type DenyReason } from './policy.js';
+import type { RadioProvider } from './queue.js';
 
 export const SESSION_SECONDS = 5 * 60;
 export const MEDIA_TOKEN_SECONDS = 60;
@@ -17,6 +18,8 @@ export type RecordingSourceResolver = (db: DbOrTx, recordingId: string) => Promi
 export interface PlaybackDeps {
   catalogAccess: CatalogAccess;
   resolveRecordingSource: RecordingSourceResolver;
+  /** Track-based suggestions for autoplay (DIG, ADR-0026). */
+  radio: RadioProvider;
 }
 
 export function denialError(reason: DenyReason) {

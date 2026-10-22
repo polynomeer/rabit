@@ -32,6 +32,7 @@ export const ID_PREFIX = {
   physicalItem: 'phy',
   playlist: 'pls',
   playlistItem: 'pli',
+  queueItem: 'pqi',
   export: 'exp',
   digSession: 'dgs',
   digNode: 'dgn',

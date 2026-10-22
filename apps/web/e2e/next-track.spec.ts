@@ -9,6 +9,8 @@ import { apiAs, expectPlaying, provision, signIn, subjectFor } from './support.t
 test('prepares the next track before the current one ends', async ({ page }) => {
   const subject = subjectFor('next-track');
   await provision(subject, { listener: true });
+  // Album only: with autoplay on, a suggestion would be prepared after the last track.
+  await apiAs(subject, 'PATCH', '/v1/queue/settings', { autoplay: false });
   const search = (await apiAs(subject, 'GET', '/v1/search?q=Harbour%20Lights')).json as {
     items: { id: string; kind: string; title: string }[];
   };

@@ -195,6 +195,28 @@ export interface PlaybackSessionTable {
   quality_reported_at: Date | null;
 }
 
+export interface PlayQueueTable {
+  user_id: string;
+  mode: Generated<'queue' | 'radio'>;
+  autoplay: Generated<boolean>;
+  include_inferred: Generated<boolean>;
+  current_item_id: string | null;
+  version: Generated<number>;
+  updated_at: Generated<Date>;
+}
+
+export interface PlayQueueItemTable {
+  id: string;
+  user_id: string;
+  position: number;
+  ref_type: 'recording' | 'audio_source';
+  ref_id: string;
+  origin: 'user' | 'autoplay';
+  reason: ColumnType<unknown, string | null, string | null>;
+  added_at: Generated<Date>;
+  played_at: Date | null;
+}
+
 export interface UsageStatementTable {
   month: ColumnType<string, string, never>;
   policy: string;
@@ -801,6 +823,8 @@ export interface Database {
   upload_session: UploadSessionTable;
   playback_session: PlaybackSessionTable;
   usage_statement: UsageStatementTable;
+  play_queue: PlayQueueTable;
+  play_queue_item: PlayQueueItemTable;
   usage_statement_line: UsageStatementLineTable;
   usage_carryover: UsageCarryoverTable;
   app_user: AppUserTable;

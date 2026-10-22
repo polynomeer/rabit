@@ -10,7 +10,7 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react';
-import { api, ApiError } from './api';
+import { api, ApiError, hasToken, type Schemas } from './api';
 import { Cover, Icon, Mark } from './brand';
 import { t, type MessageKey } from './i18n';
 import { normalizeEnabled, onNormalizeChange, volumeFor } from './normalize';
@@ -32,6 +32,38 @@ export interface QueueEntry {
    * no cover and no links that would reveal it (DIG-010).
    */
   hidden?: boolean | undefined;
+  /** Server queue (ADR-0026): the item, who put it there and why, and its place. */
+  item_id?: string | undefined;
+  origin?: 'user' | 'autoplay' | undefined;
+  reason?: QueueReason | null | undefined;
+  state?: 'played' | 'current' | 'upcoming' | undefined;
+  playable?: boolean | undefined;
+}
+
+export type ServerQueue = Schemas['Queue'];
+export type QueueReason = NonNullable<ServerQueue['items'][number]['reason']>;
+export type QueueSettings = Pick<ServerQueue, 'mode' | 'autoplay' | 'include_inferred'>;
+type QueueRef = { recording_id: string } | { audio_source_id: string };
+
+const refOf = (e: QueueEntry): QueueRef =>
+  e.audio_source_id
+    ? { audio_source_id: e.audio_source_id }
+    : { recording_id: e.recording_id ?? '' };
+
+function entryOf(i: ServerQueue['items'][number]): QueueEntry {
+  return {
+    key: i.item_id,
+    item_id: i.item_id,
+    title: i.title ?? t('common.untitled'),
+    subtitle: i.subtitle,
+    ...(i.recording_id ? { recording_id: i.recording_id } : {}),
+    ...(i.audio_source_id ? { audio_source_id: i.audio_source_id } : {}),
+    cover_id: i.cover_id,
+    origin: i.origin,
+    reason: i.reason,
+    state: i.state,
+    playable: i.playable,
+  };
 }
 
 /** The cover shown for a queue entry: its release when known, else the item itself. */
@@ -83,7 +115,18 @@ interface PlayerApi {
   peaks: number[] | null;
   /** The media element, for components that follow the playback position. */
   audio: RefObject<HTMLAudioElement | null>;
+  /** Plays `entries` from `start` now; the rest of the queue stays (ADR-0026). */
   play(entries: QueueEntry[], start?: number): void;
+  /** Right after the current item, or after the listener's other choices. */
+  enqueue(entries: QueueEntry[], placement: 'next' | 'end'): Promise<void>;
+  /** Starts over from this track: what was coming is replaced by its suggestions. */
+  startRadio(entry: QueueEntry): void;
+  remove(entry: QueueEntry): Promise<void>;
+  keep(entry: QueueEntry): Promise<void>;
+  clear(scope: 'upcoming' | 'suggestions' | 'history' | 'all'): Promise<void>;
+  refreshSuggestions(): Promise<void>;
+  settings: QueueSettings;
+  updateSettings(patch: Partial<QueueSettings>): Promise<void>;
   jump: (index: number) => void;
   toggle: () => void;
   next: () => void;
@@ -187,6 +230,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const preparing = useRef(-1);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [index, setIndex] = useState(-1);
+  const [settings, setSettings] = useState<QueueSettings>({
+    mode: 'queue',
+    autoplay: true,
+    include_inferred: false,
+  });
+  /** A Blind Digging round plays from a local list: its tracks must stay hidden (DIG-010). */
+  const local = useRef(false);
   const [session, setSession] = useState<Session | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -215,7 +265,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }).catch(() => undefined);
   }, []);
 
-  const start = useCallback(async (entry: QueueEntry, at: number) => {
+  const start = useCallback(async (entry: QueueEntry) => {
     setMessage(null);
     qoe.current?.send();
     qoe.current = null;
@@ -227,7 +277,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       prepared.current = null;
       preparing.current = -1;
       let data: Session;
-      if (ready && ready.index === at && ready.key === entry.key) {
+      if (ready && ready.key === entry.key) {
         data =
           new Date(ready.session.media_token_expires_at).getTime() - Date.now() > 15_000
             ? ready.session
@@ -328,10 +378,57 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
   }, [session, send]);
 
+  /** Mirrors the server queue; returns the index of its current item. */
+  const fromServer = useCallback((q: ServerQueue): number => {
+    local.current = false;
+    const entries = q.items.map(entryOf);
+    const at = q.items.findIndex((i) => i.state === 'current');
+    setQueue(entries);
+    setIndex(at);
+    setSettings({ mode: q.mode, autoplay: q.autoplay, include_inferred: q.include_inferred });
+    return at;
+  }, []);
+
+  // The account's queue, as another device left it (nothing starts by itself).
   useEffect(() => {
-    const entry = queue[index];
-    if (entry) void start(entry, index);
-  }, [index, queue, start]);
+    if (!hasToken()) return;
+    api<ServerQueue>('GET', '/v1/queue').then(
+      ({ data }) => fromServer(data),
+      () => undefined,
+    );
+  }, [fromServer]);
+
+  const queueCall = useCallback(
+    async (
+      method: string,
+      path: string,
+      body?: unknown,
+    ): Promise<{ entries: QueueEntry[]; at: number }> => {
+      const { data } = await api<ServerQueue>(method, path, body);
+      const at = fromServer(data);
+      return { entries: data.items.map(entryOf), at };
+    },
+    [fromServer],
+  );
+
+  /** Moves to an item (the client went on or the listener picked it) and plays it. */
+  const go = useCallback(
+    async (entries: QueueEntry[], at: number) => {
+      const entry = entries[at];
+      if (!entry) return;
+      if (local.current || !entry.item_id) {
+        setIndex(at);
+        await start(entry);
+        return;
+      }
+      const r = await queueCall('POST', '/v1/queue/current', { item_id: entry.item_id }).catch(
+        () => null,
+      );
+      const now = r ? r.entries[r.at] : entry;
+      if (now) await start(now);
+    },
+    [queueCall, start],
+  );
 
   /** Opens and warms the next entry's session near the end of the current track. */
   const prepareNext = () => {
@@ -351,10 +448,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  /** The next item that can play: unplayable ones are passed over, keeping their place (PLY-006). */
+  const nextPlayable = (from: number) => {
+    for (let i = from + 1; i < queue.length; i++) if (queue[i]?.playable !== false) return i;
+    return -1;
+  };
+
   const playNext = () => {
     if (session) send('ended', session);
-    // Unplayable items are skipped by the server's answer, keeping their position.
-    if (index + 1 < queue.length) setIndex(index + 1);
+    const at = nextPlayable(index);
+    if (at >= 0) void go(queue, at);
   };
 
   const current = queue[index];
@@ -392,15 +495,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         .join(' · ')
     : null;
   const jump = (at: number) => {
-    // Re-selecting the same index restarts it: reset first, then select.
-    setIndex(-1);
-    setTimeout(() => {
-      setIndex(at);
-    }, 0);
+    void go(queue, at);
   };
   const toggle = () => {
     const el = audio.current;
     if (!el || !current) return;
+    // A queue restored from the account has no session yet: start its current item.
+    if (!session) {
+      void start(current);
+      return;
+    }
     if (el.paused) void el.play().catch(() => undefined);
     else el.pause();
   };
@@ -409,6 +513,29 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Like most players: past the first seconds, "previous" restarts the track.
     if (el && el.currentTime > 3) el.currentTime = 0;
     else if (index > 0) jump(index - 1);
+  };
+  const playNow = async (entries: QueueEntry[], at: number) => {
+    if (entries.some((e) => e.hidden)) {
+      local.current = true;
+      setQueue(entries);
+      setIndex(at);
+      await start(entries[at] as QueueEntry);
+      return;
+    }
+    try {
+      const r = await queueCall('POST', '/v1/queue/items', {
+        items: entries.slice(at).map(refOf),
+        placement: 'now',
+      });
+      const now = r.entries[r.at];
+      if (now) await start(now);
+    } catch (e) {
+      setMessage(
+        t('player.cannotPlay', {
+          reason: e instanceof ApiError ? e.message : (e as Error).message,
+        }),
+      );
+    }
   };
   const api_: PlayerApi = {
     queue,
@@ -419,9 +546,41 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     peaks,
     audio,
     message,
+    settings,
     play(entries, at = 0) {
-      setQueue(entries);
-      jump(at);
+      void playNow(entries, at);
+    },
+    async enqueue(entries, placement) {
+      await queueCall('POST', '/v1/queue/items', { items: entries.map(refOf), placement });
+    },
+    startRadio(entry) {
+      void (async () => {
+        await queueCall('POST', '/v1/queue/clear', { scope: 'upcoming' }).catch(() => null);
+        await playNow([entry], 0);
+      })();
+    },
+    async remove(entry) {
+      if (entry.item_id) await queueCall('DELETE', `/v1/queue/items/${entry.item_id}`);
+    },
+    async keep(entry) {
+      if (entry.item_id) await queueCall('POST', `/v1/queue/items/${entry.item_id}/keep`);
+    },
+    async clear(scope) {
+      await queueCall('POST', '/v1/queue/clear', { scope });
+    },
+    async refreshSuggestions() {
+      await queueCall('POST', '/v1/queue/suggestions/refresh');
+    },
+    async updateSettings(patch) {
+      // Shown at once; the server's answer (with new suggestions) follows.
+      const before = settings;
+      setSettings({ ...settings, ...patch });
+      try {
+        await queueCall('PATCH', '/v1/queue/settings', patch);
+      } catch (e) {
+        setSettings(before);
+        throw e;
+      }
     },
     jump,
     toggle,
@@ -469,7 +628,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             type="button"
             className="round quiet"
             aria-label={t('player.next')}
-            disabled={index + 1 >= queue.length}
+            disabled={nextPlayable(index) < 0}
             onClick={playNext}
           >
             <Icon name="next" size={18} />
@@ -531,7 +690,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           if (!stalledAtEnd(el) || finished.current === session?.session_id) return;
           qoe.current?.send();
           finished.current = session?.session_id ?? null;
-          if (index + 1 < queue.length) {
+          if (nextPlayable(index) >= 0) {
             setPlaying(false);
             playNext();
           } else {
