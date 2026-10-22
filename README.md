@@ -56,7 +56,8 @@ pnpm demo:user <ID>             # add --operator for the operator console
 | `pnpm dev` | Brings infra up if needed, migrates, seeds the demo catalog if absent, runs all four processes with prefixed logs. Moves to free ports by itself (below). `-- --no-web`, `-- --no-seed` |
 | `pnpm stop` | Stops this checkout's `pnpm dev` from another terminal; `-- --infra` also stops Postgres and S3 (data kept) |
 | `pnpm status` | Whether `pnpm dev` runs, the containers and every service's health endpoint |
-| `pnpm demo:seed` | Generates and ingests the demo catalog once (`--force` to ingest another copy; ingest is not idempotent) |
+| `pnpm demo:seed` | Generates and ingests the demo catalog once: `core` (what the browser tests use) and `expansion` (25 releases, 1976–2026), see [infra/demo](infra/demo/README.md) |
+| `pnpm demo:offers` | Puts the demo albums with a price on sale in KR (needs the api; `pnpm dev` runs it) |
 | `pnpm demo:user <ID>` | Region KR + a 30-day Listen subscription for a local account, through the operator API (needs `pnpm dev`) |
 | `pnpm db:reset` | Drops and recreates the **local** `rabit` database, migrates and re-seeds. Asks for confirmation (`--yes` to skip); refuses a non-local `DATABASE_URL` |
 | `pnpm db:reset:test` | Empties the server tests' database `rabit_test`, e.g. after switching to a branch without a migration the database already has ("corrupted migrations") |
@@ -89,8 +90,8 @@ pnpm db:migrate
 pnpm --filter @rabit/server dev:api                  # http://localhost:8080  (control plane)
 pnpm --filter @rabit/server dev:worker               # jobs, transcoding
 pnpm --filter @rabit/server dev:media                # http://localhost:8081  (media gateway)
-sh infra/demo/generate-catalog.sh
-pnpm --filter @rabit/server catalog:ingest ../../infra/demo/out/manifest.json
+node infra/demo/generate.mjs expansion                # also: core (infra/demo/README.md)
+pnpm --filter @rabit/server catalog:ingest ../../infra/demo/out/expansion/manifest.json
 pnpm --filter @rabit/web dev                         # http://localhost:5173
 ```
 

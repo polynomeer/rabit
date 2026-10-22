@@ -1,0 +1,136 @@
+{
+  "source": "demo-fixtures-v1",
+  "description": "The small catalog the browser tests rely on (titles, lengths and rights are asserted there). Keep it stable; add new material to expansion.json.",
+  "labels": [{ "key": "tidal", "name": "Tidal Room Records" }],
+  "people": [
+    { "key": "okon", "name": "Marguerite Okonkwo" },
+    { "key": "bae", "name": "Bae Seo-yun" },
+    { "key": "ruiz", "name": "Tomás Ruiz" }
+  ],
+  "artists": [
+    { "key": "quasar", "name": "Velvet Quasar" },
+    { "key": "lumen", "name": "Lumen Avenue" }
+  ],
+  "releases": [
+    {
+      "key": "lights",
+      "title": "Harbour Lights",
+      "type": "album",
+      "label": "tidal",
+      "date": "2024-03-01",
+      "artists": ["quasar"],
+      "format": "sine",
+      "rights": {
+        "holder": "Tidal Room Records",
+        "territories": ["KR"],
+        "uses": ["stream"],
+        "contract": "DEMO-1"
+      },
+      "tracks": [
+        {
+          "key": "harbour",
+          "title": "Midnight Harbour",
+          "sec": 20,
+          "freq": 220,
+          "credits": [
+            {
+              "person": "okon",
+              "role": "producer",
+              "method": "human",
+              "basis": "verified_fact",
+              "verification": "distributor_verified"
+            },
+            { "person": "bae", "role": "performer", "instrument": "bass", "method": "human" }
+          ],
+          "claims": [
+            {
+              "stage": "composition",
+              "method": "human",
+              "issuer": "Tidal Room Records",
+              "verification": "distributor_verified"
+            }
+          ]
+        },
+        {
+          "key": "tide",
+          "title": "Morning Tide",
+          "sec": 18,
+          "freq": 330,
+          "credits": [{ "person": "ruiz", "role": "mixing_engineer", "method": "human" }]
+        }
+      ]
+    },
+    {
+      "key": "paper",
+      "title": "Paper Sky",
+      "type": "ep",
+      "label": "tidal",
+      "date": "2025-09-12",
+      "artists": ["lumen"],
+      "format": "sine",
+      "rights": {
+        "holder": "Tidal Room Records",
+        "territories": ["KR"],
+        "uses": ["stream"],
+        "contract": "DEMO-1"
+      },
+      "tracks": [
+        {
+          "key": "lantern",
+          "title": "Paper Lantern",
+          "sec": 22,
+          "freq": 440,
+          "credits": [
+            {
+              "person": "okon",
+              "role": "producer",
+              "method": "human",
+              "basis": "declared",
+              "verification": "self_declared"
+            }
+          ]
+        },
+        {
+          "key": "orbit",
+          "title": "Slow Orbit",
+          "sec": 16,
+          "freq": 550,
+          "credits": [
+            { "person": "bae", "role": "performer", "instrument": "bass", "method": "human" }
+          ],
+          "rights": {
+            "holder": "Tidal Room Records",
+            "territories": ["WORLD"],
+            "uses": ["stream"],
+            "contract": "DEMO-1"
+          }
+        },
+        {
+          "key": "ember",
+          "title": "Ember (Harbour Flip)",
+          "sec": 24,
+          "freq": 660,
+          "claims": [{ "stage": "mastering", "method": "ai_assisted", "issuer": "Lumen Avenue" }]
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "ember",
+      "to": "harbour",
+      "type": "samples",
+      "basis": "verified_fact",
+      "verification": "rights_reviewed",
+      "license": "licensed"
+    },
+    {
+      "from": "orbit",
+      "to": "tide",
+      "type": "influenced_by",
+      "basis": "ml_inferred",
+      "confidence": 0.58,
+      "verification": "self_declared"
+    }
+  ]
+}

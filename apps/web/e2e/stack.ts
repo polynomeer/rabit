@@ -19,7 +19,8 @@ const root = resolve(here, '../../..');
 const server = resolve(root, 'apps/server');
 const web = resolve(root, 'apps/web');
 const tsx = resolve(server, 'node_modules/.bin/tsx');
-const manifest = resolve(root, 'infra/demo/out/manifest.json');
+// The small, stable demo set (infra/demo/catalog/core.json): the specs assert its titles.
+const manifest = resolve(root, 'infra/demo/out/core/manifest.json');
 
 const env: NodeJS.ProcessEnv = {
   ...process.env,
@@ -174,7 +175,7 @@ try {
   await admin.end();
 
   runOnce(tsx, ['src/entry/migrate.ts', 'up'], server);
-  if (!existsSync(manifest)) runOnce('sh', ['infra/demo/generate-catalog.sh'], root);
+  if (!existsSync(manifest)) runOnce('node', ['infra/demo/generate.mjs', 'core'], root);
   runOnce(tsx, ['src/entry/catalog-ingest.ts', manifest], server);
 
   start('worker', tsx, ['src/entry/worker.ts'], server);

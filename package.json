@@ -13,6 +13,7 @@
     "stop": "node scripts/stop.mjs",
     "status": "node scripts/status.mjs",
     "demo:seed": "node scripts/demo.mjs seed",
+    "demo:offers": "node scripts/demo.mjs offers",
     "demo:user": "node scripts/demo.mjs user",
     "db:reset": "node scripts/db-reset.mjs",
     "db:reset:test": "node scripts/db-reset.mjs --test",
