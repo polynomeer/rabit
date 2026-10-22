@@ -39,6 +39,8 @@ export const ko = {
   'now.credits': '크레딧과 Passport',
   'now.queue': '재생 목록',
   'now.album': '앨범 보기',
+  'now.dig': '이 곡에서 더 깊이 들어가기',
+  'now.digHint': '만든 사람, 같은 세션, 같은 레이블을 따라가요. 재생은 끊기지 않아요.',
 
   // ——— Studio ———
   'studio.intro': '나만의 소리를\n만들고 남겨요.',
@@ -420,6 +422,8 @@ export const ko = {
   'details.passport.method': '방식',
   'details.passport.basis': '근거',
   'details.passport.credits': '크레딧',
+  'details.passport.legend.fact': '레이블·권리자·공개 기록이 출처',
+  'details.passport.legend.inferred': '소리 분석 등으로 찾은 관계 · 사실로 확인되지 않음',
   'details.passport.claims': '권리·출처 주장',
   'details.passport.integrity': '무결성',
   'details.passport.integrityNote': '하나의 점수가 아니라 서로 독립된 축입니다.',

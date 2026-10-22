@@ -173,6 +173,7 @@ function Page({
   kind,
   missing,
   coverId,
+  hero,
   children,
 }: {
   title: string | null;
@@ -180,6 +181,8 @@ function Page({
   missing: boolean;
   /** Recordings and releases show their (stand-in) cover next to the title. */
   coverId?: string | undefined;
+  /** Meta and actions beside the title. */
+  hero?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -200,10 +203,11 @@ function Page({
       ) : (
         <>
           <div className={coverId ? 'detail-head with-cover' : 'detail-head'}>
-            {coverId ? <Cover id={coverId} size={168} round={20} /> : null}
-            <div>
+            {coverId ? <Cover id={coverId} size={240} round={14} /> : null}
+            <div className="detail-hero">
               <p className="eyebrow">{kind}</p>
               <h2 id="detail-h">{title}</h2>
+              {hero}
             </div>
           </div>
           {children}
@@ -323,21 +327,33 @@ function PassportView({ recordingId }: { recordingId: string }) {
       {p.credits.length > 0 ? (
         <>
           <h4>{t('details.passport.credits')}</h4>
-          <ul className="list">
+          <p className="basis-legend small">
+            <span>
+              <span className="badge basis-verified_fact">
+                {label(BASIS_TEXT, 'verified_fact')}
+              </span>{' '}
+              {t('details.passport.legend.fact')}
+            </span>
+            <span>
+              <span className="badge basis-ml_inferred">{label(BASIS_TEXT, 'ml_inferred')}</span>{' '}
+              {t('details.passport.legend.inferred')}
+            </span>
+          </p>
+          <ul className="credits">
             {p.credits.map((c) => (
               <li key={c.credit_id}>
-                <div>
-                  <a href={entityHref(c.contributor.entity_id)}>{c.contributor.name}</a>{' '}
-                  <span className="muted">
-                    {roleText(c.role)}
-                    {c.instrument ? ` (${c.instrument})` : ''}
-                  </span>
-                  <br />
-                  <span className="small">
-                    {label(METHOD_TEXT, c.creation_method)} · {label(BASIS_TEXT, c.basis)} ·{' '}
-                    {label(VERIFICATION_TEXT, c.verification_state)}
-                  </span>
-                </div>
+                <span className="credit-role muted small">
+                  {roleText(c.role)}
+                  {c.instrument ? ` (${c.instrument})` : ''}
+                </span>
+                <a className="credit-name" href={entityHref(c.contributor.entity_id)}>
+                  {c.contributor.name}
+                </a>
+                <span className={`badge basis-${c.basis}`}>{label(BASIS_TEXT, c.basis)}</span>
+                <span className="credit-source small muted">
+                  {label(METHOD_TEXT, c.creation_method)} ·{' '}
+                  {label(VERIFICATION_TEXT, c.verification_state)}
+                </span>
               </li>
             ))}
           </ul>
@@ -384,58 +400,68 @@ export function RecordingDetail({ id }: { id: string }) {
       kind={t('common.recording')}
       missing={missing}
       coverId={r?.releases[0]?.release_id ?? r?.recording_id}
+      hero={
+        r ? (
+          <>
+            <p>
+              <Links refs={r.artists} />
+              {r.duration_ms !== null ? (
+                <span className="muted"> · {duration(r.duration_ms)}</span>
+              ) : null}
+              {r.isrc ? <span className="muted small"> · ISRC {r.isrc}</span> : null}
+            </p>
+            {r.releases.length > 0 ? (
+              <p>
+                {t('details.recording.appearsOn')}{' '}
+                {r.releases.map((rel, i) => (
+                  <span key={rel.release_id}>
+                    {i > 0 ? ', ' : ''}
+                    <a href={entityHref(rel.release_id)}>{rel.title}</a>
+                  </span>
+                ))}
+              </p>
+            ) : null}
+            <p>
+              <Status p={r.playability} />
+            </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={!r.playability.playable}
+                onClick={() => {
+                  player.play([
+                    {
+                      key: r.recording_id,
+                      title: r.title,
+                      subtitle: r.artists.map((a) => a.name).join(', '),
+                      recording_id: r.recording_id,
+                      cover_id: r.releases[0]?.release_id,
+                    },
+                  ]);
+                }}
+              >
+                {t('common.play')}
+              </button>
+              <a className="button" href={digHref(r.recording_id)}>
+                DIG
+              </a>
+              <SaveButton refType="recording" refId={r.recording_id} />
+              <AddToPlaylist refType="recording" refId={r.recording_id} />
+            </div>
+          </>
+        ) : null
+      }
     >
       {r ? (
-        <>
-          <p>
-            <Links refs={r.artists} />
-            {r.duration_ms !== null ? (
-              <span className="muted"> · {duration(r.duration_ms)}</span>
-            ) : null}
-            {r.isrc ? <span className="muted small"> · ISRC {r.isrc}</span> : null}
-          </p>
-          {r.releases.length > 0 ? (
-            <p>
-              {t('details.recording.appearsOn')}{' '}
-              {r.releases.map((rel, i) => (
-                <span key={rel.release_id}>
-                  {i > 0 ? ', ' : ''}
-                  <a href={entityHref(rel.release_id)}>{rel.title}</a>
-                </span>
-              ))}
-            </p>
-          ) : null}
-          <p>
-            <Status p={r.playability} />
-          </p>
-          <div className="actions">
-            <button
-              type="button"
-              className="primary"
-              disabled={!r.playability.playable}
-              onClick={() => {
-                player.play([
-                  {
-                    key: r.recording_id,
-                    title: r.title,
-                    subtitle: r.artists.map((a) => a.name).join(', '),
-                    recording_id: r.recording_id,
-                    cover_id: r.releases[0]?.release_id,
-                  },
-                ]);
-              }}
-            >
-              {t('common.play')}
-            </button>
-            <a className="button" href={digHref(r.recording_id)}>
-              DIG
-            </a>
-            <SaveButton refType="recording" refId={r.recording_id} />
-            <AddToPlaylist refType="recording" refId={r.recording_id} />
+        <div className="detail-columns">
+          <div className="detail-main">
+            <PassportView recordingId={r.recording_id} />
           </div>
-          <PassportView recordingId={r.recording_id} />
-          <ReportForm subjectType="recording" subjectId={r.recording_id} />
-        </>
+          <aside className="detail-side">
+            <ReportForm subjectType="recording" subjectId={r.recording_id} />
+          </aside>
+        </div>
       ) : null}
     </Page>
   );
@@ -461,86 +487,96 @@ export function ReleaseDetail({ id }: { id: string }) {
       kind={label(TYPE_TEXT, r?.release_type ?? null)}
       missing={missing}
       coverId={r?.release_id}
+      hero={
+        r ? (
+          <>
+            <p>
+              <Links refs={r.artists} />
+              {r.release_date ? <span className="muted"> · {r.release_date}</span> : null}
+              {r.label ? (
+                <>
+                  {' '}
+                  · <a href={entityHref(r.label.entity_id)}>{r.label.name}</a>
+                </>
+              ) : null}
+            </p>
+            <p className="small muted">
+              {t('details.release.summary', {
+                count: r.tracks.length,
+                minutes: Math.round(
+                  r.tracks.reduce((sum, track) => sum + (track.duration_ms ?? 0), 0) / 60_000,
+                ),
+              })}
+            </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={firstPlayable < 0}
+                onClick={() => {
+                  player.play(queue, firstPlayable);
+                }}
+              >
+                {t('details.release.playAll')}
+              </button>
+              <a className="button" href={digHref(r.release_id)}>
+                DIG
+              </a>
+              <SaveButton refType="release" refId={r.release_id} />
+              <AddToCollection
+                releaseId={r.release_id}
+                title={r.title}
+                artist={r.artists.map((x) => x.name).join(', ')}
+              />
+            </div>
+          </>
+        ) : null
+      }
     >
       {r ? (
-        <>
-          <p>
-            <Links refs={r.artists} />
-            {r.release_date ? <span className="muted"> · {r.release_date}</span> : null}
-            {r.label ? (
-              <>
-                {' '}
-                · <a href={entityHref(r.label.entity_id)}>{r.label.name}</a>
-              </>
-            ) : null}
-          </p>
-          <p className="small muted">
-            {t('details.release.summary', {
-              count: r.tracks.length,
-              minutes: Math.round(
-                r.tracks.reduce((sum, track) => sum + (track.duration_ms ?? 0), 0) / 60_000,
-              ),
-            })}
-          </p>
-          <div className="actions">
-            <button
-              type="button"
-              className="primary"
-              disabled={firstPlayable < 0}
-              onClick={() => {
-                player.play(queue, firstPlayable);
-              }}
-            >
-              {t('details.release.playAll')}
-            </button>
-            <a className="button" href={digHref(r.release_id)}>
-              DIG
-            </a>
-            <SaveButton refType="release" refId={r.release_id} />
-            <AddToCollection
-              releaseId={r.release_id}
-              title={r.title}
-              artist={r.artists.map((x) => x.name).join(', ')}
-            />
+        <div className="detail-columns">
+          <div className="detail-main">
+            <ol className="tracks" aria-label={t('details.release.tracks')}>
+              {r.tracks.map((track, i) => (
+                <li
+                  key={`${String(track.disc_no)}-${String(track.position)}`}
+                  className={
+                    player.current?.recording_id === track.recording_id ? 'current' : undefined
+                  }
+                >
+                  <span className="track-no" aria-hidden="true">
+                    {track.position}
+                  </span>
+                  <div className="track-main">
+                    <a href={entityHref(track.recording_id)}>{track.title}</a>{' '}
+                    <span className="muted small">{duration(track.duration_ms)}</span>{' '}
+                    <Status p={track.playability} />
+                  </div>
+                  <div className="actions">
+                    <button
+                      type="button"
+                      disabled={!track.playability.playable}
+                      onClick={() => {
+                        player.play(queue, i);
+                      }}
+                    >
+                      {t('common.play')}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
-          <PurchasePanel
-            releaseId={r.release_id}
-            onPurchased={() => {
-              setReload((n) => n + 1);
-            }}
-          />
-          <ol className="tracks" aria-label={t('details.release.tracks')}>
-            {r.tracks.map((track, i) => (
-              <li
-                key={`${String(track.disc_no)}-${String(track.position)}`}
-                className={
-                  player.current?.recording_id === track.recording_id ? 'current' : undefined
-                }
-              >
-                <span className="track-no" aria-hidden="true">
-                  {track.position}
-                </span>
-                <div className="track-main">
-                  <a href={entityHref(track.recording_id)}>{track.title}</a>{' '}
-                  <span className="muted small">{duration(track.duration_ms)}</span>{' '}
-                  <Status p={track.playability} />
-                </div>
-                <div className="actions">
-                  <button
-                    type="button"
-                    disabled={!track.playability.playable}
-                    onClick={() => {
-                      player.play(queue, i);
-                    }}
-                  >
-                    {t('common.play')}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ol>
-          <ReportForm subjectType="release" subjectId={r.release_id} />
-        </>
+          <aside className="detail-side">
+            <PurchasePanel
+              releaseId={r.release_id}
+              onPurchased={() => {
+                setReload((n) => n + 1);
+              }}
+            />
+            <ReportForm subjectType="release" subjectId={r.release_id} />
+          </aside>
+        </div>
       ) : null}
     </Page>
   );

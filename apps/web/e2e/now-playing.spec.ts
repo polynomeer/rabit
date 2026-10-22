@@ -50,7 +50,7 @@ test('plays an album, controls it from Now Playing and digs without stopping', a
   await expectPlaying(page);
 
   // DIG from here keeps the music playing.
-  await page.getByRole('link', { name: 'Go deeper in music' }).click();
+  await page.getByRole('link', { name: /이 곡에서 더 깊이 들어가기/ }).click();
   await expect(page).toHaveURL(/dig-session/);
   await expect(page.getByRole('contentinfo', { name: '플레이어' })).toContainText('Morning Tide');
   expect(await audio.evaluate((a: HTMLAudioElement) => a.paused)).toBe(false);
