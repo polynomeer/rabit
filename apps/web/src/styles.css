@@ -1145,6 +1145,8 @@ a.player-queue {
 /* Phones: one scrolling row of chips. */
 @media (max-width: 899px) {
   .chips {
+    /* A fieldset is min-content wide by default; let the row scroll instead. */
+    min-inline-size: 0;
     flex-wrap: nowrap;
     overflow-x: auto;
     margin-inline: -20px;
