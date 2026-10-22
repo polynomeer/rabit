@@ -757,8 +757,10 @@ export function Account() {
           </dl>
         </div>
       ) : null}
-      <ThemeChoice />
-      <NormalizeChoice />
+      <div className="account-grid">
+        <ThemeChoice />
+        <NormalizeChoice />
+      </div>
       <Entitlements />
       <SubscriptionPanel />
       <Orders />
@@ -801,7 +803,7 @@ export function Account() {
       </div>
       <button
         type="button"
-        className="wide"
+        className="wide sign-out"
         onClick={() => {
           setToken(null);
           window.dispatchEvent(new Event(SIGNED_OUT));
@@ -826,10 +828,11 @@ function ThemeChoice() {
   return (
     <section className="card" aria-labelledby="theme-h">
       <h3 id="theme-h">{t('account.theme.heading')}</h3>
-      <fieldset className="chips">
+      <fieldset className="theme-choice">
         <legend>{t('account.theme.heading')}</legend>
         {THEMES.map((v) => (
           <label key={v}>
+            <span className={`theme-swatch theme-swatch-${v}`} aria-hidden="true" />
             <input
               type="radio"
               name="theme"
@@ -854,16 +857,18 @@ function NormalizeChoice() {
   return (
     <section className="card" aria-labelledby="normalize-h">
       <h3 id="normalize-h">{t('account.normalize.heading')}</h3>
-      <label>
+      <label className="switch-row">
+        {t('account.normalize.label')}
         <input
           type="checkbox"
+          role="switch"
+          className="switch"
           checked={on}
           onChange={(e) => {
             setOn(e.target.checked);
             setNormalizeEnabled(e.target.checked);
           }}
-        />{' '}
-        {t('account.normalize.label')}
+        />
       </label>
       <p className="small muted">{t('account.normalize.note')}</p>
     </section>
