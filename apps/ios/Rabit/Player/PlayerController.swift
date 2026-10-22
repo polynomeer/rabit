@@ -5,10 +5,21 @@ import RabitKit
 /// decides playability on start and on every refresh; a failed refresh stops playback.
 /// Near the end of a track the next one is opened and queued behind it, so AVFoundation
 /// moves on without a gap (gapless edit lists, ADR-0008 amendment 2026-10-20).
+///
+/// The queue is the account's (ADR-0026): this mirrors it, and every change goes through
+/// the server, which answers with the whole queue. Blind Digging plays from a device-local
+/// list instead, so its tracks never show up anywhere (DIG-010).
 @Observable
 final class PlayerController {
+  struct Settings: Equatable {
+    var mode: PlayQueue.Mode = .queue
+    var autoplay = true
+    var includeInferred = false
+  }
+
   private(set) var queue: [QueueEntry] = []
   private(set) var index = -1
+  private(set) var settings = Settings()
   private(set) var isPlaying = false
   private(set) var position: Double = 0
   private(set) var duration: Double = 0
@@ -19,9 +30,12 @@ final class PlayerController {
   var current: QueueEntry? { queue.indices.contains(index) ? queue[index] : nil }
   /// What lists may mark as playing: nothing while a Blind Digging track plays.
   var visibleTarget: PlayTarget? { current?.hidden == true ? nil : current?.target }
-  var hasNext: Bool { index + 1 < queue.count }
+  var hasNext: Bool { nextPlayable(after: index) != nil }
 
   private let playback: PlaybackService
+  private let queueService: QueueService
+  /// Playing a device-local list (Blind Digging), not the account queue.
+  @ObservationIgnored private var local = false
   private let player = AVQueuePlayer()
   @ObservationIgnored private var loader: MediaLoader?
   /// The next queue entry, opened and queued behind the current item.
@@ -38,8 +52,9 @@ final class PlayerController {
   @ObservationIgnored private var timeObserver: Any?
   @ObservationIgnored private var endObserver: NSObjectProtocol?
 
-  init(playback: PlaybackService) {
+  init(playback: PlaybackService, queue: QueueService) {
     self.playback = playback
+    self.queueService = queue
     NowPlayingCenter.connect(self)
     // Playing, stalled or paused, for the session's quality report.
     statusObservation = player.observe(\.timeControlStatus) { @Sendable [weak self] player, _ in
@@ -54,10 +69,53 @@ final class PlayerController {
     }
   }
 
+  /// Plays `entries` from `start` now: they go to the front of the account queue (in
+  /// radio mode they replace what was coming). Blind Digging entries stay on the device.
   func play(_ entries: [QueueEntry], startAt start: Int) {
     guard entries.indices.contains(start) else { return }
-    queue = entries
-    jump(to: start)
+    startTask?.cancel()
+    if entries.contains(where: \.hidden) {
+      local = true
+      queue = entries
+      startTask = Task { await begin(at: start) }
+      return
+    }
+    startTask = Task {
+      do {
+        let q = try await queueService.add(entries[start...].map(\.target), placement: .now)
+        guard !Task.isCancelled else { return }
+        local = false
+        apply(q)
+        await begin(at: index)
+      } catch is CancellationError {
+      } catch {
+        message = Self.describe(error)
+      }
+    }
+  }
+
+  /// The account queue as another device left it; nothing starts by itself.
+  func restore() {
+    Task {
+      guard let q = try? await queueService.load(), session == nil, startTask == nil else { return }
+      apply(q)
+    }
+  }
+
+  /// Moves to a queue item the listener picked and plays it.
+  func jump(to at: Int) {
+    guard queue.indices.contains(at) else { return }
+    let entry = queue[at]
+    startTask?.cancel()
+    startTask = Task {
+      if !local, let itemId = entry.itemId, let q = try? await queueService.setCurrent(itemId) {
+        guard !Task.isCancelled else { return }
+        apply(q)
+      }
+      // Offline, the local queue still plays.
+      guard let i = queue.firstIndex(where: { $0.id == entry.id }) else { return }
+      await begin(at: i)
+    }
   }
 
   func toggle() {
@@ -81,21 +139,29 @@ final class PlayerController {
       isPlaying = true
       publishNowPlaying()
     } else if current != nil {
-      jump(to: index)
+      // A queue restored from the account has no session yet: start its current item.
+      startTask?.cancel()
+      let at = index
+      startTask = Task { await begin(at: at) }
     }
   }
 
   func next() {
-    guard hasNext else { return }
-    jump(to: index + 1)
+    guard let at = nextPlayable(after: index) else { return }
+    jump(to: at)
   }
 
   func previous() {
-    if position > 3 || index == 0 {
+    if position > 3 || index <= 0 {
       seek(to: 0)
     } else {
       jump(to: index - 1)
     }
+  }
+
+  /// The next item that can play: unplayable ones are passed over, keeping their place (PLY-006).
+  private func nextPlayable(after i: Int) -> Int? {
+    queue.indices.first { $0 > i && queue[$0].playable }
   }
 
   func seek(to seconds: Double) {
@@ -115,19 +181,83 @@ final class PlayerController {
     dropUpcoming()
     endSession(reporting: .paused)
     player.replaceCurrentItem(with: nil)
+    startTask?.cancel()
+    startTask = nil
     queue = []
     index = -1
+    local = false
     message = nil
+    publishNowPlaying()
+  }
+
+  // MARK: - Account queue
+
+  func enqueue(_ entries: [QueueEntry], placement: QueueService.Placement) async throws {
+    apply(try await queueService.add(entries.map(\.target), placement: placement))
+  }
+
+  /// Starts suggestions from this track: what was coming is set aside first.
+  func startRadio(_ entry: QueueEntry) {
+    Task {
+      if let q = try? await queueService.clear(.upcoming) { apply(q) }
+      play([entry], startAt: 0)
+    }
+  }
+
+  func remove(_ entry: QueueEntry) async throws {
+    guard let itemId = entry.itemId else { return }
+    apply(try await queueService.remove(itemId))
+  }
+
+  /// Keeps a suggestion: it becomes the listener's own pick.
+  func keep(_ entry: QueueEntry) async throws {
+    guard let itemId = entry.itemId else { return }
+    apply(try await queueService.keep(itemId))
+  }
+
+  func clear(_ scope: QueueService.ClearScope) async throws {
+    apply(try await queueService.clear(scope))
+  }
+
+  func refreshSuggestions() async throws {
+    apply(try await queueService.refreshSuggestions())
+  }
+
+  /// Shown at once; the server's answer (with new suggestions) follows.
+  func updateSettings(_ patch: QueueService.SettingsPatch) async throws {
+    let before = settings
+    if let mode = patch.mode { settings.mode = mode }
+    if let autoplay = patch.autoplay { settings.autoplay = autoplay }
+    if let inferred = patch.includeInferred { settings.includeInferred = inferred }
+    do {
+      apply(try await queueService.updateSettings(patch))
+    } catch {
+      settings = before
+      throw error
+    }
+  }
+
+  /// Mirrors the server queue. While a Blind Digging list plays only the settings follow.
+  private func apply(_ q: PlayQueue) {
+    settings = Settings(mode: q.mode, autoplay: q.autoplay, includeInferred: q.includeInferred)
+    guard !local else { return }
+    queue = q.items.compactMap(QueueEntry.init(queued:))
+    index = queue.firstIndex { $0.itemId != nil && $0.itemId == q.currentItemId } ?? -1
+    // The queued track is no longer what comes next (new suggestions, removed, reordered).
+    if let u = upcoming, nextPlayable(after: index).map({ queue[$0].id }) != u.key { dropUpcoming() }
     publishNowPlaying()
   }
 
   // MARK: - Session lifecycle
 
-  private func jump(to newIndex: Int) {
+  /// Plays `queue[newIndex]`: moves onto the queued item when it is that one, otherwise
+  /// opens a session.
+  private func begin(at newIndex: Int) async {
+    guard queue.indices.contains(newIndex) else { return }
+    let entry = queue[newIndex]
     // "Next" onto the queued track: move to it instead of opening another session.
-    if let u = upcoming, u.index == newIndex, player.items().contains(u.item) {
+    if let u = upcoming, u.key == entry.id, player.items().contains(u.item) {
       upcoming = nil
-      startTask?.cancel()
       endSession(reporting: .ended, pausing: false)
       index = newIndex
       message = nil
@@ -144,16 +274,15 @@ final class PlayerController {
     message = nil
     position = 0
     duration = 0
-    startTask?.cancel()
-    startTask = Task { await start() }
+    publishNowPlaying()
+    await start(entry)
   }
 
-  private func start() async {
-    guard let entry = current else { return }
+  private func start(_ entry: QueueEntry) async {
     let requestedAt = ContinuousClock.now
     do {
       let s = try await playback.start(entry.target)
-      guard !Task.isCancelled else { return }
+      guard !Task.isCancelled, current?.id == entry.id else { return }
       guard let locator = MediaLocator(manifestURL: s.manifestUrl) else {
         message = "재생 주소가 올바르지 않아요."
         return
@@ -217,7 +346,8 @@ final class PlayerController {
   // MARK: - Next track
 
   private struct Upcoming {
-    let index: Int
+    /// The queue entry it plays.
+    let key: String
     let session: PlaybackSession
     let loader: MediaLoader
     let item: AVPlayerItem
@@ -225,8 +355,8 @@ final class PlayerController {
 
   /// Opens the next entry's session and queues its item behind the current one.
   private func prepareNext() async {
-    let at = index + 1
-    guard queue.indices.contains(at), upcoming == nil, !preparing, let current = player.currentItem
+    guard let at = nextPlayable(after: index), upcoming == nil, !preparing,
+      let current = player.currentItem
     else { return }
     preparing = true
     defer { preparing = false }
@@ -234,13 +364,13 @@ final class PlayerController {
     // Not playable now: the end of the track starts it the usual way and shows why.
     guard let s = try? await playback.start(entry.target),
       let locator = MediaLocator(manifestURL: s.manifestUrl),
-      index + 1 == at, queue.indices.contains(at), queue[at].id == entry.id,
+      nextPlayable(after: index).map({ queue[$0].id }) == entry.id,
       player.currentItem === current
     else { return }
     let (loader, item) = Self.item(for: locator)
     guard player.canInsert(item, after: current) else { return }
     player.insert(item, after: current)
-    upcoming = Upcoming(index: at, session: s, loader: loader, item: item)
+    upcoming = Upcoming(key: entry.id, session: s, loader: loader, item: item)
   }
 
   private func dropUpcoming() {
@@ -271,7 +401,7 @@ final class PlayerController {
       let next = try? await playback.refresh(u.session.sessionId),
       upcoming?.session.sessionId == u.session.sessionId
     else { return }
-    upcoming = Upcoming(index: u.index, session: next, loader: u.loader, item: u.item)
+    upcoming = Upcoming(key: u.key, session: next, loader: u.loader, item: u.item)
     if let fresh = MediaLocator(manifestURL: next.manifestUrl) { u.loader.update(token: fresh.token) }
   }
 
@@ -337,15 +467,18 @@ final class PlayerController {
     ) { [weak self] _ in
       MainActor.assumeIsolated {
         guard let self else { return }
-        if let next = self.upcoming, next.index == self.index + 1 {
+        if let next = self.upcoming, let at = self.nextPlayable(after: self.index),
+          self.queue[at].id == next.key
+        {
           // AVQueuePlayer has already moved on to the queued item: hand over the session.
           self.upcoming = nil
           self.endSession(reporting: .ended, pausing: false)
-          self.index = next.index
+          self.index = at
           self.position = 0
           self.duration = 0
           // A queued track starts without a request: its start-up time is ~0.
           self.adopt(session: next.session, loader: next.loader, item: next.item, requestedAt: .now)
+          self.advanced(to: self.queue[at], session: next.session.sessionId)
         } else if self.hasNext {
           self.next()
         } else {
@@ -354,6 +487,15 @@ final class PlayerController {
           self.publishNowPlaying()
         }
       }
+    }
+  }
+
+  /// Tells the account queue the track moved on; suggestions follow the new track.
+  private func advanced(to entry: QueueEntry, session id: PlaybackSessionID) {
+    guard !local, let itemId = entry.itemId else { return }
+    Task {
+      guard let q = try? await queueService.setCurrent(itemId), session?.sessionId == id else { return }
+      apply(q)
     }
   }
 

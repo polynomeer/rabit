@@ -60,7 +60,7 @@ Suggestions: (1) **catalog relations with a reason** — chosen (DSC-005/006); (
   - 다음에 재생, 재생목록에 추가 and 이 곡으로 자동추천 on track and album pages;
   - Account → 재생 방식.
 - **Blind Digging** plays from a local list: its tracks must stay hidden (DIG-010).
-- **iOS** still keeps its own queue on the device. Moving it onto `/v1/queue` is the next step.
+- **iOS** follows `/v1/queue` like the web: play now / next / end, current item on every advance (including the gapless hand-over to a queued item), a queue sheet with reasons, keep and remove, the autoplay switch and save-as-playlist, and the 재생 방식 settings. Blind Digging still plays from a device-local list, so its tracks never reach the account queue.
 
 ## Revisit trigger
 Listener feedback on the default; a curated or personalised recommendation source (DSC-002 M2).
