@@ -25,20 +25,21 @@ const STAGE_OF: Partial<Record<MessageKey, number>> = {
   'archive.upload.adding': 3,
 };
 
-/** Upload → presigned PUT → finalize → poll (audio-pipeline §2). Shown in Studio. */
-export function Upload({ onDone }: { onDone: () => void }) {
-  // `settled` marks a final outcome (failed or cancelled): the form may be submitted again.
+type Intent = 'private_upload' | 'audio_log';
+
+/**
+ * Upload → presigned PUT → finalize → poll (audio-pipeline §2), shared by the file
+ * upload and the microphone recording. `run` resolves true once the audio is in the
+ * Archive.
+ */
+function useUploadRun(onDone: () => void) {
+  // `settled` marks a final outcome (failed or cancelled): a new run may start.
   const [busy, setBusy] = useState<{ text: string; settled: boolean } | null>(null);
   const [stage, setStage] = useState(0);
   const working = (key: MessageKey) => {
     setBusy({ text: t(key), settled: false });
     setStage(STAGE_OF[key] ?? 0);
   };
-  const [intent, setIntent] = useState<'private_upload' | 'audio_log'>('private_upload');
-  const [logTitle, setLogTitle] = useState('');
-  // A microphone recording replaces the file input for Audio Log (LOG-004).
-  const [recorded, setRecorded] = useState<File | null>(null);
-  const [recorderKey, setRecorderKey] = useState(0);
   // Cancelling is possible until finalize: it stops the transfer and releases the
   // upload's quota reservation on the server. Afterwards the audio is deleted instead.
   const cancel = useRef<{ abort: AbortController; uploadId: string | null } | null>(null);
@@ -52,42 +53,38 @@ export function Upload({ onDone }: { onDone: () => void }) {
     setBusy({ text: t('archive.upload.cancelled'), settled: true });
   }
 
-  async function submit(e: SyntheticEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const input = e.currentTarget.elements.namedItem('file') as HTMLInputElement;
-    const file = (intent === 'audio_log' ? recorded : null) ?? input.files?.[0];
-    if (!file) return;
+  async function run(file: File, intent: Intent, logTitle: string): Promise<boolean> {
     if (file.size === 0) {
       setBusy({ text: t('archive.upload.empty'), settled: true });
-      return;
+      return false;
     }
-    const run = { abort: new AbortController(), uploadId: null as string | null };
-    cancel.current = run;
-    const cancelled = () => run.abort.signal.aborted;
+    const current = { abort: new AbortController(), uploadId: null as string | null };
+    cancel.current = current;
+    const cancelled = () => current.abort.signal.aborted;
     try {
       working('archive.upload.hashing');
       const sha256 = await sha256Hex(file);
-      if (cancelled()) return;
+      if (cancelled()) return false;
       working('archive.upload.preparing');
       const { data: intentRes } = await api<{
         upload: { upload_id: string };
         upload_url: string;
         upload_headers: Record<string, string>;
       }>('POST', '/v1/uploads', { intent, size_bytes: file.size, sha256, filename: file.name });
-      run.uploadId = intentRes.upload.upload_id;
+      current.uploadId = intentRes.upload.upload_id;
       if (cancelled()) {
-        await api('DELETE', `/v1/uploads/${run.uploadId}`).catch(() => undefined);
-        return;
+        await api('DELETE', `/v1/uploads/${current.uploadId}`).catch(() => undefined);
+        return false;
       }
       working('archive.upload.transferring');
       const put = await fetch(intentRes.upload_url, {
         method: 'PUT',
         headers: intentRes.upload_headers,
         body: file,
-        signal: run.abort.signal,
+        signal: current.abort.signal,
       });
       if (!put.ok) throw new Error(t('archive.upload.transferFailed', { status: put.status }));
-      if (cancelled()) return;
+      if (cancelled()) return false;
       cancel.current = null; // finalize begins: from here on, delete the audio instead
       const { data: fin } = await api<{ audio_source_id: string }>(
         'POST',
@@ -124,15 +121,48 @@ export function Upload({ onDone }: { onDone: () => void }) {
         await new Promise((r) => setTimeout(r, 500));
       }
       setBusy(null);
-      input.value = '';
-      setLogTitle('');
-      setRecorded(null);
-      setRecorderKey((k) => k + 1);
       onDone();
+      return true;
     } catch (err) {
-      if (cancelled()) return;
+      if (cancelled()) return false;
       cancel.current = null;
       setBusy({ text: t('archive.upload.failed', { error: errorText(err) }), settled: true });
+      return false;
+    }
+  }
+
+  const running = busy !== null && !busy.settled;
+  const progress = (
+    <>
+      {running ? (
+        <ol className="steps" aria-hidden="true">
+          {STAGES.map((key, i) => (
+            <li key={key} className={i < stage ? 'done' : i === stage ? 'active' : undefined}>
+              {t(key)}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      {busy ? <p role="status">{busy.text}</p> : null}
+    </>
+  );
+  return { run, stop, running, cancellable: busy !== null && cancel.current !== null, progress };
+}
+
+/** A file from this device, as private audio or an Audio Log. Shown in Studio. */
+export function Upload({ onDone }: { onDone: () => void }) {
+  const upload = useUploadRun(onDone);
+  const [intent, setIntent] = useState<Intent>('private_upload');
+  const [logTitle, setLogTitle] = useState('');
+
+  async function submit(e: SyntheticEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const input = e.currentTarget.elements.namedItem('file') as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (await upload.run(file, intent, logTitle)) {
+      input.value = '';
+      setLogTitle('');
     }
   }
 
@@ -176,36 +206,76 @@ export function Upload({ onDone }: { onDone: () => void }) {
           />
         </label>
       ) : null}
-      {intent === 'audio_log' ? <Recorder key={recorderKey} onRecorded={setRecorded} /> : null}
       <input
         name="file"
         type="file"
         accept="audio/*"
         aria-label={t('archive.upload.file')}
-        required={!(intent === 'audio_log' && recorded)}
-        hidden={intent === 'audio_log' && recorded !== null}
+        required
       />
       <div className="actions">
-        <button type="submit" disabled={busy !== null && !busy.settled}>
+        <button type="submit" disabled={upload.running}>
           {t('archive.upload.submit')}
         </button>
-        {busy !== null && cancel.current ? (
-          <button type="button" onClick={() => void stop()}>
+        {upload.cancellable ? (
+          <button type="button" onClick={() => void upload.stop()}>
             {t('archive.upload.cancel')}
           </button>
         ) : null}
       </div>
       <p className="small muted">{t('archive.upload.privacyNote')}</p>
-      {busy && !busy.settled ? (
-        <ol className="steps" aria-hidden="true">
-          {STAGES.map((key, i) => (
-            <li key={key} className={i < stage ? 'done' : i === stage ? 'active' : undefined}>
-              {t(key)}
-            </li>
-          ))}
-        </ol>
-      ) : null}
-      {busy ? <p role="status">{busy.text}</p> : null}
+      {upload.progress}
+    </form>
+  );
+}
+
+/** An Audio Log recorded with the microphone (LOG-004), beside the file upload in Studio. */
+export function RecordAudioLog({ onDone }: { onDone: () => void }) {
+  const upload = useUploadRun(onDone);
+  const [title, setTitle] = useState('');
+  const [recorded, setRecorded] = useState<File | null>(null);
+  const [recorderKey, setRecorderKey] = useState(0);
+
+  async function submit(e: SyntheticEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!recorded) return;
+    if (await upload.run(recorded, 'audio_log', title)) {
+      setTitle('');
+      setRecorded(null);
+      setRecorderKey((k) => k + 1);
+    }
+  }
+
+  return (
+    <form
+      className="card record-card"
+      onSubmit={(e) => void submit(e)}
+      aria-label={t('recorder.form')}
+    >
+      <h3>{t('recorder.group')}</h3>
+      <Recorder key={recorderKey} onRecorded={setRecorded} />
+      <label>
+        {t('common.title')}{' '}
+        <input
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+          }}
+          maxLength={200}
+        />
+      </label>
+      <div className="actions">
+        <button type="submit" disabled={!recorded || upload.running}>
+          {t('recorder.save')}
+        </button>
+        {upload.cancellable ? (
+          <button type="button" onClick={() => void upload.stop()}>
+            {t('archive.upload.cancel')}
+          </button>
+        ) : null}
+      </div>
+      <p className="small">{t('recorder.privacyNote')}</p>
+      {upload.progress}
     </form>
   );
 }
