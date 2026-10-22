@@ -40,17 +40,15 @@ export function Studio() {
     <section className="studio" aria-labelledby="studio-h">
       <h2 id="studio-h">Studio</h2>
       <p className="lede">{t('studio.intro')}</p>
+      <p className="note">{t('studio.rightsNote')}</p>
       <Upload
         onDone={() => {
           setAdded((n) => n + 1);
         }}
       />
-      <p className="note">{t('studio.rightsNote')}</p>
       <section aria-labelledby="studio-mine-h">
         <div className="section-head">
-          <h3 id="studio-mine-h" className="eyebrow">
-            {t('studio.mine')}
-          </h3>
+          <h3 id="studio-mine-h">{t('studio.mine')}</h3>
           <a href={tabHref('Archive')}>{t('studio.mineAll')}</a>
         </div>
         {mine === null ? (

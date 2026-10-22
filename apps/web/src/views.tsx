@@ -185,7 +185,6 @@ export function Playlists() {
 
   return (
     <section aria-labelledby="pl-h" className="playlists">
-      <p className="eyebrow">Library</p>
       <h2 id="pl-h">Playlists</h2>
       <form
         className="inline create"
