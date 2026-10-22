@@ -20,6 +20,20 @@ const jobs = [
     '../ios/Rabit/Assets.xcassets/AppIcon.appiconset/icon-1024.png',
     false,
   ],
+  // iOS 18+ appearances: transparent, so the system draws its own dark background,
+  // and a white symbol that the system tints by luminance.
+  [
+    'icons/app-icon-dark.svg',
+    1024,
+    '../ios/Rabit/Assets.xcassets/AppIcon.appiconset/icon-1024-dark.png',
+    true,
+  ],
+  [
+    'icons/app-icon-tinted.svg',
+    1024,
+    '../ios/Rabit/Assets.xcassets/AppIcon.appiconset/icon-1024-tinted.png',
+    true,
+  ],
 ];
 
 const browser = await chromium.launch();
