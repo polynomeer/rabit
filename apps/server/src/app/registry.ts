@@ -35,6 +35,7 @@ import {
   deleteAccountDig,
   digExportSection,
   digModule,
+  radioFor,
 } from '../modules/dig/index.js';
 import {
   deleteAccountLibrary,
@@ -132,7 +133,12 @@ export function allModules(): Module[] {
     }),
     entitlementModule(),
     commerceModule(),
-    playbackModule({ catalogAccess, resolveRecordingSource: recordingSource }),
+    playbackModule({
+      catalogAccess,
+      resolveRecordingSource: recordingSource,
+      radio: (ctx, principal, seed, opts) =>
+        radioFor(ctx, { catalogAccess, excludedEntities }, principal, seed, opts),
+    }),
     libraryModule({
       catalogAccess,
       exportSections: () => [digExportSection, blindDigExportSection, collectionExportSection],

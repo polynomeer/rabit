@@ -130,6 +130,15 @@ describe('OpenAPI contract (ADR-0010)', () => {
     // The fixture tone is measured, so the session carries its normalisation gain.
     expect(play.json().loudness).toMatchObject({ target_lufs: -14 });
 
+    const queued = await h.api.inject({
+      method: 'POST',
+      url: '/v1/queue/items',
+      headers: u.headers,
+      payload: { items: [{ recording_id: ids['r1'] }], placement: 'now' },
+    });
+    validate('post', '/v1/queue/items', 200, queued.json());
+    await get('/v1/queue', '/v1/queue');
+
     const pl = await h.api.inject({
       method: 'POST',
       url: '/v1/playlists',

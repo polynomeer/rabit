@@ -38,7 +38,7 @@ Suggestions: (1) **catalog relations with a reason** — chosen (DSC-005/006); (
   - Not more than two tracks per artist in a batch, nothing played in the last 50 queue items, integrity exclusions apply. Suggestions are not ranked by listening counts.
 - **Mode** (per account, both always available):
   - **재생목록 모드**: playing adds to the queue. Suggestions come only after the listener's chosen items.
-  - **자동추천 모드**: playing a track starts from that track. The listener's upcoming chosen items are kept and played first, the track plays now, and suggestions follow it at once. Playing an album or playlist still plays it whole before suggestions (REQ-23).
+  - **자동추천 모드**: playing starts over from the new choice, like "start radio". Everything that was coming next (chosen and suggested) is replaced by the new item followed by its suggestions. History stays. Playing an album or playlist still plays it whole before suggestions (REQ-23).
   - **Autoplay switch** (default on): with it off, playback stops at the end of the chosen items in either mode.
 
 ## Default (Proposed, the owner's call)

@@ -241,6 +241,110 @@ paths:
         '204': { description: Recorded (or ignored as a repeat) }
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/queue:
+    get:
+      tags: [playback]
+      operationId: getQueue
+      description: >-
+        The account's play queue (ADR-0026): items in order, played ones first as history, the
+        current one, then upcoming. `origin` says whether the listener chose an item or autoplay
+        suggested it (with its reason). Web and iOS read the same queue.
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /v1/queue/items:
+    post:
+      tags: [playback]
+      operationId: addToQueue
+      description: >-
+        `now` plays the items next and starts the first (in 자동추천 mode it replaces what was
+        coming); `next` puts them right after the current item; `end` after the listener's other
+        upcoming choices, before suggestions. Suggestions after the chosen items are regenerated
+        from the current track. Someone else's private audio is not found.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [items]
+              properties:
+                items: { type: array, minItems: 1, maxItems: 200, items: { $ref: '#/components/schemas/QueueRef' } }
+                placement: { type: string, enum: [now, next, end], default: end }
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/queue/current:
+    post:
+      tags: [playback]
+      operationId: setQueueCurrent
+      description: A track started (moved on or jumped). It joins the history and the suggestions are regenerated from it.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [item_id], properties: { item_id: { $ref: '#/components/schemas/Id' } } } } }
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/queue/items/{item_id}:
+    parameters: [ { name: item_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    delete:
+      tags: [playback]
+      operationId: removeQueueItem
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/queue/items/{item_id}/keep:
+    parameters: [ { name: item_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    post:
+      tags: [playback]
+      operationId: keepQueueItem
+      description: A suggestion becomes the listener's choice and survives regeneration.
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/queue/clear:
+    post:
+      tags: [playback]
+      operationId: clearQueue
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, additionalProperties: false, required: [scope], properties: { scope: { type: string, enum: [upcoming, suggestions, history, all] } } } } }
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+  /v1/queue/suggestions/refresh:
+    post:
+      tags: [playback]
+      operationId: refreshQueueSuggestions
+      description: Other suggestions from the current track. Rate limited (60 per minute).
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /v1/queue/settings:
+    patch:
+      tags: [playback]
+      operationId: updateQueueSettings
+      description: >-
+        `mode` 재생목록 (`queue`, default) or 자동추천 (`radio`); `autoplay` (default on) continues
+        with suggestions after the chosen items; `include_inferred` lets ML-inferred relations
+        suggest tracks (off by default, as in DIG).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                mode: { type: string, enum: [queue, radio] }
+                autoplay: { type: boolean }
+                include_inferred: { type: boolean }
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '400': { $ref: '#/components/responses/Error' }
   /v1/listening-events/batch:
     post:
       tags: [playback]
@@ -2090,6 +2194,47 @@ components:
         expires_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
         failure_code: { type: [string, 'null'] }
 
+    QueueRef:
+      oneOf:
+        - { type: object, additionalProperties: false, required: [recording_id], properties: { recording_id: { $ref: '#/components/schemas/Id' } } }
+        - { type: object, additionalProperties: false, required: [audio_source_id], properties: { audio_source_id: { $ref: '#/components/schemas/Id' } } }
+    Queue:
+      type: object
+      required: [mode, autoplay, include_inferred, current_item_id, version, items]
+      properties:
+        mode: { type: string, enum: [queue, radio] }
+        autoplay: { type: boolean }
+        include_inferred: { type: boolean }
+        current_item_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+        version: { type: integer }
+        items:
+          type: array
+          items:
+            type: object
+            required: [item_id, origin, reason, state, played_at, recording_id, audio_source_id, kind, title, subtitle, cover_id, playable, unplayable_reason]
+            properties:
+              item_id: { $ref: '#/components/schemas/Id' }
+              origin: { type: string, enum: [user, autoplay] }
+              reason:
+                description: Why autoplay suggested it (null for the listener's choices)
+                oneOf:
+                  - type: 'null'
+                  - type: object
+                    required: [code, name, basis]
+                    properties:
+                      code: { type: string, enum: [samples, sampled_by, covers, covered_by, remixes, remix_of, same_producer, influences, influenced_by, same_artist, member_project, same_label, same_decade] }
+                      name: { type: [string, 'null'] }
+                      basis: { type: string, enum: [verified_fact, declared, ml_inferred] }
+              state: { type: string, enum: [played, current, upcoming] }
+              played_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+              recording_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+              audio_source_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
+              kind: { type: string, enum: [track, private_upload, audio_log] }
+              title: { type: [string, 'null'] }
+              subtitle: { type: [string, 'null'] }
+              cover_id: { type: string }
+              playable: { type: boolean }
+              unplayable_reason: { type: [string, 'null'] }
     ReleaseCard:
       type: object
       required: [release_id, title, release_type, release_date]

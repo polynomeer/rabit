@@ -244,6 +244,144 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/queue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The account's play queue (ADR-0026): items in order, played ones first as history, the current one, then upcoming. `origin` says whether the listener chose an item or autoplay suggested it (with its reason). Web and iOS read the same queue. */
+    get: operations['getQueue'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/queue/items': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description `now` plays the items next and starts the first (in 자동추천 mode it replaces what was coming); `next` puts them right after the current item; `end` after the listener's other upcoming choices, before suggestions. Suggestions after the chosen items are regenerated from the current track. Someone else's private audio is not found. */
+    post: operations['addToQueue'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/queue/current': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description A track started (moved on or jumped). It joins the history and the suggestions are regenerated from it. */
+    post: operations['setQueueCurrent'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/queue/items/{item_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['removeQueueItem'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/queue/items/{item_id}/keep': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description A suggestion becomes the listener's choice and survives regeneration. */
+    post: operations['keepQueueItem'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/queue/clear': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['clearQueue'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/queue/suggestions/refresh': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Other suggestions from the current track. Rate limited (60 per minute). */
+    post: operations['refreshQueueSuggestions'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/queue/settings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** @description `mode` 재생목록 (`queue`, default) or 자동추천 (`radio`); `autoplay` (default on) continues with suggestions after the chosen items; `include_inferred` lets ML-inferred relations suggest tracks (off by default, as in DIG). */
+    patch: operations['updateQueueSettings'];
+    trace?: never;
+  };
   '/v1/listening-events/batch': {
     parameters: {
       query?: never;
@@ -2131,6 +2269,59 @@ export interface components {
       expires_at: components['schemas']['Timestamp'] | null;
       failure_code: string | null;
     };
+    QueueRef:
+      | {
+          recording_id: components['schemas']['Id'];
+        }
+      | {
+          audio_source_id: components['schemas']['Id'];
+        };
+    Queue: {
+      /** @enum {string} */
+      mode: 'queue' | 'radio';
+      autoplay: boolean;
+      include_inferred: boolean;
+      current_item_id: components['schemas']['Id'] | null;
+      version: number;
+      items: {
+        item_id: components['schemas']['Id'];
+        /** @enum {string} */
+        origin: 'user' | 'autoplay';
+        /** @description Why autoplay suggested it (null for the listener's choices) */
+        reason: null | {
+          /** @enum {string} */
+          code:
+            | 'samples'
+            | 'sampled_by'
+            | 'covers'
+            | 'covered_by'
+            | 'remixes'
+            | 'remix_of'
+            | 'same_producer'
+            | 'influences'
+            | 'influenced_by'
+            | 'same_artist'
+            | 'member_project'
+            | 'same_label'
+            | 'same_decade';
+          name: string | null;
+          /** @enum {string} */
+          basis: 'verified_fact' | 'declared' | 'ml_inferred';
+        };
+        /** @enum {string} */
+        state: 'played' | 'current' | 'upcoming';
+        played_at: components['schemas']['Timestamp'] | null;
+        recording_id: components['schemas']['Id'] | null;
+        audio_source_id: components['schemas']['Id'] | null;
+        /** @enum {string} */
+        kind: 'track' | 'private_upload' | 'audio_log';
+        title: string | null;
+        subtitle: string | null;
+        cover_id: string;
+        playable: boolean;
+        unplayable_reason: string | null;
+      }[];
+    };
     ReleaseCard: {
       release_id: components['schemas']['Id'];
       title: string;
@@ -3146,6 +3337,212 @@ export interface operations {
       };
       400: components['responses']['Error'];
       404: components['responses']['Error'];
+    };
+  };
+  getQueue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      401: components['responses']['Error'];
+    };
+  };
+  addToQueue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          items: components['schemas']['QueueRef'][];
+          /**
+           * @default end
+           * @enum {string}
+           */
+          placement?: 'now' | 'next' | 'end';
+        };
+      };
+    };
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      400: components['responses']['Error'];
+      404: components['responses']['Error'];
+    };
+  };
+  setQueueCurrent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          item_id: components['schemas']['Id'];
+        };
+      };
+    };
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      404: components['responses']['Error'];
+    };
+  };
+  removeQueueItem: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      404: components['responses']['Error'];
+    };
+  };
+  keepQueueItem: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        item_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      404: components['responses']['Error'];
+    };
+  };
+  clearQueue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          scope: 'upcoming' | 'suggestions' | 'history' | 'all';
+        };
+      };
+    };
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      400: components['responses']['Error'];
+    };
+  };
+  refreshQueueSuggestions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      401: components['responses']['Error'];
+    };
+  };
+  updateQueueSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          mode?: 'queue' | 'radio';
+          autoplay?: boolean;
+          include_inferred?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      400: components['responses']['Error'];
     };
   };
   submitListeningEvents: {

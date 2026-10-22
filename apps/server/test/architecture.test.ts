@@ -66,7 +66,7 @@ describe('architecture (ADR-0001, domain-boundaries §2)', () => {
       'music_entity recording recording_artist release release_artist release_track credit music_relation rights_grant',
     entitlement: 'subscription entitlement',
     playback:
-      'playback_session listening_event recording_popularity usage_statement usage_statement_line usage_carryover',
+      'playback_session listening_event recording_popularity usage_statement usage_statement_line usage_carryover play_queue play_queue_item',
     library: 'library_item playlist playlist_item export_request',
     collection: 'physical_item',
     dig: 'dig_session dig_trail_node blind_dig blind_dig_item',

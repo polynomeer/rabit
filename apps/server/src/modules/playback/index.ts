@@ -3,6 +3,7 @@ import { playbackJobs } from './jobs.js';
 import { playbackRoutes } from './routes.js';
 import { revokeSessions, type PlaybackDeps } from './sessions.js';
 import { foldAccountUsage } from './usage.js';
+import { deleteQueue } from './queue.js';
 import type { AccountDataDeleter } from '../identity/index.js';
 import { sql } from 'kysely';
 import type { SupportSection } from '../../platform/support.js';
@@ -22,6 +23,7 @@ export {
 } from './policy.js';
 export { computePopularity, tierFor, POPULARITY_POLICY } from './listening.js';
 export { closeUsageStatements, foldAccountUsage, USAGE_POLICY } from './usage.js';
+export type { RadioProvider } from './queue.js';
 export {
   revokeSessions,
   mediaAccessAllowed,
@@ -36,6 +38,7 @@ export const deleteAccountPlayback: AccountDataDeleter = async (ctx, account) =>
   // Streams of months not yet reported stay owed to rights holders: kept without
   // any reference to the account (ADR-0025), then the history is deleted.
   await foldAccountUsage(ctx.db, account.userId);
+  await deleteQueue(ctx.db, account.userId);
   await ctx.db.deleteFrom('listening_event').where('user_id', '=', account.userId).execute();
 };
 
