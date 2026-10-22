@@ -582,3 +582,53 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
     QualityReport(startupMs: nil, playedMs: 0, stallCount: 0, stallMs: 0, error: nil)), as: UTF8.self)
   #expect(json == #"{"error":null,"platform":"ios","played_ms":0,"stall_count":0,"stall_ms":0,"startup_ms":null}"#)
 }
+
+@Test func decodesQueueAndSendsRefsWithPlacement() async throws {
+  let json = """
+    {"mode":"queue","autoplay":true,"include_inferred":false,"current_item_id":"pqi_2","version":3,
+     "items":[
+      {"item_id":"pqi_1","origin":"user","reason":null,"state":"played","played_at":"2026-10-22T01:00:00.000Z",
+       "recording_id":"rec_a","audio_source_id":null,"kind":"track","title":"A","subtitle":"X",
+       "cover_id":"rel_a","playable":true,"unplayable_reason":null},
+      {"item_id":"pqi_2","origin":"user","reason":null,"state":"current","played_at":null,
+       "recording_id":null,"audio_source_id":"src_b","kind":"private_upload","title":"B","subtitle":null,
+       "cover_id":"src_b","playable":true,"unplayable_reason":null},
+      {"item_id":"pqi_3","origin":"autoplay","reason":{"code":"sampled_by","name":"Velvet Quasar","basis":"verified_fact"},
+       "state":"upcoming","played_at":null,"recording_id":"rec_c","audio_source_id":null,"kind":"track",
+       "title":"C","subtitle":"Y","cover_id":"rel_c","playable":false,"unplayable_reason":"region"},
+      {"item_id":"pqi_4","origin":"autoplay","reason":{"code":"same_mood","name":null,"basis":"ml_inferred"},
+       "state":"upcoming","played_at":null,"recording_id":"rec_d","audio_source_id":null,"kind":"track",
+       "title":"D","subtitle":"Z","cover_id":"rel_d","playable":true,"unplayable_reason":null}]}
+    """
+  let t = StubTransport([(200, json)])
+  let api = APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)
+  let q = try await QueueService(api: api).add(
+    [.recording(RecordingID("rec_a")), .audioSource(AudioSourceID("src_b"))], placement: .next)
+  #expect(q.currentIndex == 1)
+  #expect(q.items[1].target == .audioSource(AudioSourceID("src_b")))
+  #expect(q.items[2].reason?.code == .sampledBy)
+  #expect(q.items[2].reason?.basis == .verifiedFact)
+  // A reason this build does not know still decodes, and inferred stays inferred.
+  #expect(q.items[3].reason?.code == .unknown)
+  #expect(q.items[3].reason?.basis == .mlInferred)
+  let req = try #require(t.requests.first)
+  #expect(req.httpMethod == "POST")
+  #expect(req.url?.path == "/v1/queue/items")
+  let body = try JSONSerialization.jsonObject(with: req.httpBody!) as! [String: Any]
+  #expect(body["placement"] as? String == "next")
+  let items = try #require(body["items"] as? [[String: String]])
+  #expect(items == [["recording_id": "rec_a"], ["audio_source_id": "src_b"]])
+}
+
+@Test func queueSettingsPatchSendsOnlyWhatChanged() async throws {
+  let json = #"{"mode":"radio","autoplay":true,"include_inferred":false,"current_item_id":null,"version":1,"items":[]}"#
+  let t = StubTransport([(200, json)])
+  let api = APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)
+  let q = try await QueueService(api: api).updateSettings(.init(mode: .radio))
+  #expect(q.mode == .radio)
+  let req = try #require(t.requests.first)
+  #expect(req.httpMethod == "PATCH")
+  let body = try JSONSerialization.jsonObject(with: req.httpBody!) as! [String: Any]
+  #expect(body.count == 1)
+  #expect(body["mode"] as? String == "radio")
+}
