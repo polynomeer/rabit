@@ -241,7 +241,8 @@ describe('leases, heartbeat and shutdown (review 2026-10-19)', () => {
     await begun;
     const first = await lockedUntil(kind);
     // A crashed worker's 30-minute job comes back within the window, not 30 minutes.
-    expect(first - Date.now()).toBeLessThanOrEqual(10_000);
+    // `locked_until` comes from the database clock: allow for skew with this process's.
+    expect(first - Date.now()).toBeLessThanOrEqual(10_000 + 1_000);
     await new Promise((r) => setTimeout(r, 50));
     await runner.heartbeat();
     expect(await lockedUntil(kind)).toBeGreaterThan(first);

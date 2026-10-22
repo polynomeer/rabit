@@ -36,11 +36,11 @@ docs/                 product, architecture, API, security, rights, ADRs
 ```bash
 corepack enable
 pnpm install
-pnpm bootstrap      # apps/server/.env with fresh local secrets, Postgres + S3, migrations, demo catalog
-pnpm dev            # api + worker + media + web in one terminal; Ctrl-C stops all
+pnpm dev            # first run sets up (.env, Postgres + S3, migrations, demo catalog), then
+                    # api + worker + media + web in one terminal; Ctrl-C or `pnpm stop` ends it
 ```
 
-Open http://localhost:5173, sign in with any ID, then give that account a region and a
+Open the web address `pnpm dev` prints (http://localhost:5173 unless that port is taken), sign in with any ID, then give that account a region and a
 subscription so catalog tracks play:
 
 ```bash
@@ -52,18 +52,26 @@ pnpm demo:user <ID>             # add --operator for the operator console
 | Command | What it does |
 |---|---|
 | `pnpm preflight` | Checks Node, pnpm, dependencies, Docker, ffmpeg/ffprobe, `.env`, the infra containers and port conflicts, with a fix for each problem |
-| `pnpm bootstrap` | One-time setup (above). Safe to re-run: keeps an existing `.env` and does not ingest the catalog twice |
-| `pnpm dev` | Brings infra up if needed, migrates, seeds the demo catalog if absent, runs all four processes with prefixed logs. `-- --no-web`, `-- --no-seed` |
-| `pnpm status` | Containers and every service's health endpoint |
+| `pnpm bootstrap` | One-time setup; `pnpm dev` runs it on a fresh clone. Safe to re-run: keeps an existing `.env` and does not ingest the catalog twice |
+| `pnpm dev` | Brings infra up if needed, migrates, seeds the demo catalog if absent, runs all four processes with prefixed logs. Moves to free ports by itself (below). `-- --no-web`, `-- --no-seed` |
+| `pnpm stop` | Stops this checkout's `pnpm dev` from another terminal; `-- --infra` also stops Postgres and S3 (data kept) |
+| `pnpm status` | Whether `pnpm dev` runs, the containers and every service's health endpoint |
 | `pnpm demo:seed` | Generates and ingests the demo catalog once (`--force` to ingest another copy; ingest is not idempotent) |
 | `pnpm demo:user <ID>` | Region KR + a 30-day Listen subscription for a local account, through the operator API (needs `pnpm dev`) |
 | `pnpm db:reset` | Drops and recreates the **local** `rabit` database, migrates and re-seeds. Asks for confirmation (`--yes` to skip); refuses a non-local `DATABASE_URL` |
+| `pnpm db:reset:test` | Empties the server tests' database `rabit_test`, e.g. after switching to a branch without a migration the database already has ("corrupted migrations") |
 | `pnpm infra:up` / `pnpm infra:down` | Start / stop Postgres and S3 (`infra:down -- -v` also deletes their data) |
-| `pnpm check` | lint + typecheck + build + test (CI's quality gate) |
-| `pnpm e2e` | Browser tests against an isolated stack (see Quality gates) |
+| `pnpm verify` | CI's checks on this machine with one summary: lint, type checks, API types, OpenAPI lint, build, tests, alert rules, OpenTofu, shell scripts, iOS package. `-- --quick` (first three), `-- --e2e` (adds the browser tests). Steps whose tool is missing are skipped |
+| `pnpm check` | lint + typecheck + build + test (the core of `verify`) |
+| `pnpm e2e:local` | Browser tests on free ports (taken `E2E_*` ports move); refuses while another e2e run uses `rabit_e2e`. `-- <spec>` runs matching specs |
+| `pnpm e2e` | Browser tests on the fixed ports (see Quality gates) |
+| `pnpm worktree <name>` | A separate checkout under `.claude/worktrees/<name>` from `origin/main` (`--branch`, `--from`), with dependencies and `.env`, for parallel work |
+| `pnpm ios:check` | Type-checks the iOS package RabitKit with `swiftc`, for Macs without Xcode (the app needs Xcode 26 or CI) |
 
-**Ports.** Defaults: api 8080, media 8081, web 5173, metrics 9464–9466. When another program
-uses one, choose others for every command of that session:
+**Ports.** Defaults: api 8080, media 8081, web 5173, metrics 9464–9466. When one is taken,
+`pnpm dev` uses the next free set (28080, 28081, 25173, 29464–29466, …) and records it in
+`.tmp/dev.json`, so `pnpm status`, `pnpm demo:user` and `pnpm stop` follow. To fix the ports
+yourself, set them for every command of that session:
 
 ```bash
 RABIT_API_PORT=28080 RABIT_MEDIA_PORT=28081 RABIT_METRICS_PORT=29464 RABIT_WEB_PORT=5180 pnpm dev
@@ -112,7 +120,8 @@ It listens on port 8090 (`RABIT_OIDC_PORT` to change); the URLs below assume the
 ## Troubleshooting (local)
 
 - **Catalog tracks do not play; the media gateway answers 404 for `index.m3u8`:** the database still lists audio whose files are no longer in the local S3 (storage reset, the MinIO → SeaweedFS move, or an S3 volume removed). Run `pnpm db:reset` to rebuild the dev database and catalog together.
-- **A port is already in use:** `pnpm preflight` names the program; stop it or set `RABIT_*_PORT` (see Developer commands).
+- **A port is already in use:** `pnpm dev` moves to the next free set by itself; `pnpm preflight` names the program holding a port.
+- **Server tests stop with "corrupted migrations":** another branch left a migration in the shared test database; `pnpm db:reset:test`.
 - **Uploads stay "처리 중" / processing jobs time out:** if Docker ran out of memory, SeaweedFS may have been OOM-killed. It can come back with server-side copies hanging (`FILER LOCK ... no lock server found` in `docker logs rabit-s3-1`). Restart it with `docker compose restart s3`. Storage calls now fail after 30 s of silence instead of hanging, so stuck jobs retry and then reach the DLQ.
 - **E2E ports in use:** set `E2E_API_PORT`, `E2E_MEDIA_PORT`, `E2E_WEB_PORT`, `E2E_METRICS_PORT`.
 

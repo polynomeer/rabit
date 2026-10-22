@@ -1,7 +1,8 @@
-// Shared helpers for the local developer scripts (pnpm preflight | bootstrap | dev | status |
-// demo:* | db:reset). Plain Node, no dependencies, so they run right after `pnpm install`.
+// Shared helpers for the local developer scripts (pnpm preflight | bootstrap | dev | stop |
+// status | demo:* | db:reset | verify | e2e:local | worktree | ios:check). Plain Node, no
+// dependencies, so they run right after `pnpm install`.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import process from 'node:process';
@@ -55,21 +56,100 @@ export function readEnvFile(path) {
   return out;
 }
 
+/** Where a running `pnpm dev` records its pid and ports (gitignored), per checkout. */
+export const RUN_FILE = resolve(ROOT, '.tmp/dev.json');
+
+const DEFAULT_PORTS = { api: 8080, media: 8081, web: 5173, metrics: 9464 };
+
+function portSet(base) {
+  return {
+    ...base,
+    metricsWorker: base.metrics + 1,
+    metricsMedia: base.metrics + 2,
+  };
+}
+
+/** True when a process with this pid is alive. */
+export function alive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The running `pnpm dev` of this checkout ({ pid, ports, startedAt }), or null. */
+export function runState() {
+  try {
+    const s = JSON.parse(readFileSync(RUN_FILE, 'utf8'));
+    return typeof s.pid === 'number' && alive(s.pid) ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeRunState(state) {
+  mkdirSync(dirname(RUN_FILE), { recursive: true });
+  writeFileSync(RUN_FILE, `${JSON.stringify(state, null, 2)}\n`);
+}
+
+export function clearRunState() {
+  rmSync(RUN_FILE, { force: true });
+}
+
+/** True when any RABIT_*_PORT is set: the caller chose the ports. */
+export const portsFromEnv = () =>
+  ['RABIT_API_PORT', 'RABIT_MEDIA_PORT', 'RABIT_WEB_PORT', 'RABIT_METRICS_PORT'].some(
+    (k) => process.env[k] !== undefined,
+  );
+
 /**
- * Local ports. RABIT_*_PORT override the defaults (e.g. when another project already
- * uses 8080). The worker and media gateway expose metrics on METRICS+1 and METRICS+2.
+ * Local ports. RABIT_*_PORT override the defaults; otherwise the ports of this
+ * checkout's running `pnpm dev` (which may have moved off ports another project
+ * uses), else the defaults. The worker and media gateway expose metrics on
+ * METRICS+1 and METRICS+2.
  */
 export function ports() {
+  if (!portsFromEnv()) {
+    const running = runState();
+    if (running) return portSet(running.ports);
+  }
   const n = (name, fallback) => Number(process.env[name] ?? fallback);
-  const metrics = n('RABIT_METRICS_PORT', 9464);
-  return {
-    api: n('RABIT_API_PORT', 8080),
-    media: n('RABIT_MEDIA_PORT', 8081),
-    web: n('RABIT_WEB_PORT', 5173),
-    metrics,
-    metricsWorker: metrics + 1,
-    metricsMedia: metrics + 2,
-  };
+  return portSet({
+    api: n('RABIT_API_PORT', DEFAULT_PORTS.api),
+    media: n('RABIT_MEDIA_PORT', DEFAULT_PORTS.media),
+    web: n('RABIT_WEB_PORT', DEFAULT_PORTS.web),
+    metrics: n('RABIT_METRICS_PORT', DEFAULT_PORTS.metrics),
+  });
+}
+
+/**
+ * The first set of ports, all free: `first` as given, else the defaults shifted by
+ * 20000, 21000, … (8080 → 28080). `names` picks which ports must be free.
+ */
+export async function freePorts(
+  first,
+  names = ['api', 'media', 'web', 'metrics', 'metricsWorker', 'metricsMedia'],
+) {
+  const shifts = [0, 20_000, 21_000, 22_000, 23_000, 24_000];
+  for (const shift of shifts) {
+    const candidate =
+      shift === 0
+        ? first
+        : portSet(
+            Object.fromEntries(Object.entries(DEFAULT_PORTS).map(([k, v]) => [k, v + shift])),
+          );
+    const free = await Promise.all(names.map((n) => portFree(candidate[n])));
+    if (free.every(Boolean)) return candidate;
+  }
+  return null;
+}
+
+/** Any free TCP port in [from, from+span), for one-off needs (e2e:local). */
+export async function freePortFrom(from, taken = new Set(), span = 2_000) {
+  for (let p = from; p < from + span; p++) if (!taken.has(p) && (await portFree(p))) return p;
+  throw new Error(`no free port in ${String(from)}-${String(from + span)}`);
 }
 
 /**
