@@ -51,7 +51,7 @@ function ItemForm({
   const prefix = item ? `phy-${item.physical_item_id}` : 'phy-new';
   return (
     <form
-      className="card"
+      className="card physical-form"
       aria-label={item ? t('collection.form.edit') : t('collection.form.add')}
       onSubmit={(e) => {
         e.preventDefault();
@@ -158,7 +158,7 @@ export function PhysicalCollection() {
   useEffect(load, [load]);
 
   return (
-    <section aria-labelledby="collection-h">
+    <section aria-labelledby="collection-h" className="physical">
       <h2 id="collection-h">{t('collection.title')}</h2>
       <p className="small muted">{t('collection.note')}</p>
       <ItemForm item={null} onSaved={load} />

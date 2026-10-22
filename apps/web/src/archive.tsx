@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { api, get, sha256Hex, type LibraryItem } from './api';
-import { formatDateTime, formatMonth, t, type MessageKey } from './i18n';
+import { formatDate, formatDateTime, formatMonth, t, type MessageKey } from './i18n';
 import { Mark } from './brand';
 import { PhysicalCollection } from './collection';
 import { AddToPlaylist } from './playlist-add';
 import { Recorder } from './recorder';
-import { entityHref, tabHref } from './route';
+import type { SessionSummary } from './dig';
+import { digSessionHref, entityHref, tabHref } from './route';
 import { usePlayer } from './player';
 import { errorText, ItemTitle, Ownership, Status, toEntry } from './views';
 
@@ -468,14 +469,14 @@ export function Archive() {
       });
   }, []);
   useEffect(load, [load]);
-  const inView = (i: LibraryItem) => {
+  const inView = (i: LibraryItem, v: View = view) => {
     const isLog = i.ref_type === 'audio_source' && logs.has(i.ref_id);
-    if (view === 'private') return i.ref_type === 'audio_source' && !isLog;
-    if (view === 'audio_log') return isLog;
-    if (view === 'recording' || view === 'release') return i.ref_type === view;
+    if (v === 'private') return i.ref_type === 'audio_source' && !isLog;
+    if (v === 'audio_log') return isLog;
+    if (v === 'recording' || v === 'release') return i.ref_type === v;
     return true;
   };
-  const shown = items.filter(inView);
+  const shown = items.filter((i) => inView(i));
   const playable = shown.filter((i) => i.ref_type !== 'release');
 
   const renderItem = (i: LibraryItem) => {
@@ -610,43 +611,130 @@ export function Archive() {
   return (
     <>
       <section aria-labelledby="archive-h" className="archive">
-        <h2 id="archive-h">Archive</h2>
-        <p className="lede">{t('archive.lede')}</p>
-        <p className="muted">
-          <a href={tabHref('Studio')}>{t('archive.uploadInStudio')}</a>
-        </p>
+        <div className="page-head">
+          <div>
+            <h2 id="archive-h">Archive</h2>
+            <p className="lede">{t('archive.lede')}</p>
+          </div>
+          <div className="actions">
+            <a className="button primary" href={tabHref('Studio')}>
+              {t('archive.upload.open')}
+            </a>
+            <a className="button" href={tabHref('Playlists')}>
+              Playlists
+            </a>
+          </div>
+        </div>
         {error ? <p className="warn">{error}</p> : null}
-        <fieldset className="views chips">
-          <legend>{t('archive.view.label')}</legend>
-          {VIEWS.map(([v, key]) => (
-            <label key={v}>
-              <input
-                type="radio"
-                name="archive-view"
-                checked={view === v}
-                onChange={() => {
-                  setView(v);
-                }}
-              />
-              {t(key)}
-            </label>
-          ))}
-        </fieldset>
-        {shown.length === 0 ? (
-          <ul className="list">
-            {items.length === 0 ? <li className="muted">{t('archive.empty')}</li> : null}
-            {items.length > 0 ? <li className="muted">{t('archive.view.empty')}</li> : null}
-          </ul>
-        ) : (
-          byMonth(shown, (i) => logs.get(i.ref_id)?.recorded_at ?? i.saved_at).map((m) => (
-            <div key={m.key} className="month">
-              <h3 className="eyebrow month-title">{m.label}</h3>
-              <ul className="list archive-list">{m.items.map(renderItem)}</ul>
-            </div>
-          ))
-        )}
+        <div className="page-columns">
+          <div className="page-main">
+            <fieldset className="views chips">
+              <legend>{t('archive.view.label')}</legend>
+              {VIEWS.map(([v, key]) => (
+                <label key={v}>
+                  <input
+                    type="radio"
+                    name="archive-view"
+                    checked={view === v}
+                    onChange={() => {
+                      setView(v);
+                    }}
+                  />
+                  {t(key)}{' '}
+                  <span className="chip-count">{items.filter((i) => inView(i, v)).length}</span>
+                </label>
+              ))}
+            </fieldset>
+            {shown.length === 0 ? (
+              <ul className="list">
+                {items.length === 0 ? <li className="muted">{t('archive.empty')}</li> : null}
+                {items.length > 0 ? <li className="muted">{t('archive.view.empty')}</li> : null}
+              </ul>
+            ) : (
+              byMonth(shown, (i) => logs.get(i.ref_id)?.recorded_at ?? i.saved_at).map((m) => (
+                <div key={m.key} className="month">
+                  <h3 className="eyebrow month-title">{m.label}</h3>
+                  <ul className="list archive-list">{m.items.map(renderItem)}</ul>
+                </div>
+              ))
+            )}
+            <PhysicalCollection />
+          </div>
+          <aside className="page-side">
+            <StorageCard />
+            <DigHistoryCard />
+          </aside>
+        </div>
       </section>
-      <PhysicalCollection />
     </>
+  );
+}
+
+/** How much of the upload quota is used. */
+function StorageCard() {
+  const [quota, setQuota] = useState<{ used_bytes: number; max_total_bytes: number } | null>(null);
+  useEffect(() => {
+    void get<{ quota: { used_bytes: number; max_total_bytes: number } }>('/v1/me').then(
+      (me) => {
+        setQuota(me.quota);
+      },
+      () => undefined,
+    );
+  }, []);
+  if (!quota) return null;
+  return (
+    <section className="card" aria-labelledby="storage-h">
+      <h3 id="storage-h">{t('account.storage')}</h3>
+      <meter
+        min={0}
+        max={quota.max_total_bytes}
+        value={quota.used_bytes}
+        aria-labelledby="storage-h"
+      />
+      <p className="small muted">
+        {t('account.storage.usage', {
+          used: (quota.used_bytes / 1024 ** 2).toFixed(1),
+          max: (quota.max_total_bytes / 1024 ** 3).toFixed(1),
+        })}
+      </p>
+    </section>
+  );
+}
+
+/** The latest DIG explorations; the DIG tab lists them all. */
+function DigHistoryCard() {
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  useEffect(() => {
+    void get<{ items: SessionSummary[] }>('/v1/dig-sessions?limit=3').then(
+      (r) => {
+        setSessions(r.items);
+      },
+      () => undefined,
+    );
+  }, []);
+  if (sessions.length === 0) return null;
+  return (
+    <section className="card" aria-labelledby="dig-history-h">
+      <h3 id="dig-history-h">{t('dig.home.history')}</h3>
+      <ul className="plain">
+        {sessions.map((s) => (
+          <li key={s.dig_session_id}>
+            <a href={digSessionHref(s.dig_session_id)}>
+              {s.title ??
+                (s.start_entity
+                  ? t('dig.home.startedFrom', { name: s.start_entity.name })
+                  : t('dig.home.untitled'))}
+            </a>
+            <span className="small muted">
+              {' '}
+              · {t('dig.home.meta', { nodes: s.nodes, date: formatDate(s.started_at) })}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <a className="small" href={tabHref('DIG')}>
+        {t('home.continueAll')}
+      </a>
+    </section>
   );
 }

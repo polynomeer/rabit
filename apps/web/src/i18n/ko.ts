@@ -350,7 +350,7 @@ export const ko = {
   'collection.ownedBadge': '실물 소장: {formats} (본인 신고 · 재생권과 별개)',
   'collection.added': '실물 컬렉션에 추가했습니다.',
   'archive.lede': '들었던 것, 가진 것,\n기억하고 싶은 것.',
-  'archive.uploadInStudio': '새 오디오는 Studio에서 올리거나 녹음해요.',
+  'archive.upload.open': '오디오 올리기',
   'archive.view.label': '보기',
   'archive.view.all': '전체',
   'archive.view.private': '개인 오디오',
