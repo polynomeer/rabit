@@ -88,7 +88,7 @@ export async function preflight({ quiet = false } = {}) {
   else
     note(
       `ports in use: ${taken.join('; ')}`,
-      'stop the other program, or e.g. RABIT_API_PORT=28080 RABIT_MEDIA_PORT=28081 pnpm dev (if it is a running pnpm dev, that is fine)',
+      'pnpm dev moves to the next free set by itself (28080, …); RABIT_*_PORT fixes them',
     );
 
   say();

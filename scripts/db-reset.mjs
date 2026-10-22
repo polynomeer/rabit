@@ -1,3 +1,4 @@
+// pnpm db:reset -- --test — empties the server tests' database (rabit_test) instead.
 // pnpm db:reset [--yes] [--no-seed] — drops and recreates the LOCAL development database
 // `rabit` (in the Docker Postgres), re-applies migrations and re-ingests the demo catalog.
 // Refuses unless DATABASE_URL in apps/server/.env points at localhost. Objects already in
@@ -20,6 +21,32 @@ import {
 } from './lib.mjs';
 
 const args = new Set(process.argv.slice(2));
+
+// --test: the server tests' database. Branches with different migrations share it, and
+// a migration missing on the current branch stops the test setup ("corrupted
+// migrations"); an empty schema lets the next test run migrate from scratch.
+if (args.has('--test')) {
+  if (infraState().postgres !== 'healthy') {
+    fail('local Postgres is not running — pnpm infra:up');
+    process.exit(1);
+  }
+  step('Emptying the test database rabit_test');
+  const exists = psql("select 1 from pg_database where datname = 'rabit_test'", 'postgres');
+  const sqls =
+    exists.stdout.trim() === '1'
+      ? [['drop schema if exists public cascade; create schema public;', 'rabit_test']]
+      : [['create database rabit_test owner rabit', 'postgres']];
+  for (const [sql, db] of sqls) {
+    const r = psql(sql, db);
+    if (r.status !== 0) {
+      fail(r.stderr.trim() || sql);
+      process.exit(1);
+    }
+  }
+  ok('rabit_test is empty; the next pnpm test migrates it');
+  process.exit(0);
+}
+
 const url = readEnvFile(SERVER_ENV).DATABASE_URL ?? '';
 let host = '';
 try {

@@ -1,5 +1,5 @@
 // pnpm status — what is running locally and whether it answers.
-import { dockerRunning, fail, infraState, ok, ports, say, warn } from './lib.mjs';
+import { dockerRunning, fail, infraState, ok, ports, runState, say, warn } from './lib.mjs';
 
 async function probe(name, url) {
   try {
@@ -20,6 +20,12 @@ else
     if (st === 'healthy') ok(`${svc} container healthy`);
     else warn(`${svc} container ${st}  (pnpm infra:up)`);
 
+const running = runState();
+if (running)
+  ok(
+    `pnpm dev running (pid ${String(running.pid)}, since ${new Date(running.startedAt).toLocaleTimeString()})`,
+  );
+else warn('pnpm dev is not running in this checkout');
 const p = ports();
 await probe('api      ', `http://localhost:${String(p.api)}/readyz`);
 await probe('media    ', `http://localhost:${String(p.media)}/healthz`);
