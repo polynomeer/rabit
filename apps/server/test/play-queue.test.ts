@@ -73,7 +73,12 @@ describe('play queue', () => {
     expect(s[0]).toMatchObject({
       recording_id: id('r3'),
       state: 'upcoming',
-      reason: { code: 'sampled_by', basis: 'verified_fact' },
+      // The related track is named by its artists.
+      reason: {
+        code: 'sampled_by',
+        basis: 'verified_fact',
+        name: expect.stringMatching(/^Solo Sine/),
+      },
       playable: true,
     });
     expect(q.items.findIndex((i) => i.origin === 'autoplay')).toBeGreaterThan(1);

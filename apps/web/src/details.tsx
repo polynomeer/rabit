@@ -10,6 +10,7 @@ import { usePlayer, type QueueEntry } from './player';
 import { PurchasePanel } from './purchase';
 import { digHref, entityHref } from './route';
 import { SaveButton, Status } from './views';
+import { QueueActions } from './queue';
 
 interface Ref {
   entity_id: string;
@@ -443,6 +444,17 @@ export function RecordingDetail({ id }: { id: string }) {
               >
                 {t('common.play')}
               </button>
+              <QueueActions
+                radio
+                entries={[
+                  {
+                    key: r.recording_id,
+                    title: r.title,
+                    recording_id: r.recording_id,
+                    playable: r.playability.playable,
+                  },
+                ]}
+              />
               <a className="button" href={digHref(r.recording_id)}>
                 DIG
               </a>
@@ -519,6 +531,12 @@ export function ReleaseDetail({ id }: { id: string }) {
               >
                 {t('details.release.playAll')}
               </button>
+              <QueueActions
+                entries={queue.map((e, i) => ({
+                  ...e,
+                  playable: r.tracks[i]?.playability.playable ?? false,
+                }))}
+              />
               <a className="button" href={digHref(r.release_id)}>
                 DIG
               </a>

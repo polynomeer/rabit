@@ -1023,6 +1023,57 @@ a.player-queue {
   flex-direction: column;
   min-width: 0;
 }
+.queue li {
+  display: flex;
+  align-items: center;
+}
+.queue li > button {
+  flex: 1;
+  min-width: 0;
+}
+.queue .cover,
+.queue .mark {
+  flex: none;
+}
+.queue li.played {
+  opacity: 0.6;
+}
+.queue-reason {
+  color: var(--accent);
+}
+.queue-actions {
+  display: flex;
+  gap: 10px;
+  padding-right: 16px;
+  white-space: nowrap;
+}
+.queue-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 18px 0 8px;
+}
+.queue-panel .eyebrow {
+  margin: 18px 0 8px;
+}
+.queue-head .eyebrow {
+  margin: 0;
+}
+.queue-menu summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+.queue-menu [role='group'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.block {
+  display: block;
+}
 .queue [aria-current='true'] {
   background: var(--accent-soft);
 }
@@ -2518,4 +2569,19 @@ form.inline {
 form.inline input:not([type='checkbox']):not([type='radio']) {
   flex: 1 1 160px;
   min-width: 0;
+}
+
+/* Account → 재생 방식: one choice per line with its explanation. */
+.queue-mode {
+  border: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.queue-mode legend {
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+.queue-mode label {
+  display: block;
+  margin: 8px 0;
 }

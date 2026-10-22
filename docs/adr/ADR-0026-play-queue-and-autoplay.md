@@ -52,5 +52,15 @@ Suggestions: (1) **catalog relations with a reason** — chosen (DSC-005/006); (
 - Suggestions are only as good as the catalog's credits and relations, which is the point (Explain Discovery). A catalog with few relations falls back to label and decade.
 - Listening-based personalisation, if ever wanted, needs its own ADR (privacy, DSC-004/005).
 
+## Status of the clients (2026-10-22)
+- **Web**:
+  - the player follows the server queue;
+  - Now Playing shows 지난 곡, 지금 재생, 내가 고른 다음 곡 and 자동추천, with reasons, keep and remove;
+  - save as playlist: all, chosen or suggested;
+  - 다음에 재생, 재생목록에 추가 and 이 곡으로 자동추천 on track and album pages;
+  - Account → 재생 방식.
+- **Blind Digging** plays from a local list: its tracks must stay hidden (DIG-010).
+- **iOS** still keeps its own queue on the device. Moving it onto `/v1/queue` is the next step.
+
 ## Revisit trigger
 Listener feedback on the default; a curated or personalised recommendation source (DSC-002 M2).

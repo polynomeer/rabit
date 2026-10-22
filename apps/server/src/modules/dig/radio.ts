@@ -197,5 +197,12 @@ export async function radioFor(
     }
     out.push(p);
   }
+  // Samples, covers, remixes and influences point at the track itself: name its artists.
+  const unnamed = out.filter((p) => p.reason.name === null).map((p) => p.recording_id);
+  if (unnamed.length > 0) {
+    const s = await entitySummaries(db, unnamed);
+    for (const p of out)
+      if (p.reason.name === null) p.reason.name = s.get(p.recording_id)?.subtitle ?? null;
+  }
   return out;
 }

@@ -2,6 +2,7 @@ import { OWNERSHIP_TEXT } from './api';
 import { Icon } from './brand';
 import { t, tCode } from './i18n';
 import { EntryArt, Progress, usePlayer, Waveform } from './player';
+import { QueuePanel } from './queue';
 import { digHref, entityHref, tabHref } from './route';
 
 /**
@@ -98,34 +99,7 @@ export function NowPlaying() {
             </div>
           </>
         ) : null}
-        {queue.length > 1 ? (
-          <section aria-labelledby="queue-h">
-            <h3 id="queue-h">{t('now.queue')}</h3>
-            <ol className="queue">
-              {queue.map((entry, i) => (
-                <li key={`${entry.key}-${String(i)}`}>
-                  <button
-                    type="button"
-                    aria-current={i === index ? 'true' : undefined}
-                    onClick={() => {
-                      player.jump(i);
-                    }}
-                  >
-                    <span className="queue-no" aria-hidden="true">
-                      {i + 1}
-                    </span>
-                    <span className="queue-text">
-                      <span className="queue-title">{entry.title}</span>
-                      {entry.subtitle ? (
-                        <span className="muted small">{entry.subtitle}</span>
-                      ) : null}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </section>
-        ) : null}
+        <QueuePanel />
       </div>
     </section>
   );

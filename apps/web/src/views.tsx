@@ -760,6 +760,7 @@ export function Account() {
       <div className="account-grid">
         <ThemeChoice />
         <NormalizeChoice />
+        <QueueChoice />
       </div>
       <Entitlements />
       <SubscriptionPanel />
@@ -852,6 +853,65 @@ function ThemeChoice() {
 }
 
 /** Loudness normalisation on this device (ADR-0008 amendment 2026-10-20). */
+/** How playing adds to the queue, and autoplay (ADR-0026); stored on the account. */
+function QueueChoice() {
+  const player = usePlayer();
+  const { mode, autoplay, include_inferred } = player.settings;
+  const [msg, setMsg] = useState<string | null>(null);
+  const change = (patch: Parameters<typeof player.updateSettings>[0]) => {
+    setMsg(null);
+    player.updateSettings(patch).catch((e: unknown) => {
+      setMsg(e instanceof ApiError ? e.message : String(e));
+    });
+  };
+  return (
+    <section className="card" aria-labelledby="queue-mode-h">
+      <h3 id="queue-mode-h">{t('account.queue.heading')}</h3>
+      <fieldset className="queue-mode">
+        <legend>{t('account.queue.mode')}</legend>
+        {(['queue', 'radio'] as const).map((m) => (
+          <label key={m}>
+            <input
+              type="radio"
+              name="queue-mode"
+              checked={mode === m}
+              onChange={() => {
+                change({ mode: m });
+              }}
+            />{' '}
+            {t(m === 'queue' ? 'account.queue.mode.queue' : 'account.queue.mode.radio')}
+            <span className="small muted block">
+              {t(m === 'queue' ? 'account.queue.mode.queueHint' : 'account.queue.mode.radioHint')}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <label>
+        <input
+          type="checkbox"
+          checked={autoplay}
+          onChange={(e) => {
+            change({ autoplay: e.target.checked });
+          }}
+        />{' '}
+        {t('account.queue.autoplay')}
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={include_inferred}
+          onChange={(e) => {
+            change({ include_inferred: e.target.checked });
+          }}
+        />{' '}
+        {t('account.queue.inferred')}
+      </label>
+      <p className="small muted">{t('account.queue.note')}</p>
+      {msg ? <p role="status">{msg}</p> : null}
+    </section>
+  );
+}
+
 function NormalizeChoice() {
   const [on, setOn] = useState(normalizeEnabled);
   return (
