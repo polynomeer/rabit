@@ -1014,90 +1014,146 @@ a.player-queue {
   font-weight: 700;
 }
 
-/* ——— DIG ——— */
-.dig,
-.dig-home {
-  position: relative;
-}
-.dig::before,
-.dig-home::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  top: -140px;
-  left: 0;
-  width: min(520px, 100%);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
-  pointer-events: none;
-}
-.trail {
+/* ——— DIG: the trail and summary beside the current point and its connections ——— */
+.dig-layout {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 24px 32px;
+  align-items: flex-start;
+}
+.dig-side {
+  flex: 1 1 240px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dig-main {
+  flex: 999 1 540px;
+  min-width: 0;
+}
+@media (max-width: 899px) {
+  .dig-side {
+    max-width: none;
+  }
+}
+.dig-side .card {
+  margin: 0;
+}
+.dig-side h3,
+.dig-other-title {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+/* The trail: points down a line, the current one in the accent. */
+.trail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 .trail .eyebrow {
-  margin-right: 4px;
+  margin: 0 0 10px;
 }
 .trail button {
-  min-height: 36px;
-  padding: 4px 12px;
+  position: relative;
+  min-height: 44px;
+  padding: 6px 8px 6px 26px;
+  border: none;
   border-radius: 12px;
+  background: none;
+  text-align: left;
+  color: var(--fg);
 }
-.trail .current,
+.trail button::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+  box-sizing: border-box;
+}
+.trail button + button::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: -14px;
+  height: 22px;
+  border-left: 2px solid var(--line);
+}
+.trail .current {
+  color: var(--accent);
+  font-weight: 700;
+  background: var(--accent-soft);
+}
+.trail .current::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
 [aria-selected='true'] {
   border-color: var(--accent);
   color: var(--fg);
   background: var(--accent-soft);
 }
-/* The current point: a centred mark with rings, its name and actions. */
+/* The current point: a card in the DIG colour with its mark, name and actions. */
 .node {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  /* Room for the outer ring (28 px beyond the mark) above and below. */
-  margin: 44px 0 8px;
-  text-align: center;
-}
-.node-mark {
-  position: relative;
-  margin-bottom: 34px;
-  border-radius: 50%;
-}
-.node-mark::before,
-.node-mark::after {
-  content: '';
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid var(--accent);
-  pointer-events: none;
-}
-.node-mark::before {
-  inset: -12px;
-  opacity: 0.4;
-}
-.node-mark::after {
-  inset: -28px;
-  opacity: 0.18;
+  gap: 16px 24px;
+  margin: 0 0 20px;
+  padding: 24px;
+  border-radius: 24px;
+  background: var(--area-dig);
+  color: #ffffff;
 }
 .node-mark .cover,
 .node-mark .entity-initial {
   border-radius: 50% !important;
 }
+.node-mark .entity-initial {
+  background: rgba(255, 255, 255, 0.16);
+}
+.node-text {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.node .eyebrow {
+  color: #ffffff;
+  opacity: 0.86;
+}
 .node-name {
-  font-size: 1.4rem;
+  font-size: clamp(1.6rem, 4vw, 2.5rem);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 .node-name a {
-  color: var(--fg);
+  color: #ffffff;
   text-decoration: none;
 }
+.node-sub {
+  opacity: 0.88;
+}
 .node .actions {
-  margin-top: 10px;
-  justify-content: center;
+  margin: 0;
+}
+.node .actions button {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111111;
+  font-weight: 700;
+}
+.node .actions button:disabled {
+  background: none;
+  color: #ffffff;
+  opacity: 0.8;
 }
 .entity-initial {
   display: inline-flex;
@@ -1115,38 +1171,36 @@ a.player-queue {
 .entity-initial.kind-person {
   background: var(--area-studio);
 }
-/* Axes: one card per group (People / Sound / History / Place). */
+/* Axes: each group's tabs in a row under its name. */
 .axes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-  margin: 20px 0 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 0 0 12px;
 }
 .axis-group {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 14px;
-  border-radius: var(--radius);
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-.axis-group.active {
-  border-color: var(--accent);
 }
 .axis-group .group {
   flex-basis: 100%;
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: var(--fg);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
 }
 .axis-group button {
-  min-height: 36px;
-  padding: 4px 12px;
-  border-radius: 12px;
-  background: var(--surface-2);
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  background: none;
+}
+.axis-group button[aria-selected='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
 }
 .filters {
   display: flex;
@@ -1208,6 +1262,125 @@ a.player-queue {
 }
 .dig-summary p {
   margin: 0;
+}
+/* Blind Digging: the hidden track in a DIG-coloured card, Keep and Pass large. */
+.blind-current {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 22px;
+  border-radius: 24px;
+  background: var(--area-dig);
+  color: #ffffff;
+}
+.blind-current p {
+  margin: 0;
+}
+.blind-current .muted {
+  color: #ffffff;
+  opacity: 0.86;
+}
+.blind-current .actions {
+  margin: 0;
+}
+.blind-current button {
+  background: none;
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #ffffff;
+}
+.blind-current button.blind-choice {
+  flex: 1 1 140px;
+  min-height: 52px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.blind-current button.blind-choice:first-of-type {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111111;
+}
+.blind-revealed li {
+  justify-content: flex-start;
+  gap: 12px;
+}
+.badge.decision-keep {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
+/* Crate Digging: the crate's albums as covers. */
+.crate-grid {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+}
+.crate-grid li {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.crate-grid .cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+.crate-grid p {
+  margin: 4px 0 0;
+}
+/* Label timeline: years down a line, each year's releases beside it. */
+.timeline {
+  list-style: none;
+  margin: 12px 0 24px;
+  padding: 0;
+}
+.timeline > li {
+  position: relative;
+  display: flex;
+  gap: 20px;
+  padding: 0 0 18px 22px;
+  border-left: 2px solid var(--line);
+  margin-left: 6px;
+}
+.timeline > li::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.timeline-year {
+  flex: 0 0 56px;
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+.timeline ul {
+  flex: 1;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.timeline ul li {
+  flex: 1 1 240px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 /* DIG home: modes side by side, then history. */
 .dig-home .lede {

@@ -217,7 +217,6 @@ export function DigSessionView({ id }: { id: string }) {
   const groups = [...new Set(axes.map((a) => a.group))];
   return (
     <section aria-labelledby="dig-h" className="dig">
-      <p className="eyebrow">Rabbit hole</p>
       <h2 id="dig-h">DIG</h2>
       <SessionHeader
         session={session}
@@ -225,191 +224,201 @@ export function DigSessionView({ id }: { id: string }) {
         onSave={(saved) => update({ saved })}
         onEnd={() => void end()}
       />
-      <nav aria-label={t('dig.trail')} className="trail">
-        <span className="eyebrow" aria-hidden="true">
-          Trail
-        </span>
-        {session.trail.map((n) => (
-          <button
-            key={n.seq}
-            type="button"
-            aria-current={n.seq === session.current_seq ? 'step' : undefined}
-            className={n.seq === session.current_seq ? 'current' : ''}
-            onClick={() => void back(n.seq)}
-          >
-            {n.via_axis ? (
-              <span className="muted small">{tCode(AXIS_TEXT, n.via_axis)} → </span>
-            ) : null}
-            {n.entity.name}
-            {n.saved ? <span aria-label={t('dig.trail.saved')}> ★</span> : null}
-            {n.played ? <span aria-label={t('dig.trail.played')}> ♪</span> : null}
-          </button>
-        ))}
-      </nav>
-      {session.empty_state ? <p className="muted">{session.empty_state.message}</p> : null}
-      {node ? (
-        <Node
-          entity={node.entity}
-          saved={node.saved}
-          onPlay={
-            node.entity.entity_type === 'recording'
-              ? () => {
-                  player.play([
-                    {
-                      key: node.entity.entity_id,
-                      title: node.entity.name,
-                      subtitle: node.entity.subtitle,
-                      recording_id: node.entity.entity_id,
-                      cover_id: node.entity.primary_release_id ?? undefined,
-                    },
-                  ]);
-                  void act(node.seq, 'played');
-                }
-              : null
-          }
-          onSave={() => void act(node.seq, 'saved')}
-        />
-      ) : null}
-
-      <div className="axes" role="tablist" aria-label={t('dig.axes')}>
-        {groups.map((g) => (
-          <div
-            key={g}
-            className={
-              axes.some((a) => a.group === g && a.axis === axis)
-                ? 'axis-group active'
-                : 'axis-group'
-            }
-          >
-            <span className="group">{tCode(GROUP_TEXT, g)}</span>
-            {axes
-              .filter((a) => a.group === g)
-              .map((a) => (
-                <button
-                  key={a.axis}
-                  type="button"
-                  role="tab"
-                  aria-selected={axis === a.axis}
-                  onClick={() => {
-                    setAxis(a.axis);
-                  }}
-                >
-                  {tCode(AXIS_TEXT, a.axis)} <span className="muted">{a.count}</span>
-                </button>
-              ))}
-          </div>
-        ))}
-      </div>
-      <div className="filters">
-        <label>
-          {t('dig.filter.popularity')}{' '}
-          <select
-            value={pop}
-            onChange={(e) => {
-              setPop(e.target.value);
-            }}
-          >
-            {POPULARITY.map(([v, l]) => (
-              <option key={v} value={v}>
-                {t(l)}
-              </option>
+      <div className="dig-layout">
+        <aside className="dig-side">
+          <nav aria-label={t('dig.trail')} className="trail">
+            <h3 className="eyebrow" aria-hidden="true">
+              Digging Trail
+            </h3>
+            {session.trail.map((n) => (
+              <button
+                key={n.seq}
+                type="button"
+                aria-current={n.seq === session.current_seq ? 'step' : undefined}
+                className={n.seq === session.current_seq ? 'current' : ''}
+                onClick={() => void back(n.seq)}
+              >
+                {n.via_axis ? (
+                  <span className="muted small">{tCode(AXIS_TEXT, n.via_axis)} → </span>
+                ) : null}
+                {n.entity.name}
+                {n.saved ? <span aria-label={t('dig.trail.saved')}> ★</span> : null}
+                {n.played ? <span aria-label={t('dig.trail.played')}> ♪</span> : null}
+              </button>
             ))}
-          </select>
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={inferred}
-            onChange={(e) => {
-              setInferred(e.target.checked);
-            }}
-          />{' '}
-          {t('dig.filter.inferred')}
-        </label>
-      </div>
-      <ul className="connections" aria-label={t('common.connections')}>
-        {conns.map((c) => (
-          <li
-            key={`${c.entity.entity_id}:${c.via.credit_id ?? c.via.relation_id ?? ''}`}
-            className={`basis-${c.evidence.basis}`}
-          >
-            <EntityMark entity={c.entity} size={52} />
-            <div className="conn-main">
-              <strong>
-                <a href={entityHref(c.entity.entity_id)}>{c.entity.name}</a>
-              </strong>{' '}
-              <span className="muted">{c.entity.subtitle}</span>
-              <br />
-              <EvidenceLine e={c.evidence} />
-              {c.playability ? (
-                <>
-                  {' '}
-                  · <Status p={c.playability} />
-                </>
-              ) : null}
-            </div>
-            <div className="actions">
-              {c.entity.entity_type === 'recording' && c.playability?.playable ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    player.play([
-                      {
-                        key: c.entity.entity_id,
-                        title: c.entity.name,
-                        subtitle: c.entity.subtitle,
-                        recording_id: c.entity.entity_id,
-                        cover_id: c.entity.primary_release_id ?? undefined,
-                      },
-                    ]);
-                  }}
-                >
-                  {t('dig.conn.preview')}
-                </button>
-              ) : null}
-              {ended ? null : (
-                <button type="button" className="primary" onClick={() => void step(c)}>
-                  {t('dig.conn.follow')}
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-      <div className="card dig-summary">
-        <p className="small muted">
-          {t('dig.summary', {
-            nodes: session.summary.nodes,
-            artists: session.summary.distinct_artists,
-            axes: session.summary.axes_used.join(', ') || '-',
-            played: session.summary.played,
-            saved: session.summary.saved,
-          })}
-        </p>
-        <button
-          type="button"
-          onClick={() =>
-            void api<{ title: string }>(
-              'POST',
-              `/v1/dig-sessions/${session.dig_session_id}/playlist`,
-              {},
-            ).then(
-              ({ data }) => {
-                setSaved(t('dig.playlist.saved', { title: data.title }));
-              },
-              () => {
-                setSaved(t('dig.playlist.failed'));
-              },
-            )
-          }
-        >
-          {t('dig.playlist.create')}
-        </button>
-        {saved ? (
-          <p role="status">
-            {saved} <a href={tabHref('Playlists')}>{t('dig.playlist.view')}</a>
-          </p>
-        ) : null}
+          </nav>
+          <div className="card dig-summary">
+            <p className="small muted">
+              {t('dig.summary', {
+                nodes: session.summary.nodes,
+                artists: session.summary.distinct_artists,
+                axes: session.summary.axes_used.join(', ') || '-',
+                played: session.summary.played,
+                saved: session.summary.saved,
+              })}
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                void api<{ title: string }>(
+                  'POST',
+                  `/v1/dig-sessions/${session.dig_session_id}/playlist`,
+                  {},
+                ).then(
+                  ({ data }) => {
+                    setSaved(t('dig.playlist.saved', { title: data.title }));
+                  },
+                  () => {
+                    setSaved(t('dig.playlist.failed'));
+                  },
+                )
+              }
+            >
+              {t('dig.playlist.create')}
+            </button>
+            {saved ? (
+              <p role="status">
+                {saved} <a href={tabHref('Playlists')}>{t('dig.playlist.view')}</a>
+              </p>
+            ) : null}
+          </div>
+          <div className="card dig-other">
+            <p className="dig-other-title">{t('dig.other')}</p>
+            <a href={tabHref('DIG')}>Blind Digging · Crate Digging</a>
+          </div>
+        </aside>
+        <div className="dig-main">
+          {session.empty_state ? <p className="muted">{session.empty_state.message}</p> : null}
+          {node ? (
+            <Node
+              entity={node.entity}
+              saved={node.saved}
+              onPlay={
+                node.entity.entity_type === 'recording'
+                  ? () => {
+                      player.play([
+                        {
+                          key: node.entity.entity_id,
+                          title: node.entity.name,
+                          subtitle: node.entity.subtitle,
+                          recording_id: node.entity.entity_id,
+                          cover_id: node.entity.primary_release_id ?? undefined,
+                        },
+                      ]);
+                      void act(node.seq, 'played');
+                    }
+                  : null
+              }
+              onSave={() => void act(node.seq, 'saved')}
+            />
+          ) : null}
+
+          <div className="axes" role="tablist" aria-label={t('dig.axes')}>
+            {groups.map((g) => (
+              <div
+                key={g}
+                className={
+                  axes.some((a) => a.group === g && a.axis === axis)
+                    ? 'axis-group active'
+                    : 'axis-group'
+                }
+              >
+                <span className="group">{tCode(GROUP_TEXT, g)}</span>
+                {axes
+                  .filter((a) => a.group === g)
+                  .map((a) => (
+                    <button
+                      key={a.axis}
+                      type="button"
+                      role="tab"
+                      aria-selected={axis === a.axis}
+                      onClick={() => {
+                        setAxis(a.axis);
+                      }}
+                    >
+                      {tCode(AXIS_TEXT, a.axis)} <span className="muted">{a.count}</span>
+                    </button>
+                  ))}
+              </div>
+            ))}
+          </div>
+          <div className="filters">
+            <label>
+              {t('dig.filter.popularity')}{' '}
+              <select
+                value={pop}
+                onChange={(e) => {
+                  setPop(e.target.value);
+                }}
+              >
+                {POPULARITY.map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {t(l)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={inferred}
+                onChange={(e) => {
+                  setInferred(e.target.checked);
+                }}
+              />{' '}
+              {t('dig.filter.inferred')}
+            </label>
+          </div>
+          <ul className="connections" aria-label={t('common.connections')}>
+            {conns.map((c) => (
+              <li
+                key={`${c.entity.entity_id}:${c.via.credit_id ?? c.via.relation_id ?? ''}`}
+                className={`basis-${c.evidence.basis}`}
+              >
+                <EntityMark entity={c.entity} size={52} />
+                <div className="conn-main">
+                  <strong>
+                    <a href={entityHref(c.entity.entity_id)}>{c.entity.name}</a>
+                  </strong>{' '}
+                  <span className="muted">{c.entity.subtitle}</span>
+                  <br />
+                  <EvidenceLine e={c.evidence} />
+                  {c.playability ? (
+                    <>
+                      {' '}
+                      · <Status p={c.playability} />
+                    </>
+                  ) : null}
+                </div>
+                <div className="actions">
+                  {c.entity.entity_type === 'recording' && c.playability?.playable ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        player.play([
+                          {
+                            key: c.entity.entity_id,
+                            title: c.entity.name,
+                            subtitle: c.entity.subtitle,
+                            recording_id: c.entity.entity_id,
+                            cover_id: c.entity.primary_release_id ?? undefined,
+                          },
+                        ]);
+                      }}
+                    >
+                      {t('dig.conn.preview')}
+                    </button>
+                  ) : null}
+                  {ended ? null : (
+                    <button type="button" className="primary" onClick={() => void step(c)}>
+                      {t('dig.conn.follow')}
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );
@@ -449,13 +458,17 @@ function Node({
   return (
     <div className="node" aria-live="polite">
       <div className="node-mark">
-        <EntityMark entity={entity} size={104} />
+        <EntityMark entity={entity} size={88} />
       </div>
-      <p className="eyebrow">{tCode(ENTITY_TEXT, entity.entity_type)}</p>
-      <strong className="node-name">
-        <a href={entityHref(entity.entity_id)}>{entity.name}</a>
-      </strong>
-      {entity.subtitle ? <span className="muted">{entity.subtitle}</span> : null}
+      <div className="node-text">
+        <p className="eyebrow">
+          {t('dig.node.here')} · {tCode(ENTITY_TEXT, entity.entity_type)}
+        </p>
+        <strong className="node-name">
+          <a href={entityHref(entity.entity_id)}>{entity.name}</a>
+        </strong>
+        {entity.subtitle ? <span className="node-sub">{entity.subtitle}</span> : null}
+      </div>
       <div className="actions">
         {onPlay ? (
           <button type="button" className="primary" onClick={onPlay}>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, type EntitySummary } from './api';
+import { Cover } from './brand';
 import { POPULARITY } from './dig';
 import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer } from './player';
@@ -72,7 +73,7 @@ export function BlindDigPanel({ startEntityId }: { startEntityId?: string }) {
   };
 
   return (
-    <section aria-labelledby="blind-h" className="card">
+    <section aria-labelledby="blind-h" className="card blind">
       <h3 id="blind-h">{t('blind.title')}</h3>
       <p className="small muted">{t('blind.hint')}</p>
       <form
@@ -122,6 +123,7 @@ export function BlindDigPanel({ startEntityId }: { startEntityId?: string }) {
             </button>
             <button
               type="button"
+              className="blind-choice"
               onClick={() => {
                 decide(current, 'keep');
               }}
@@ -130,6 +132,7 @@ export function BlindDigPanel({ startEntityId }: { startEntityId?: string }) {
             </button>
             <button
               type="button"
+              className="blind-choice"
               onClick={() => {
                 decide(current, 'pass');
               }}
@@ -143,15 +146,17 @@ export function BlindDigPanel({ startEntityId }: { startEntityId?: string }) {
       ) : null}
 
       {revealed.length > 0 ? (
-        <ol className="list" aria-label={t('blind.revealed')}>
+        <ol className="list blind-revealed" aria-label={t('blind.revealed')}>
           {revealed.map((i) => (
             <li key={i.item_id}>
+              <Cover id={i.reveal?.release?.release_id ?? i.recording_id} size={44} round={8} />
               <div>
-                <span className="badge">
-                  {i.decision === 'keep' ? t('blind.kept') : t('blind.passed')}
-                </span>{' '}
                 <a href={entityHref(i.recording_id)}>{i.reveal?.recording.name}</a>{' '}
-                <span className="muted">
+                <span className={`badge decision-${i.decision ?? 'none'}`}>
+                  {i.decision === 'keep' ? t('blind.kept') : t('blind.passed')}
+                </span>
+                <br />
+                <span className="muted small">
                   {i.reveal?.recording.subtitle ?? ''}
                   {i.reveal?.release
                     ? ` · ${i.reveal.release.title}${i.reveal.release.release_date ? ` (${i.reveal.release.release_date.slice(0, 4)})` : ''}`
