@@ -222,7 +222,11 @@ export function psql(sql, database = 'rabit') {
   ]);
 }
 
-/** Environment for the server processes, aligned with the chosen ports. */
+/**
+ * Environment for the server processes, aligned with the chosen ports. AUTH_ISSUER
+ * stays as apps/server/.env sets it: the dev issuer signs locally, and accounts are
+ * keyed by issuer and subject, so a port change must not turn "alice" into a new account.
+ */
 export function serverEnv(p = ports()) {
   return {
     ...process.env,
@@ -231,7 +235,6 @@ export function serverEnv(p = ports()) {
     METRICS_PORT: String(p.metrics),
     API_PUBLIC_BASE_URL: `http://localhost:${String(p.api)}`,
     MEDIA_PUBLIC_BASE_URL: `http://localhost:${String(p.media)}`,
-    AUTH_ISSUER: `http://localhost:${String(p.api)}/dev`,
     CORS_ALLOWED_ORIGINS: `http://localhost:${String(p.web)}`,
   };
 }
