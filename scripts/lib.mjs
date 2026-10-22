@@ -222,12 +222,6 @@ export function psql(sql, database = 'rabit') {
   ]);
 }
 
-/** True when the dev database already holds the demo catalog (ingest is not idempotent). */
-export function demoCatalogPresent() {
-  const r = psql("select count(*) from release where title = 'Harbour Lights'");
-  return r.status === 0 && Number(r.stdout.trim()) > 0;
-}
-
 /** Environment for the server processes, aligned with the chosen ports. */
 export function serverEnv(p = ports()) {
   return {

@@ -1,0 +1,800 @@
+{
+  "source": "demo-expansion-v1",
+  "description": "A fictional music scene from 1976 to 2026: labels, bands, session players and engineers, with credits, samples, covers, remixes and provenance claims. Every name is invented and every recording is synthesised by infra/demo/generate.mjs (CAT-008).",
+  "defaults": {
+    "credit": { "method": "human", "basis": "declared", "verification": "distributor_verified" }
+  },
+  "labels": [
+    { "key": "moonlit", "name": "Moonlit Alley Records" },
+    { "key": "copper", "name": "Copper Wire Sound" },
+    { "key": "saltwater", "name": "Saltwater Tapes" },
+    { "key": "orchard", "name": "Neon Orchard" },
+    { "key": "quiet", "name": "Quiet Hours" },
+    { "key": "granite", "name": "Granite Hill Jazz" }
+  ],
+  "people": [
+    { "key": "jung", "name": "Jung Min-ah" },
+    { "key": "hale", "name": "Corwin Hale" },
+    { "key": "ota", "name": "Rei Ota" },
+    { "key": "lim", "name": "Lim Tae-yang" },
+    { "key": "vance", "name": "Delphine Vance" },
+    { "key": "cho", "name": "Cho Eun-bi" },
+    { "key": "mendes", "name": "Ilídio Mendes" },
+    { "key": "kang", "name": "Kang Ji-ho" },
+    { "key": "brandt", "name": "Saskia Brandt" },
+    { "key": "yoon", "name": "Yoon Ha-neul" },
+    { "key": "okafor", "name": "Tobenna Okafor" },
+    { "key": "moon", "name": "Moon Seo-jin" },
+    { "key": "lacroix", "name": "Amélie Lacroix" },
+    { "key": "han", "name": "Han Gyeol" },
+    { "key": "pires", "name": "Joana Pires" },
+    { "key": "baek", "name": "Baek Dong-won" },
+    { "key": "sato", "name": "Haruki Sato" },
+    { "key": "nam", "name": "Nam Bo-ra" },
+    { "key": "ferro", "name": "Luca Ferro" },
+    { "key": "shin", "name": "Shin Ye-rin" },
+    { "key": "aldous", "name": "Wren Aldous" },
+    { "key": "ryu", "name": "Ryu Seung-hwan" },
+    { "key": "ines", "name": "Inès Duval" },
+    { "key": "gwon", "name": "Gwon Na-yeon" }
+  ],
+  "artists": [
+    {
+      "key": "tram",
+      "name": "Midnight Tram",
+      "label": "moonlit",
+      "members": ["lim", "cho", "kang"]
+    },
+    { "key": "hana", "name": "Hana Seo", "label": "moonlit" },
+    {
+      "key": "dohyun",
+      "name": "Kim Do-hyun Trio",
+      "label": "granite",
+      "members": ["baek", "okafor", "ryu"]
+    },
+    { "key": "yuna", "name": "Yuna Park", "label": "granite" },
+    {
+      "key": "moths",
+      "name": "The Paper Moths",
+      "label": "copper",
+      "members": ["han", "shin", "aldous"]
+    },
+    { "key": "grey", "name": "Grey Harbor", "label": "copper", "members": ["mendes", "nam"] },
+    { "key": "static", "name": "Static Bloom", "label": "saltwater", "members": ["gwon", "ferro"] },
+    { "key": "ember", "name": "Ember & Ash", "label": "saltwater", "members": ["pires", "yoon"] },
+    { "key": "lowtide", "name": "Lowtide Radio", "label": "saltwater" },
+    {
+      "key": "orbital",
+      "name": "Orbital Gardens",
+      "label": "orchard",
+      "members": ["ota", "lacroix"]
+    },
+    { "key": "rue", "name": "Rue Marin", "label": "orchard" },
+    {
+      "key": "sora",
+      "name": "Sora & the Satellites",
+      "label": "orchard",
+      "members": ["moon", "sato"]
+    },
+    { "key": "ghosts", "name": "Cassette Ghosts", "label": "orchard" },
+    { "key": "ivory", "name": "Ivory Lantern", "label": "quiet" },
+    {
+      "key": "blue",
+      "name": "Blue Hour Collective",
+      "label": "quiet",
+      "members": ["brandt", "ines"]
+    },
+    { "key": "choir", "name": "Northbound Choir", "label": "quiet" }
+  ],
+  "releases": [
+    {
+      "key": "tram-night",
+      "title": "Night Tram Diaries",
+      "type": "album",
+      "label": "moonlit",
+      "date": "1979-06-15",
+      "artists": ["tram"],
+      "format": "wav16",
+      "sound": { "root": 196, "mode": "major", "bpm": 112, "level": 0.32 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 8800,
+      "credits": [
+        { "person": "jung", "role": "producer" },
+        { "person": "hale", "role": "engineer" },
+        { "person": "lim", "role": "composer" }
+      ],
+      "claims": [
+        { "stage": "composition", "method": "human", "verification": "distributor_verified" }
+      ],
+      "tracks": [
+        { "key": "last-tram", "title": "Last Tram to Euljiro", "sec": 34 },
+        {
+          "title": "Neon Raincoat",
+          "sec": 29,
+          "credits": [{ "person": "cho", "role": "lyricist" }]
+        },
+        { "title": "Station Clock", "sec": 26 },
+        {
+          "key": "city-lights-79",
+          "title": "City Lights, Slowly",
+          "sec": 38,
+          "credits": [{ "person": "kang", "role": "performer", "instrument": "electric piano" }]
+        },
+        { "title": "Rooftop Antenna", "sec": 24 }
+      ]
+    },
+    {
+      "key": "hana-glass",
+      "title": "Glass Umbrella",
+      "type": "album",
+      "label": "moonlit",
+      "date": "1984-10-02",
+      "artists": ["hana"],
+      "format": "wav16",
+      "sound": { "root": 220, "mode": "major", "bpm": 98, "level": 0.28 },
+      "rights": { "territories": ["KR", "JP"], "uses": ["stream", "preview"] },
+      "price_krw": 9900,
+      "credits": [
+        { "person": "jung", "role": "producer" },
+        { "person": "lim", "role": "arranger" },
+        { "person": "hale", "role": "mixing_engineer" }
+      ],
+      "tracks": [
+        {
+          "key": "glass-umbrella",
+          "title": "Glass Umbrella",
+          "sec": 36,
+          "credits": [{ "person": "cho", "role": "lyricist" }]
+        },
+        { "title": "Telephone Line, 3 a.m.", "sec": 31 },
+        {
+          "title": "Han River Postcard",
+          "sec": 28,
+          "credits": [{ "person": "kang", "role": "performer", "instrument": "synthesizer" }]
+        },
+        { "title": "Wednesday Snow", "sec": 33 }
+      ]
+    },
+    {
+      "key": "tram-single",
+      "title": "Plastic Love Letter",
+      "type": "single",
+      "label": "moonlit",
+      "date": "1986-04-20",
+      "artists": ["tram"],
+      "format": "wav16",
+      "sound": { "root": 247, "mode": "major", "bpm": 118, "level": 0.35 },
+      "rights": { "territories": ["KR"], "uses": ["stream"] },
+      "credits": [{ "person": "jung", "role": "producer" }],
+      "tracks": [
+        { "key": "plastic-love-letter", "title": "Plastic Love Letter", "sec": 32 },
+        { "title": "Plastic Love Letter (Instrumental)", "sec": 30 }
+      ]
+    },
+    {
+      "key": "dohyun-blue",
+      "title": "Blue Hour at Granite Hill",
+      "type": "album",
+      "label": "granite",
+      "date": "1976-11-08",
+      "artists": ["dohyun"],
+      "format": "hires",
+      "sound": { "root": 147, "mode": "dorian", "bpm": 72, "level": 0.18 },
+      "rights": { "territories": ["WORLD"], "uses": ["stream", "preview"] },
+      "price_krw": 11000,
+      "credits": [
+        { "person": "baek", "role": "composer" },
+        { "person": "vance", "role": "engineer" },
+        { "person": "okafor", "role": "performer", "instrument": "double bass" },
+        { "person": "ryu", "role": "performer", "instrument": "drums" }
+      ],
+      "claims": [
+        { "stage": "instruments", "method": "human", "verification": "distributor_verified" }
+      ],
+      "tracks": [
+        { "key": "granite-waltz", "title": "Granite Hill Waltz", "sec": 42 },
+        { "title": "Smoke Over Insadong", "sec": 39 },
+        { "title": "A Quiet Bar Called Sunday", "sec": 44 },
+        { "title": "Ballad for the Night Ferry", "sec": 40 }
+      ]
+    },
+    {
+      "key": "dohyun-live",
+      "title": "Live at the Copper Room",
+      "type": "album",
+      "label": "granite",
+      "date": "1981-02-14",
+      "artists": ["dohyun"],
+      "format": "wav16",
+      "sound": { "root": 165, "mode": "dorian", "bpm": 96, "level": 0.22 },
+      "rights": { "territories": ["KR"], "uses": ["stream"] },
+      "credits": [
+        { "person": "vance", "role": "engineer" },
+        { "person": "baek", "role": "performer", "instrument": "piano" }
+      ],
+      "tracks": [
+        { "title": "Opening Vamp", "sec": 22 },
+        { "key": "granite-waltz-live", "title": "Granite Hill Waltz (Live)", "sec": 45 },
+        { "title": "Night Tram Blues", "sec": 36 }
+      ]
+    },
+    {
+      "key": "yuna-piano",
+      "title": "Pieces for a Small Room",
+      "type": "album",
+      "label": "granite",
+      "date": "2009-03-30",
+      "artists": ["yuna"],
+      "format": "flac",
+      "sound": { "root": 262, "mode": "minor", "bpm": 60, "level": 0.12 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 9900,
+      "credits": [
+        { "person": "yuna", "role": "composer" },
+        { "person": "vance", "role": "mastering_engineer" }
+      ],
+      "claims": [{ "stage": "composition", "method": "human", "verification": "self_declared" }],
+      "tracks": [
+        { "title": "Small Room, Morning", "sec": 30 },
+        { "key": "letter-unsent", "title": "Letter, Unsent", "sec": 35 },
+        { "title": "Radiator Song", "sec": 27 },
+        { "title": "Small Room, Evening", "sec": 33 }
+      ]
+    },
+    {
+      "key": "moths-first",
+      "title": "Fold Here",
+      "type": "album",
+      "label": "copper",
+      "date": "1994-05-21",
+      "artists": ["moths"],
+      "format": "wav16",
+      "sound": { "root": 175, "mode": "major", "bpm": 128, "level": 0.55 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 9900,
+      "credits": [
+        { "person": "mendes", "role": "producer" },
+        { "person": "han", "role": "composer" },
+        { "person": "shin", "role": "lyricist" },
+        { "person": "aldous", "role": "performer", "instrument": "drums" }
+      ],
+      "tracks": [
+        { "key": "paper-cut", "title": "Paper Cut", "sec": 27 },
+        { "title": "Photocopy Heart", "sec": 25 },
+        { "title": "Fold Here", "sec": 31 },
+        { "title": "Staple Gun Summer", "sec": 23 },
+        { "title": "Envelope", "sec": 34 }
+      ]
+    },
+    {
+      "key": "moths-second",
+      "title": "Origami Static",
+      "type": "album",
+      "label": "copper",
+      "date": "1997-09-09",
+      "artists": ["moths"],
+      "format": "wav16",
+      "sound": { "root": 185, "mode": "minor", "bpm": 136, "level": 0.6 },
+      "rights": { "territories": ["KR"], "uses": ["stream"] },
+      "price_krw": 9900,
+      "credits": [
+        { "person": "mendes", "role": "producer" },
+        { "person": "han", "role": "composer" },
+        { "person": "hale", "role": "mixing_engineer" }
+      ],
+      "tracks": [
+        { "title": "Crane, Unfolding", "sec": 29 },
+        {
+          "key": "glass-umbrella-cover",
+          "title": "Glass Umbrella",
+          "sec": 30,
+          "credits": [{ "person": "shin", "role": "performer", "instrument": "vocals" }]
+        },
+        { "title": "Toner Low", "sec": 26 },
+        { "title": "Origami Static", "sec": 37 }
+      ]
+    },
+    {
+      "key": "grey-tides",
+      "title": "Tides We Don't Talk About",
+      "type": "album",
+      "label": "copper",
+      "date": "1999-12-01",
+      "artists": ["grey"],
+      "format": "wav24",
+      "sound": { "root": 110, "mode": "minor", "bpm": 70, "level": 0.4 },
+      "rights": { "territories": ["WORLD"], "uses": ["stream", "preview"] },
+      "credits": [
+        { "person": "mendes", "role": "producer" },
+        { "person": "nam", "role": "composer" },
+        { "person": "vance", "role": "mastering_engineer" }
+      ],
+      "tracks": [
+        { "title": "Breakwater", "sec": 45 },
+        { "key": "lighthouse-keeper", "title": "The Lighthouse Keeper's Radio", "sec": 43 },
+        { "title": "Salt in the Amplifier", "sec": 40 }
+      ]
+    },
+    {
+      "key": "grey-ep",
+      "title": "Undertow",
+      "type": "ep",
+      "label": "copper",
+      "date": "2003-07-07",
+      "artists": ["grey"],
+      "format": "wav16",
+      "sound": { "root": 123, "mode": "minor", "bpm": 76, "level": 0.42 },
+      "rights": null,
+      "credits": [{ "person": "nam", "role": "producer" }],
+      "tracks": [
+        { "title": "Undertow", "sec": 38 },
+        { "title": "Undertow (Reprise)", "sec": 24 }
+      ],
+      "note": "No rights grant: shows as not available in your region."
+    },
+    {
+      "key": "static-bloom",
+      "title": "Bloom Feedback",
+      "type": "album",
+      "label": "saltwater",
+      "date": "2004-02-29",
+      "artists": ["static"],
+      "format": "mp3",
+      "sound": { "root": 156, "mode": "major", "bpm": 104, "level": 0.7 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 7700,
+      "credits": [
+        { "person": "ferro", "role": "producer" },
+        { "person": "gwon", "role": "composer" },
+        { "person": "gwon", "role": "performer", "instrument": "guitar" }
+      ],
+      "tracks": [
+        { "key": "pink-noise", "title": "Pink Noise Valentine", "sec": 33 },
+        { "title": "Reverb Tank", "sec": 36 },
+        { "title": "Fuzz Pedal Lullaby", "sec": 31 },
+        { "title": "Bloom Feedback", "sec": 41 }
+      ]
+    },
+    {
+      "key": "static-ep",
+      "title": "Tape Hiss Sessions",
+      "type": "ep",
+      "label": "saltwater",
+      "date": "2006-08-18",
+      "artists": ["static"],
+      "format": "mp3",
+      "sound": { "root": 147, "mode": "major", "bpm": 92, "level": 0.65 },
+      "rights": { "territories": ["KR"], "uses": ["stream"] },
+      "credits": [{ "person": "ferro", "role": "producer" }],
+      "tracks": [
+        { "title": "Hiss I", "sec": 22 },
+        { "title": "Hiss II", "sec": 25 },
+        { "title": "Hiss III", "sec": 28 }
+      ]
+    },
+    {
+      "key": "ember-folk",
+      "title": "Woodsmoke Letters",
+      "type": "album",
+      "label": "saltwater",
+      "date": "2008-10-10",
+      "artists": ["ember"],
+      "format": "flac",
+      "sound": { "root": 196, "mode": "major", "bpm": 84, "level": 0.25 },
+      "rights": { "territories": ["KR", "JP"], "uses": ["stream", "preview"] },
+      "price_krw": 8800,
+      "credits": [
+        { "person": "pires", "role": "composer" },
+        { "person": "yoon", "role": "lyricist" },
+        { "person": "hale", "role": "engineer" }
+      ],
+      "claims": [{ "stage": "vocals", "method": "human", "verification": "self_declared" }],
+      "tracks": [
+        { "title": "Woodsmoke", "sec": 32 },
+        { "key": "kettle-song", "title": "Kettle Song", "sec": 29 },
+        { "title": "Two Chairs on the Porch", "sec": 35 },
+        { "title": "Letter from the Mountain", "sec": 38 },
+        { "title": "Ash", "sec": 26 }
+      ]
+    },
+    {
+      "key": "lowtide-tapes",
+      "title": "Rainy Desk Tapes",
+      "type": "album",
+      "label": "saltwater",
+      "date": "2017-04-04",
+      "artists": ["lowtide"],
+      "format": "wav16",
+      "sound": { "root": 131, "mode": "minor", "bpm": 82, "level": 0.3 },
+      "rights": { "territories": ["WORLD"], "uses": ["stream", "preview"] },
+      "price_krw": 6600,
+      "credits": [{ "person": "kang", "role": "producer" }],
+      "claims": [{ "stage": "mixing", "method": "ai_assisted", "verification": "self_declared" }],
+      "tracks": [
+        { "title": "Desk Lamp", "sec": 24 },
+        { "key": "rain-loop", "title": "Rain Loop (feat. a Kettle)", "sec": 27 },
+        { "title": "Night Bus Window", "sec": 25 },
+        { "title": "Study Break", "sec": 22 },
+        { "key": "tram-flip", "title": "Tram Flip", "sec": 26 },
+        { "title": "Eraser Crumbs", "sec": 21 }
+      ]
+    },
+    {
+      "key": "orbital-first",
+      "title": "Greenhouse Signals",
+      "type": "album",
+      "label": "orchard",
+      "date": "2012-06-06",
+      "artists": ["orbital"],
+      "format": "wav48",
+      "sound": { "root": 220, "mode": "minor", "bpm": 122, "level": 0.6 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 9900,
+      "credits": [
+        { "person": "ota", "role": "producer" },
+        { "person": "lacroix", "role": "composer" },
+        { "person": "brandt", "role": "mastering_engineer" }
+      ],
+      "tracks": [
+        { "key": "photosynth", "title": "Photosynth", "sec": 36 },
+        { "title": "Irrigation Pattern", "sec": 33 },
+        { "title": "Greenhouse Signals", "sec": 40 },
+        { "title": "Soil Data", "sec": 30 }
+      ]
+    },
+    {
+      "key": "orbital-second",
+      "title": "Night Garden Protocol",
+      "type": "album",
+      "label": "orchard",
+      "date": "2016-11-11",
+      "artists": ["orbital"],
+      "format": "wav48",
+      "sound": { "root": 233, "mode": "minor", "bpm": 126, "level": 0.62 },
+      "rights": { "territories": ["KR"], "uses": ["stream"] },
+      "price_krw": 9900,
+      "credits": [
+        { "person": "ota", "role": "producer" },
+        { "person": "lacroix", "role": "composer" }
+      ],
+      "tracks": [
+        { "title": "Moth Light", "sec": 34 },
+        { "title": "Protocol 7", "sec": 31 },
+        { "key": "night-garden", "title": "Night Garden", "sec": 39 },
+        { "title": "Dew Point", "sec": 28 }
+      ]
+    },
+    {
+      "key": "rue-ep",
+      "title": "Quai des Ondes",
+      "type": "ep",
+      "label": "orchard",
+      "date": "2019-02-14",
+      "artists": ["rue"],
+      "format": "wav48",
+      "sound": { "root": 208, "mode": "major", "bpm": 118, "level": 0.5 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "credits": [
+        { "person": "lacroix", "role": "producer" },
+        { "person": "ines", "role": "lyricist" }
+      ],
+      "tracks": [
+        { "title": "Quai des Ondes", "sec": 33 },
+        { "title": "Seine, Han", "sec": 31 },
+        { "key": "photosynth-remix", "title": "Photosynth (Rue Marin Remix)", "sec": 35 }
+      ]
+    },
+    {
+      "key": "sora-pop",
+      "title": "Satellite Summer",
+      "type": "album",
+      "label": "orchard",
+      "date": "2021-07-23",
+      "artists": ["sora"],
+      "format": "wav48",
+      "sound": { "root": 262, "mode": "major", "bpm": 124, "level": 0.78 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 11000,
+      "credits": [
+        { "person": "sato", "role": "producer" },
+        { "person": "moon", "role": "lyricist" },
+        { "person": "brandt", "role": "mastering_engineer" }
+      ],
+      "claims": [
+        { "stage": "mastering", "method": "ai_assisted", "verification": "distributor_verified" }
+      ],
+      "tracks": [
+        { "title": "Satellite Summer", "sec": 31 },
+        { "key": "orbit-crush", "title": "Orbit Crush", "sec": 29 },
+        { "title": "Sunscreen & Static", "sec": 27 },
+        { "title": "Ground Control Diary", "sec": 33 },
+        { "title": "Comet Tail", "sec": 30 }
+      ]
+    },
+    {
+      "key": "sora-single",
+      "title": "City Lights, Slowly",
+      "type": "single",
+      "label": "orchard",
+      "date": "2023-03-03",
+      "artists": ["sora"],
+      "format": "wav48",
+      "sound": { "root": 247, "mode": "major", "bpm": 110, "level": 0.8 },
+      "rights": { "territories": ["KR"], "uses": ["stream"] },
+      "credits": [{ "person": "sato", "role": "producer" }],
+      "tracks": [{ "key": "city-lights-cover", "title": "City Lights, Slowly", "sec": 34 }]
+    },
+    {
+      "key": "ghosts-comp",
+      "title": "Rewound: Cassette Ghosts Remixes",
+      "type": "compilation",
+      "label": "orchard",
+      "date": "2024-09-27",
+      "artists": ["ghosts"],
+      "format": "wav48",
+      "sound": { "root": 185, "mode": "minor", "bpm": 120, "level": 0.72 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 8800,
+      "credits": [{ "person": "ota", "role": "mixing_engineer" }],
+      "tracks": [
+        {
+          "key": "last-tram-remix",
+          "title": "Last Tram to Euljiro (Cassette Ghosts Rework)",
+          "sec": 36
+        },
+        { "key": "paper-cut-remix", "title": "Paper Cut (Ghost Mix)", "sec": 33 },
+        { "key": "kettle-remix", "title": "Kettle Song (Night Edit)", "sec": 30 },
+        { "key": "night-garden-remix", "title": "Night Garden (Rewound)", "sec": 38 }
+      ]
+    },
+    {
+      "key": "ivory-ambient",
+      "title": "Lanterns for No One",
+      "type": "album",
+      "label": "quiet",
+      "date": "2022-01-20",
+      "artists": ["ivory"],
+      "format": "flac",
+      "sound": { "root": 110, "mode": "major", "bpm": 50, "level": 0.1 },
+      "rights": { "territories": ["WORLD"], "uses": ["stream", "preview", "analysis"] },
+      "price_krw": 7700,
+      "credits": [{ "person": "brandt", "role": "producer" }],
+      "claims": [
+        { "stage": "composition", "method": "ai_assisted", "verification": "self_declared" },
+        { "stage": "mastering", "method": "ai_generated", "verification": "self_declared" }
+      ],
+      "tracks": [
+        { "title": "Lantern I", "sec": 45 },
+        { "title": "Lantern II", "sec": 44 },
+        { "title": "Lantern III", "sec": 42 },
+        { "title": "No One", "sec": 40 }
+      ]
+    },
+    {
+      "key": "blue-hour",
+      "title": "Blue Hour Collective, Vol. 1",
+      "type": "album",
+      "label": "quiet",
+      "date": "2025-05-05",
+      "artists": ["blue"],
+      "format": "wav24",
+      "sound": { "root": 165, "mode": "dorian", "bpm": 88, "level": 0.3 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 9900,
+      "credits": [
+        { "person": "brandt", "role": "producer" },
+        { "person": "ines", "role": "composer" },
+        { "person": "okafor", "role": "performer", "instrument": "double bass" },
+        { "person": "yuna", "role": "performer", "instrument": "piano" }
+      ],
+      "tracks": [
+        { "title": "Five Past Dusk", "sec": 37 },
+        { "key": "waltz-revisited", "title": "Granite Hill Waltz, Revisited", "sec": 41 },
+        { "title": "Streetlamp Choir", "sec": 34 },
+        { "title": "Blue Hour", "sec": 39 }
+      ]
+    },
+    {
+      "key": "choir-hymns",
+      "title": "Northbound Hymns",
+      "type": "album",
+      "label": "quiet",
+      "date": "2026-01-16",
+      "artists": ["choir"],
+      "format": "wav24",
+      "sound": { "root": 131, "mode": "major", "bpm": 64, "level": 0.2 },
+      "rights": { "territories": ["KR"], "uses": ["stream"] },
+      "credits": [
+        { "person": "ines", "role": "arranger" },
+        { "person": "vance", "role": "engineer" }
+      ],
+      "claims": [{ "stage": "vocals", "method": "human", "verification": "distributor_verified" }],
+      "tracks": [
+        { "title": "Northbound", "sec": 36 },
+        { "title": "Hymn for a Late Train", "sec": 40 },
+        { "title": "Snowfield", "sec": 38 }
+      ]
+    },
+    {
+      "key": "hana-return",
+      "title": "Umbrella, Again",
+      "type": "album",
+      "label": "moonlit",
+      "date": "2018-10-02",
+      "artists": ["hana"],
+      "format": "flac",
+      "sound": { "root": 220, "mode": "major", "bpm": 92, "level": 0.3 },
+      "rights": {
+        "territories": ["KR"],
+        "uses": ["stream", "preview"],
+        "until": "2025-12-31T00:00:00Z"
+      },
+      "credits": [
+        { "person": "jung", "role": "producer" },
+        { "person": "yuna", "role": "performer", "instrument": "piano" }
+      ],
+      "tracks": [
+        { "title": "Umbrella, Again", "sec": 34 },
+        { "title": "Postcard Reply", "sec": 30 },
+        { "title": "The Same Bus Stop", "sec": 32 }
+      ],
+      "note": "Its grant expired on 2025-12-31: in the catalog, no longer playable."
+    },
+    {
+      "key": "tram-best",
+      "title": "Midnight Tram: Terminal Stops 1979–1988",
+      "type": "compilation",
+      "label": "moonlit",
+      "date": "2010-06-15",
+      "artists": ["tram"],
+      "format": "wav16",
+      "sound": { "root": 208, "mode": "major", "bpm": 114, "level": 0.5 },
+      "rights": { "territories": ["KR"], "uses": ["stream", "preview"] },
+      "price_krw": 12000,
+      "credits": [{ "person": "hale", "role": "mastering_engineer" }],
+      "tracks": [
+        { "key": "last-tram-remaster", "title": "Last Tram to Euljiro (2010 Remaster)", "sec": 34 },
+        { "title": "Plastic Love Letter (2010 Remaster)", "sec": 32 },
+        { "title": "Terminal Stop", "sec": 29 }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "glass-umbrella-cover",
+      "to": "glass-umbrella",
+      "type": "covers",
+      "basis": "verified_fact",
+      "verification": "rights_reviewed",
+      "license": "licensed"
+    },
+    {
+      "from": "city-lights-cover",
+      "to": "city-lights-79",
+      "type": "covers",
+      "basis": "verified_fact",
+      "verification": "distributor_verified",
+      "license": "licensed"
+    },
+    {
+      "from": "tram-flip",
+      "to": "last-tram",
+      "type": "samples",
+      "basis": "verified_fact",
+      "verification": "rights_reviewed",
+      "license": "licensed"
+    },
+    {
+      "from": "rain-loop",
+      "to": "kettle-song",
+      "type": "samples",
+      "basis": "declared",
+      "verification": "self_declared",
+      "license": "unknown"
+    },
+    {
+      "from": "last-tram-remix",
+      "to": "last-tram",
+      "type": "remix_of",
+      "basis": "verified_fact",
+      "verification": "distributor_verified",
+      "license": "licensed"
+    },
+    {
+      "from": "paper-cut-remix",
+      "to": "paper-cut",
+      "type": "remix_of",
+      "basis": "verified_fact",
+      "verification": "distributor_verified",
+      "license": "licensed"
+    },
+    {
+      "from": "kettle-remix",
+      "to": "kettle-song",
+      "type": "remix_of",
+      "basis": "verified_fact",
+      "verification": "distributor_verified",
+      "license": "licensed"
+    },
+    {
+      "from": "night-garden-remix",
+      "to": "night-garden",
+      "type": "remix_of",
+      "basis": "verified_fact",
+      "verification": "distributor_verified",
+      "license": "licensed"
+    },
+    {
+      "from": "photosynth-remix",
+      "to": "photosynth",
+      "type": "remix_of",
+      "basis": "verified_fact",
+      "verification": "distributor_verified",
+      "license": "licensed"
+    },
+    {
+      "from": "granite-waltz-live",
+      "to": "granite-waltz",
+      "type": "covers",
+      "basis": "verified_fact",
+      "verification": "distributor_verified",
+      "license": "not_applicable"
+    },
+    {
+      "from": "waltz-revisited",
+      "to": "granite-waltz",
+      "type": "covers",
+      "basis": "declared",
+      "verification": "self_declared",
+      "license": "licensed"
+    },
+    {
+      "from": "last-tram-remaster",
+      "to": "last-tram",
+      "type": "remix_of",
+      "basis": "verified_fact",
+      "verification": "distributor_verified",
+      "license": "not_applicable"
+    },
+    {
+      "from": "orbit-crush",
+      "to": "plastic-love-letter",
+      "type": "influenced_by",
+      "basis": "ml_inferred",
+      "confidence": 0.71,
+      "verification": "self_declared"
+    },
+    {
+      "from": "pink-noise",
+      "to": "paper-cut",
+      "type": "influenced_by",
+      "basis": "ml_inferred",
+      "confidence": 0.64,
+      "verification": "self_declared"
+    },
+    {
+      "from": "lighthouse-keeper",
+      "to": "granite-waltz",
+      "type": "influenced_by",
+      "basis": "declared",
+      "verification": "self_declared",
+      "evidence": "Interview, Copper Wire Sound zine #12 (fictional)"
+    },
+    {
+      "from": "letter-unsent",
+      "to": "granite-waltz",
+      "type": "influenced_by",
+      "basis": "ml_inferred",
+      "confidence": 0.55,
+      "verification": "self_declared"
+    },
+    {
+      "from": "photosynth",
+      "to": "pink-noise",
+      "type": "influenced_by",
+      "basis": "ml_inferred",
+      "confidence": 0.48,
+      "verification": "self_declared"
+    }
+  ]
+}

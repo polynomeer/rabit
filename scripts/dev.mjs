@@ -13,7 +13,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import process from 'node:process';
-import { seedDemo } from './demo.mjs';
+import { seedDemo, seedOffers } from './demo.mjs';
 import {
   SERVER_ENV,
   WEB,
@@ -187,6 +187,10 @@ const ready = await Promise.all([
   ...(withWeb ? [waitFor(`http://localhost:${String(p.web)}/`, 90_000)] : []),
 ]);
 if (ready.every(Boolean)) {
+  if (!args.has('--no-seed'))
+    await seedOffers({ quiet: true }).catch((e) => {
+      say(yellow(`  demo offers not added: ${e.message}`));
+    });
   say(`\n${bold(green('Rabit is running'))}`);
   if (withWeb)
     say(`  web     ${bold(`http://localhost:${String(p.web)}`)}   (sign in with any ID)`);

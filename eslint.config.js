@@ -44,12 +44,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['eslint.config.js', 'apps/web/scripts/*.mjs', 'scripts/*.mjs'],
+    files: ['eslint.config.js', 'apps/web/scripts/*.mjs', 'scripts/*.mjs', 'infra/demo/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
   },
   {
     // Plain Node scripts (no type info): the web-platform globals Node provides.
-    files: ['scripts/*.mjs', 'apps/web/scripts/*.mjs'],
+    files: ['scripts/*.mjs', 'apps/web/scripts/*.mjs', 'infra/demo/*.mjs'],
     languageOptions: {
       globals: {
         fetch: 'readonly',
