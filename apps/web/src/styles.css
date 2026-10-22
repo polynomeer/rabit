@@ -416,6 +416,8 @@ ol.list {
 }
 .search-field {
   flex: 1 1 280px;
+  /* The input's intrinsic width (font-dependent) must never widen the row. */
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
