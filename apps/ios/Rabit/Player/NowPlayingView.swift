@@ -7,6 +7,7 @@ struct NowPlayingView: View {
   @State private var scrub: Double?
   @State private var addingToPlaylist = false
   @State private var credits: RecordingID?
+  @State private var showingQueue = false
 
   var body: some View {
     VStack(spacing: 0) {
@@ -96,6 +97,15 @@ struct NowPlayingView: View {
       .padding(.horizontal, 28)
       .padding(.top, 22)
       .disabled(player.current == nil)
+
+      Button {
+        showingQueue = true
+      } label: {
+        Label("재생목록", systemImage: "list.bullet")
+      }
+      .buttonStyle(.glass)
+      .padding(.top, 22)
+      .sheet(isPresented: $showingQueue) { QueueSheet() }
 
       if let message = player.message {
         Label(message, systemImage: "exclamationmark.circle")

@@ -118,9 +118,11 @@ struct AddToPlaylistSheet: View {
   }
 }
 
-/// Long-press actions for a track, album or own audio: save, add to a playlist.
+/// Long-press actions for a track, album or own audio: queue it (ADR-0026), save it, add
+/// it to a playlist.
 private struct ItemActions: ViewModifier {
   @Environment(AppModel.self) private var model
+  @Environment(PlayerController.self) private var player
   let ref: ItemRef
   let title: String
   @State private var addingToPlaylist = false
@@ -129,6 +131,19 @@ private struct ItemActions: ViewModifier {
   func body(content: Content) -> some View {
     content
       .contextMenu {
+        if let target = ref.playTarget {
+          let entry = QueueEntry(target: target, title: title, artist: "", coverId: nil)
+          Button("다음에 재생", systemImage: "text.line.first.and.arrowtriangle.forward") {
+            Task { try? await player.enqueue([entry], placement: .next) }
+          }
+          Button("재생목록에 추가", systemImage: "text.line.last.and.arrowtriangle.forward") {
+            Task { try? await player.enqueue([entry], placement: .end) }
+          }
+          if case .recording = target {
+            Button("이 곡으로 자동추천", systemImage: "dot.radiowaves.left.and.right") { player.startRadio(entry) }
+          }
+          Divider()
+        }
         Button("보관함에 저장", systemImage: "plus.circle") {
           let collection = model.collection
           Task { _ = try? await collection.save(ref) }
@@ -148,6 +163,17 @@ private struct ItemActions: ViewModifier {
 extension View {
   func itemActions(_ ref: ItemRef, title: String) -> some View {
     modifier(ItemActions(ref: ref, title: title))
+  }
+}
+
+extension ItemRef {
+  /// What plays for this item; releases open their album instead.
+  var playTarget: PlayTarget? {
+    switch type {
+    case .recording: .recording(RecordingID(id))
+    case .audioSource: .audioSource(AudioSourceID(id))
+    case .release: nil
+    }
   }
 }
 

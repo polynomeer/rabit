@@ -52,6 +52,7 @@ struct AccountView: View {
           .pickerStyle(.segmented)
           .labelsHidden()
         }
+        QueueSettingsSection(player: model.player)
         Section {
           Toggle("곡마다 다른 음량을 비슷하게 맞춰요", isOn: $normalize)
             .onChange(of: normalize) { model.player.applyNormalization() }
@@ -208,5 +209,51 @@ enum AccountText {
       "pending": "결제 대기", "paid": "결제됨", "fulfilled": "완료", "cancelled": "취소됨", "expired": "만료됨",
       "refund_pending": "환불 대기", "refunded": "환불됨",
     ][s] ?? s
+  }
+}
+
+/// How playing a track fills the account queue (ADR-0026); applies on every device.
+private struct QueueSettingsSection: View {
+  let player: PlayerController
+  @State private var failed = false
+
+  var body: some View {
+    Section {
+      Picker("곡을 재생하면", selection: setting(\.mode) { .init(mode: $0) }) {
+        Text("재생목록에 쌓기 (권장)").tag(PlayQueue.Mode.queue)
+        Text("그 곡으로 자동추천 시작").tag(PlayQueue.Mode.radio)
+      }
+      .pickerStyle(.inline)
+      Toggle("고른 곡이 끝나면 자동추천으로 이어 재생", isOn: setting(\.autoplay) { .init(autoplay: $0) })
+      Toggle("추천에 추정 관계도 포함 (AI가 추정한 영향 관계)", isOn: setting(\.includeInferred) { .init(includeInferred: $0) })
+    } header: {
+      Text("재생 방식")
+    } footer: {
+      if failed {
+        Text("바꾸지 못했어요. 연결을 확인해 주세요.").foregroundStyle(Palette.warn)
+      } else if player.settings.mode == .radio {
+        Text("다음 곡들을 그 곡에서 이어지는 추천으로 바꿔요. 들은 곡 기록은 남아요. 이 계정의 모든 기기에 적용돼요.")
+      } else {
+        Text("고른 곡이 재생목록에 차례로 쌓이고, 들은 곡은 기록으로 남아요. 이 계정의 모든 기기에 적용돼요.")
+      }
+    }
+  }
+
+  private func setting<V>(
+    _ key: KeyPath<PlayerController.Settings, V>, patch: @escaping (V) -> QueueService.SettingsPatch
+  ) -> Binding<V> {
+    Binding(
+      get: { player.settings[keyPath: key] },
+      set: { value in
+        let change = patch(value)
+        Task {
+          do {
+            try await player.updateSettings(change)
+            failed = false
+          } catch {
+            failed = true
+          }
+        }
+      })
   }
 }

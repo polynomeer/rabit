@@ -1,6 +1,8 @@
 import RabitKit
 
 /// One item in the play queue: what to ask the server for, and how to show it.
+/// Entries from the account queue (ADR-0026) carry its item id, so the same track can
+/// be in the queue twice.
 struct QueueEntry: Hashable, Identifiable {
   let target: PlayTarget
   let title: String
@@ -10,8 +12,30 @@ struct QueueEntry: Hashable, Identifiable {
   /// Blind Digging: nothing may reveal what plays (title, artist, cover, lock screen,
   /// "now playing" marks in lists) until the user decides.
   var hidden = false
+  /// The account queue item; nil for an entry not (yet) in it.
+  var itemId: String?
+  var origin: PlayQueue.Item.Origin = .user
+  /// Why autoplay suggested it.
+  var reason: PlayQueue.Reason?
+  /// False when the server says it cannot play now: next passes over it.
+  var playable = true
+  var unplayableReason: String?
 
-  var id: PlayTarget { target }
+  var id: String { itemId ?? "\(target)" }
+
+  /// An account queue item.
+  init?(queued item: PlayQueue.Item) {
+    guard let target = item.target else { return nil }
+    self.target = target
+    title = item.title ?? "제목 없음"
+    artist = item.subtitle ?? ""
+    coverId = item.kind == .track ? item.coverId : nil
+    itemId = item.itemId
+    origin = item.origin
+    reason = item.reason
+    playable = item.playable
+    unplayableReason = item.unplayableReason
+  }
 
   init(target: PlayTarget, title: String, artist: String, coverId: String?) {
     self.target = target

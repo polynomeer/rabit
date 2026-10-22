@@ -39,16 +39,17 @@ final class AppModel {
     collection = CollectionService(api: api)
     account = AccountService(api: api)
     store = StoreController(account: account)
-    player = PlayerController(playback: PlaybackService(api: api, deviceId: DeviceID.current))
+    player = PlayerController(
+      playback: PlaybackService(api: api, deviceId: DeviceID.current), queue: QueueService(api: api))
     signedIn = tokens.accessToken != nil
-    if signedIn { store.listen() }
+    if signedIn { didSignIn() }
   }
 
   func devSignIn(subject: String) async throws {
     guard config.devSignIn else { return }
     try await api.devSignIn(subject: subject)
     signedIn = true
-    store.listen()
+    didSignIn()
   }
 
   var providerSignIn: Bool { oidc != nil }
@@ -64,7 +65,12 @@ final class AppModel {
     tokens.accessToken = result.accessToken
     tokens.refreshToken = result.refreshToken
     signedIn = true
+    didSignIn()
+  }
+
+  private func didSignIn() {
     store.listen()
+    player.restore()
   }
 
   func signOut() {
