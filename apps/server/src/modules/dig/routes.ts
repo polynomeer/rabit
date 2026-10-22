@@ -30,7 +30,7 @@ import {
   type DigDeps,
 } from './service.js';
 import { labelTimeline } from './labels.js';
-import { digCrate } from './crates.js';
+import { digCrate, newReleases } from './crates.js';
 import { decideBlindItem, getBlindDig, startBlindDig } from './blind.js';
 
 const axis = z.enum(Object.keys(AXIS_GROUP) as [DigAxis, ...DigAxis[]]);
@@ -85,6 +85,15 @@ export const digRoutes =
         req.query,
       );
       return digCrate(ctx, deps, p, q);
+    });
+
+    app.get('/v1/dig/new-releases', routeLimit(600, '1 hour'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      const q = parse(
+        z.object({ size: z.coerce.number().int().min(1).max(24).default(12) }),
+        req.query,
+      );
+      return newReleases(ctx, deps, p, q);
     });
 
     app.get('/v1/dig/labels/:label_id/timeline', async (req) => {

@@ -81,14 +81,38 @@ export async function digCrate(
     if (picked.length === q.size) break;
   }
 
-  const artistRows = picked.length
+  const shelf = await releaseSummaries(
+    ctx,
+    deps,
+    picked.map((p) => p.release),
+  );
+  return {
+    items: picked.map((p) => ({
+      ...shelf(p.release),
+      playable_tracks: p.playableTracks,
+      popularity_tier: p.tier,
+    })),
+  };
+}
+
+type ReleaseRow = {
+  id: string;
+  title: string;
+  release_type: 'album' | 'single' | 'ep' | 'compilation';
+  release_date: string | null;
+  label_id: string | null;
+};
+
+/** Release, visible artists and label of each row, as crates and shelves show them. */
+async function releaseSummaries(ctx: AppContext, deps: DigDeps, releases: ReleaseRow[]) {
+  const artistRows = releases.length
     ? await ctx.db
         .selectFrom('release_artist')
         .select(['release_id', 'artist_id'])
         .where(
           'release_id',
           'in',
-          picked.map((p) => p.release.id),
+          releases.map((r) => r.id),
         )
         .orderBy('ord')
         .execute()
@@ -99,26 +123,85 @@ export async function digCrate(
   );
   const names = await entitySummaries(ctx.db, [
     ...artistRows.filter((a) => !hidden.has(a.artist_id)).map((a) => a.artist_id),
-    ...picked.map((p) => p.release.label_id).filter((x): x is string => x !== null),
+    ...releases.map((r) => r.label_id).filter((x): x is string => x !== null),
   ]);
-  const artistsOf = (releaseId: string) =>
-    artistRows
-      .filter((a) => a.release_id === releaseId && !hidden.has(a.artist_id))
+  return (r: ReleaseRow) => ({
+    release: {
+      release_id: r.id,
+      title: r.title,
+      release_type: r.release_type,
+      release_date: r.release_date,
+    },
+    artists: artistRows
+      .filter((a) => a.release_id === r.id && !hidden.has(a.artist_id))
       .map((a) => names.get(a.artist_id))
-      .filter((a): a is EntitySummary => a !== undefined);
+      .filter((a): a is EntitySummary => a !== undefined),
+    label: r.label_id ? (names.get(r.label_id) ?? null) : null,
+  });
+}
 
+/** Denials that still mean "on the catalog in your region": a plan or a purchase opens it. */
+const AVAILABLE_REASONS = new Set(['subscription_required', 'purchase_available']);
+
+/**
+ * New releases (home shelf): the newest releases with at least one track available in
+ * the caller's region, playable now or after subscribing or buying, newest first
+ * (undated last). Entities excluded by a reviewed integrity decision are omitted.
+ */
+export async function newReleases(
+  ctx: AppContext,
+  deps: DigDeps,
+  principal: Principal,
+  q: { size: number },
+) {
+  const releases = await ctx.db
+    .selectFrom('release')
+    .select(['id', 'title', 'release_type', 'release_date', 'label_id'])
+    .orderBy(sql`release_date DESC NULLS LAST`)
+    .orderBy('id', 'desc')
+    .limit(200)
+    .execute();
+  const excluded = await deps.excludedEntities(
+    ctx.db,
+    releases.map((r) => r.id),
+  );
+  const pool = releases.filter((r) => !excluded.has(r.id));
+  if (pool.length === 0) return { items: [] };
+  const tracks = await ctx.db
+    .selectFrom('release_track')
+    .select(['release_id', 'recording_id'])
+    .where(
+      'release_id',
+      'in',
+      pool.map((r) => r.id),
+    )
+    .execute();
+  const sources = await recordingSources(ctx.db, [...new Set(tracks.map((t) => t.recording_id))]);
+  const decisions = await playabilities(ctx.db, deps.catalogAccess, principal, [
+    ...sources.values(),
+  ]);
+  const picked: { release: ReleaseRow; available: number; playable: number }[] = [];
+  for (const r of pool) {
+    const own = tracks
+      .filter((t) => t.release_id === r.id)
+      .map((t) => decisions.get(sources.get(t.recording_id) ?? ''))
+      .filter((d) => d !== undefined);
+    const playable = own.filter((d) => d.playable).length;
+    const available = own.filter((d) => d.playable || AVAILABLE_REASONS.has(d.reason ?? '')).length;
+    if (available === 0) continue;
+    picked.push({ release: r, available, playable });
+    if (picked.length === q.size) break;
+  }
+  const shelf = await releaseSummaries(
+    ctx,
+    deps,
+    picked.map((p) => p.release),
+  );
   return {
     items: picked.map((p) => ({
-      release: {
-        release_id: p.release.id,
-        title: p.release.title,
-        release_type: p.release.release_type,
-        release_date: p.release.release_date,
-      },
-      artists: artistsOf(p.release.id),
-      label: p.release.label_id ? (names.get(p.release.label_id) ?? null) : null,
-      playable_tracks: p.playableTracks,
-      popularity_tier: p.tier,
+      ...shelf(p.release),
+      available_tracks: p.available,
+      playable_tracks: p.playable,
     })),
   };
 }

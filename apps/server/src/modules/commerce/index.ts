@@ -52,6 +52,7 @@ import {
   reconcile,
   requestRefund,
   submitRefund,
+  offersOnSale,
   withdrawOffer,
 } from './service.js';
 
@@ -100,6 +101,16 @@ async function routes(
       req.body,
     );
     return submitTransaction(ctx.db, store, p, body.signed_transaction, req.id);
+  });
+
+  // Home shelf: albums on sale in the caller's region.
+  app.get('/v1/offers', async (req) => {
+    const p = requirePrincipal(req.principal);
+    const { limit } = parse(
+      z.object({ limit: z.coerce.number().int().min(1).max(24).default(12) }),
+      req.query,
+    );
+    return offersOnSale(ctx.db, p.userId, limit);
   });
 
   app.get('/v1/releases/:release_id/offer', async (req) => {

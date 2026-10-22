@@ -158,10 +158,17 @@ const COVER_PALETTES: readonly (readonly [string, string, string])[] = [
   ['#2e2b27', '#d8cfc2', '#59615b'],
 ];
 
+/**
+ * FNV-1a. The previous `h * 31 + c` reduced to the sum of the characters modulo 6 and
+ * 30 (31 ≡ 1), so ids ingested together often drew the same cover side by side.
+ */
 function hash(text: string): number {
-  let h = 0;
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) | 0;
-  return Math.abs(h);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
 /**
@@ -174,7 +181,10 @@ export function Cover({ id, size, round = 12 }: { id: string; size: number; roun
     '#eb7b4c',
     '#f4f1ec',
   ];
+  // The same composition everywhere; the disc moves and grows a little per release.
   const shift = (hash(`${id}:x`) % 30) - 15;
+  const lift = (hash(`${id}:y`) % 13) - 6;
+  const radius = 26 + (hash(`${id}:r`) % 10);
   return (
     <svg
       className="cover"
@@ -185,7 +195,7 @@ export function Cover({ id, size, round = 12 }: { id: string; size: number; roun
       style={{ borderRadius: round }}
     >
       <rect width="100" height="100" fill={bg} />
-      <circle cx={61 + shift / 2} cy="43" r="31" fill={disc} />
+      <circle cx={61 + shift / 2} cy={43 + lift} r={radius} fill={disc} />
       <rect y="64" width="100" height="1.4" fill={line} />
       <rect y="70" width="100" height="0.8" fill={line} opacity="0.6" />
       <rect y="75" width="100" height="0.5" fill={line} opacity="0.35" />

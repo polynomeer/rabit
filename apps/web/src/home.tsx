@@ -4,6 +4,7 @@ import { Cover, Icon, type IconName } from './brand';
 import { EntityMark, type SessionSummary } from './dig';
 import { formatDate, t, type MessageKey } from './i18n';
 import { digSessionHref, entityHref, navigate, searchHref, tabHref, type Tab } from './route';
+import { DecadeShelf, NewReleasesShelf, OnSaleShelf } from './shelves';
 
 const AREAS: readonly { tab: Tab; icon: IconName; label: string; hint: MessageKey }[] = [
   { tab: 'Search', icon: 'search', label: 'Search', hint: 'home.area.search' },
@@ -12,7 +13,10 @@ const AREAS: readonly { tab: Tab; icon: IconName; label: string; hint: MessageKe
   { tab: 'Studio', icon: 'studio', label: 'Studio', hint: 'home.area.studio' },
 ];
 
-/** `#/home`: the start screen — search, the product areas, recent DIG sessions and saves. */
+/**
+ * `#/home`: the start screen — search, the product areas, catalog shelves (new
+ * releases, albums on sale, a crate per decade), recent DIG sessions and saves.
+ */
 export function Home() {
   const [recent, setRecent] = useState<SessionSummary[] | null>(null);
   const [saved, setSaved] = useState<LibraryItem[]>([]);
@@ -83,6 +87,9 @@ export function Home() {
           ))}
         </ul>
       </nav>
+      <NewReleasesShelf />
+      <OnSaleShelf />
+      <DecadeShelf />
       <section aria-labelledby="home-continue-h">
         <div className="section-head">
           <h3 id="home-continue-h">{t('home.continue')}</h3>

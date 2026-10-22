@@ -651,6 +651,24 @@ ul.plain {
   aspect-ratio: 1;
   margin-bottom: 6px;
 }
+/* Home shelves: one row of covers on wide screens (a scrolling row on phones, below). */
+.cover-grid.shelf {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.cover-grid li {
+  /* Long titles are cut with an ellipsis instead of widening the tile. */
+  min-width: 0;
+}
+.cover-grid strong,
+.cover-grid .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cover-grid .price {
+  color: var(--warn);
+  font-weight: 500;
+}
 @media (max-width: 899px) {
   .search-row {
     flex-wrap: nowrap;

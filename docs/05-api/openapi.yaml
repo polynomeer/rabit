@@ -600,6 +600,36 @@ paths:
         '409': { description: The Apple subscription is linked to another account, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '422': { description: 'Not verifiable, another product or not applicable', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '503': { description: In-app purchase is off, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /v1/offers:
+    get:
+      tags: [commerce]
+      operationId: listOffersOnSale
+      description: >-
+        Albums on sale in the caller's licence territory (home shelf), newest offer first, at the
+        server's price with VAT included. Only releases whose tracks the territory's grants allow
+        selling. Empty when the account has no licence country.
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 24, default: 12 } }
+      responses:
+        '200':
+          description: Offers on sale
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [offer_id, release, artists, price]
+                      properties:
+                        offer_id: { $ref: '#/components/schemas/Id' }
+                        release: { $ref: '#/components/schemas/ReleaseCard' }
+                        artists: { type: array, items: { $ref: '#/components/schemas/EntitySummary' } }
+                        price: { $ref: '#/components/schemas/Money' }
+        '400': { $ref: '#/components/responses/Error' }
   /v1/releases/{release_id}/offer:
     parameters: [ { name: release_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
     get:
@@ -688,6 +718,38 @@ paths:
         - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 24, default: 12 } }
       responses:
         '200': { description: The crate, content: { application/json: { schema: { $ref: '#/components/schemas/Crate' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+  /v1/dig/new-releases:
+    get:
+      tags: [dig]
+      operationId: digNewReleases
+      description: >-
+        New releases (home shelf): the newest releases with at least one track available in the
+        caller's region — playable now, or after subscribing or buying — newest first, undated
+        last. Entities excluded by a reviewed integrity decision are omitted. Rate limited (600
+        per hour).
+      parameters:
+        - { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 24, default: 12 } }
+      responses:
+        '200':
+          description: The shelf
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [release, artists, label, available_tracks, playable_tracks]
+                      properties:
+                        release: { $ref: '#/components/schemas/ReleaseCard' }
+                        artists: { type: array, items: { $ref: '#/components/schemas/EntitySummary' } }
+                        label: { oneOf: [ { type: 'null' }, { $ref: '#/components/schemas/EntitySummary' } ] }
+                        available_tracks: { type: integer, minimum: 1, description: "Tracks with rights in the caller's region" }
+                        playable_tracks: { type: integer, minimum: 0, description: 'Of those, playable now' }
         '400': { $ref: '#/components/responses/Error' }
   /v1/dig/labels/{label_id}/timeline:
     parameters: [ { name: label_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
@@ -2028,6 +2090,14 @@ components:
         expires_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
         failure_code: { type: [string, 'null'] }
 
+    ReleaseCard:
+      type: object
+      required: [release_id, title, release_type, release_date]
+      properties:
+        release_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        release_type: { type: string, enum: [album, single, ep, compilation] }
+        release_date: { type: [string, 'null'], format: date }
     Money:
       type: object
       required: [amount_minor, currency, tax_minor, tax_included]

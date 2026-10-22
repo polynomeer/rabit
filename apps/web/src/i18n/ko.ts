@@ -28,6 +28,16 @@ export const ko = {
   'home.area.dig': '관계를 따라 더 깊이',
   'home.area.archive': '듣고 가진 것, 기억할 것',
   'home.area.studio': '나만의 소리 올리고 녹음하기',
+  'home.new': '새로 나온 앨범',
+  'home.newEmpty':
+    '이 지역에서 들을 수 있는 앨범이 아직 없어요. 계정의 라이선스 지역을 확인해 보세요.',
+  'home.onSale': '판매 중',
+  'home.onSaleEmpty': '지금 이 지역에서 판매 중인 앨범이 없어요.',
+  'home.decades': '연대별로 둘러보기',
+  'home.decadesAll': '크레이트 열기',
+  'home.decadesEmpty':
+    '이 연대에서 지금 재생할 수 있는 앨범이 없어요. 구독하면 더 많은 앨범을 넘겨 볼 수 있어요.',
+  'home.decadeList': '{decade} 앨범',
   'home.continue': '이어서 DIG',
   'home.continueAll': '전체 기록',
   'home.saved': '최근 저장',

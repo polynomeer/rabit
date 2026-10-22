@@ -1,10 +1,13 @@
 /** Operator side: offers on sale and the order view for support and finance. */
+import { sql } from 'kysely';
 import type { Db, DbOrTx } from '../../platform/db/db.js';
 import { audit } from '../../platform/audit.js';
 import { errors } from '../../platform/errors.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
-import { offerView, orderView } from './shared.js';
+import { releaseSummaries } from '../catalog/index.js';
+import { getUser } from '../identity/index.js';
+import { offerView, orderView, releaseTracks, sellable } from './shared.js';
 
 // ---- operator ----
 
@@ -181,5 +184,42 @@ export async function opsOrder(db: DbOrTx, orderId: string) {
       debit_minor: l.debit_minor,
       credit_minor: l.credit_minor,
     })),
+  };
+}
+
+/**
+ * Albums on sale in the caller's region (home shelf), newest offer first: offers on
+ * sale there whose release still has a track the region's grants allow selling.
+ * Nothing when the account has no licence country.
+ */
+export async function offersOnSale(db: Db, userId: Principal['userId'], limit: number) {
+  const country = (await getUser(db, userId))?.license_country;
+  if (!country) return { items: [] };
+  const offers = await db
+    .selectFrom('offer')
+    .selectAll()
+    .where('status', '=', 'on_sale')
+    .where(sql<boolean>`${country} = ANY(territories)`)
+    .orderBy('created_at', 'desc')
+    .orderBy('id', 'desc')
+    .limit(limit * 3)
+    .execute();
+  const now = new Date();
+  const sold: typeof offers = [];
+  for (const o of offers) {
+    if (sold.length === limit) break;
+    if (await sellable(db, await releaseTracks(db, o.release_id), country, now)) sold.push(o);
+  }
+  const summaries = await releaseSummaries(
+    db,
+    sold.map((o) => o.release_id),
+  );
+  return {
+    items: sold.flatMap((o) => {
+      const r = summaries.get(o.release_id);
+      if (!r) return [];
+      const { price } = offerView(o);
+      return [{ offer_id: o.id, release: r.release, artists: r.artists, price }];
+    }),
   };
 }
