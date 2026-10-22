@@ -661,6 +661,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/offers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Albums on sale in the caller's licence territory (home shelf), newest offer first, at the server's price with VAT included. Only releases whose tracks the territory's grants allow selling. Empty when the account has no licence country. */
+    get: operations['listOffersOnSale'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/releases/{release_id}/offer': {
     parameters: {
       query?: never;
@@ -761,6 +778,23 @@ export interface paths {
     };
     /** @description Crate Digging, private (DIG-009): a random crate of albums released in the given years, each with at least one track the caller can play, filtered by the popularity of its most popular track. Nothing is stored. Entities excluded by a reviewed integrity decision are omitted. Rate limited (240 per hour). */
     get: operations['digCrate'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/dig/new-releases': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description New releases (home shelf): the newest releases with at least one track available in the caller's region — playable now, or after subscribing or buying — newest first, undated last. Entities excluded by a reviewed integrity decision are omitted. Rate limited (600 per hour). */
+    get: operations['digNewReleases'];
     put?: never;
     post?: never;
     delete?: never;
@@ -2096,6 +2130,14 @@ export interface components {
       download_url: string | null;
       expires_at: components['schemas']['Timestamp'] | null;
       failure_code: string | null;
+    };
+    ReleaseCard: {
+      release_id: components['schemas']['Id'];
+      title: string;
+      /** @enum {string} */
+      release_type: 'album' | 'single' | 'ep' | 'compilation';
+      /** Format: date */
+      release_date: string | null;
     };
     Money: {
       /** @description Integer minor units (KRW has none) */
@@ -3976,6 +4018,36 @@ export interface operations {
       };
     };
   };
+  listOffersOnSale: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Offers on sale */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              offer_id: components['schemas']['Id'];
+              release: components['schemas']['ReleaseCard'];
+              artists: components['schemas']['EntitySummary'][];
+              price: components['schemas']['Money'];
+            }[];
+          };
+        };
+      };
+      400: components['responses']['Error'];
+    };
+  };
   getReleaseOffer: {
     parameters: {
       query?: never;
@@ -4176,6 +4248,39 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['Crate'];
+        };
+      };
+      400: components['responses']['Error'];
+    };
+  };
+  digNewReleases: {
+    parameters: {
+      query?: {
+        size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The shelf */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              release: components['schemas']['ReleaseCard'];
+              artists: components['schemas']['EntitySummary'][];
+              label: null | components['schemas']['EntitySummary'];
+              /** @description Tracks with rights in the caller's region */
+              available_tracks: number;
+              /** @description Of those, playable now */
+              playable_tracks: number;
+            }[];
+          };
         };
       };
       400: components['responses']['Error'];

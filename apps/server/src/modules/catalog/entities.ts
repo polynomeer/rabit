@@ -68,6 +68,46 @@ export async function artistsOf(db: DbOrTx, kind: 'recording' | 'release', id: s
   return (await artistNames(db, kind, [id])).get(id) ?? [];
 }
 
+/** Release fields and artist summaries for release cards (home shelves), by release id. */
+export async function releaseSummaries(db: DbOrTx, releaseIds: string[]) {
+  const unique = [...new Set(releaseIds)];
+  if (unique.length === 0) return new Map<string, never>();
+  const [releases, artists] = await Promise.all([
+    db
+      .selectFrom('release')
+      .select(['id', 'title', 'release_type', 'release_date'])
+      .where('id', 'in', unique)
+      .execute(),
+    db
+      .selectFrom('release_artist')
+      .select(['release_id', 'artist_id'])
+      .where('release_id', 'in', unique)
+      .orderBy('ord')
+      .execute(),
+  ]);
+  const names = await entitySummaries(
+    db,
+    artists.map((a) => a.artist_id),
+  );
+  return new Map(
+    releases.map((r) => [
+      r.id,
+      {
+        release: {
+          release_id: r.id,
+          title: r.title,
+          release_type: r.release_type,
+          release_date: r.release_date,
+        },
+        artists: artists
+          .filter((a) => a.release_id === r.id)
+          .map((a) => names.get(a.artist_id))
+          .filter((a): a is EntitySummary => a !== undefined),
+      },
+    ]),
+  );
+}
+
 /** Summaries for any catalog entities, with a subtitle (artists) for recordings/releases. */
 export async function entitySummaries(
   db: DbOrTx,

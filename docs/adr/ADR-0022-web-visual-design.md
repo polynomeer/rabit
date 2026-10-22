@@ -44,5 +44,12 @@ Typeface: (a) system fonts with the wordmark as text next to an SVG symbol (chos
 - Studio shows upload steps (decorative; the status line remains the announced text) and the owner's five newest private items.
 - Ownership badges carry a per-source class (`own-<code>`); the text label stays the primary signal (NFR-A11Y-003).
 
+## Amendment 2026-10-22: catalog shelves on Home
+- Home gains three shelves between the area cards and "이어서 DIG". Each is one row of covers: six across on wide screens, one scrolling row on phones.
+  - **새로 나온 앨범**: the newest releases available in the listener's region (`GET /v1/dig/new-releases`). An album is listed even when it needs a subscription or a purchase to play.
+  - **판매 중**: albums on sale in the region, with their price (`GET /v1/offers`).
+  - **연대별로 둘러보기**: decade chips over a small crate (`GET /v1/dig/crate`). It shows playable albums only, as Crate Digging does.
+- Generated covers now hash ids with FNV-1a and vary the disc's position and size per release. The previous hash reduced to the sum of the characters, so releases ingested together often drew the same cover side by side.
+
 ## Revisit trigger
 OLED device checks change a colour; a trademark review changes the symbol; Atlas (P2) or Studio public releases (Q07) open; a native client (Q06) needs shared tokens.
