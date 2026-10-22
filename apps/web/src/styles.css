@@ -1719,6 +1719,74 @@ a.player-queue {
   line-height: 1.2;
   margin: 0 0 8px;
 }
+/* Studio: file upload and microphone recording side by side (stacked on phones). */
+.studio-create {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+.studio-create .card {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.studio-create .card h3,
+.studio-create .card p,
+.studio-create .card fieldset {
+  margin: 0;
+}
+.studio-create label:not(fieldset label) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* The recording card in the Studio colour: white text, white controls. */
+.record-card {
+  background: var(--area-studio);
+  border-color: transparent;
+  color: #ffffff;
+}
+.record-card .recorder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 96px;
+  padding: 8px 0;
+}
+.record-card button {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111111;
+  font-weight: 700;
+}
+.record-card .recorder > button {
+  min-height: 56px;
+  padding: 0 28px;
+  font-size: 1.05rem;
+}
+.record-card button:disabled {
+  background: none;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+.record-card input {
+  color: var(--fg);
+}
+.record-card .warn,
+.record-card .steps,
+.record-card .steps li.done,
+.record-card .steps li.active {
+  color: #ffffff;
+}
+.record-card .steps li.active::before {
+  background: #ffffff;
+  border-color: #ffffff;
+}
 .studio > .note {
   max-width: 680px;
   margin: 0 0 20px;

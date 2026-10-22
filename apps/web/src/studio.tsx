@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { get, type LibraryItem } from './api';
-import { Upload } from './archive';
+import { RecordAudioLog, Upload } from './archive';
 import { Mark } from './brand';
 import { formatDate, t } from './i18n';
 import { usePlayer } from './player';
@@ -41,11 +41,18 @@ export function Studio() {
       <h2 id="studio-h">Studio</h2>
       <p className="lede">{t('studio.intro')}</p>
       <p className="note">{t('studio.rightsNote')}</p>
-      <Upload
-        onDone={() => {
-          setAdded((n) => n + 1);
-        }}
-      />
+      <div className="studio-create">
+        <Upload
+          onDone={() => {
+            setAdded((n) => n + 1);
+          }}
+        />
+        <RecordAudioLog
+          onDone={() => {
+            setAdded((n) => n + 1);
+          }}
+        />
+      </div>
       <section aria-labelledby="studio-mine-h">
         <div className="section-head">
           <h3 id="studio-mine-h">{t('studio.mine')}</h3>

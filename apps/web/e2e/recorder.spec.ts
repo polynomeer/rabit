@@ -21,22 +21,21 @@ test('records an Audio Log with the microphone and keeps it private', async ({ p
   await provision(subject);
   await signIn(page, subject);
   await openTab(page, 'Studio');
-  const upload = page.getByRole('form', { name: '오디오 업로드' });
-  await upload.getByRole('radio', { name: 'Audio Log' }).check();
+  // Recording has its own card beside the file upload.
+  const rec = page.getByRole('form', { name: '마이크로 Audio Log 녹음' });
   const title = `Voice memo ${Date.now().toString(36)}`;
-  await upload.getByLabel('제목').fill(title);
+  await rec.getByLabel('제목').fill(title);
 
-  const mic = upload.getByRole('group', { name: '마이크 녹음' });
+  const mic = rec.getByRole('group', { name: '마이크 녹음' });
   await mic.getByRole('button', { name: '마이크로 녹음' }).click();
   await expect(mic.getByRole('status')).toContainText('녹음 중');
   await page.waitForTimeout(2500);
   await mic.getByRole('button', { name: '녹음 중지' }).click();
   await expect(mic.getByLabel('녹음 미리듣기')).toBeVisible();
-  // The recording replaces the file picker.
-  await expect(upload.getByLabel('오디오 파일')).toBeHidden();
 
-  await upload.getByRole('button', { name: '업로드' }).click();
-  await expect(upload.getByRole('status')).toBeHidden({ timeout: 60_000 });
+  await rec.getByRole('button', { name: 'Audio Log로 저장' }).click();
+  await expect(rec.getByRole('status')).toBeHidden({ timeout: 60_000 });
+  await expect(rec.getByRole('button', { name: '마이크로 녹음' })).toBeVisible();
   await openTab(page, 'Archive');
   const item = page.getByRole('region', { name: 'Archive' }).getByRole('listitem').filter({
     hasText: title,
@@ -55,10 +54,11 @@ test('explains a refused microphone and leaves file upload available', async ({ 
   await provision(subject);
   await signIn(page, subject);
   await openTab(page, 'Studio');
+  const rec = page.getByRole('form', { name: '마이크로 Audio Log 녹음' });
+  await rec.getByRole('button', { name: '마이크로 녹음' }).click();
+  await expect(rec.getByText(/마이크를 쓸 수 없습니다/)).toBeVisible();
+  // The file upload beside it still works.
   const upload = page.getByRole('form', { name: '오디오 업로드' });
-  await upload.getByRole('radio', { name: 'Audio Log' }).check();
-  await upload.getByRole('button', { name: '마이크로 녹음' }).click();
-  await expect(upload.getByText(/마이크를 쓸 수 없습니다/)).toBeVisible();
   await expect(upload.getByLabel('오디오 파일')).toBeVisible();
 });
 
@@ -84,10 +84,9 @@ test('says when a recording captured no audio and does not upload it', async ({ 
   await provision(subject);
   await signIn(page, subject);
   await openTab(page, 'Studio');
-  const upload = page.getByRole('form', { name: '오디오 업로드' });
-  await upload.getByRole('radio', { name: 'Audio Log' }).check();
-  await upload.getByLabel('제목').fill('Silent memo');
-  const mic = upload.getByRole('group', { name: '마이크 녹음' });
+  const rec = page.getByRole('form', { name: '마이크로 Audio Log 녹음' });
+  await rec.getByLabel('제목').fill('Silent memo');
+  const mic = rec.getByRole('group', { name: '마이크 녹음' });
   await mic.getByRole('button', { name: '마이크로 녹음' }).click();
   await expect(mic.getByRole('status')).toContainText('녹음 중');
   await page.waitForTimeout(1500);
@@ -95,9 +94,10 @@ test('says when a recording captured no audio and does not upload it', async ({ 
   await expect(mic.getByText(/녹음된 소리가 없습니다/)).toBeVisible();
   await expect(mic.getByLabel('녹음 미리듣기')).toBeHidden();
   await expect(mic.getByRole('button', { name: '마이크로 녹음' })).toBeVisible();
-  await upload.getByRole('button', { name: '업로드' }).click();
-  await expect(upload.getByText(/VALIDATION_FAILED/)).toBeHidden();
+  // Nothing was recorded, so there is nothing to save.
+  await expect(rec.getByRole('button', { name: 'Audio Log로 저장' })).toBeDisabled();
   // An empty file from the picker is refused the same way, before any upload intent.
+  const upload = page.getByRole('form', { name: '오디오 업로드' });
   await upload.getByLabel('오디오 파일').setInputFiles({
     name: 'empty.m4a',
     mimeType: 'audio/mp4',
