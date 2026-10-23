@@ -24,3 +24,12 @@ Option 2 adds three stateful systems and makes ACL pre-filtering and deletion pr
 
 ## Revisit trigger
 p95 search latency over NFR-PERF-004 at measured corpus size; traversal patterns needing deep (>3 hop) path queries; P2 semantic search (vector store decision gets its own ADR).
+
+## Amendment 2026-10-23: Korean search (CQ-SRC-1)
+- **Initial-consonant search**: `rabit_initials(text)` (SQL, used by both the indexer and the query) turns Hangul syllables into initial consonants and keeps letters and digits. A query with a lone consonant (ㄴㅈㅅ, 뉴진ㅅ) matches `search_document.initials` (trigram index) and ranks names that start with it first.
+- **Aliases**: `music_entity.aliases` holds an entity's other names (romanization, English or former names), from the catalog manifest. They are exact keys and searchable text of the entity, and searchable text of its tracks and releases.
+- **Exact matches compare composed text**. Full-text and trigram text keeps Hangul decomposed into jamo, so a syllable still being typed and a one-jamo typo match.
+- **Spacing-insensitive** substring match (푸른밤 → 푸른 밤).
+- **Word similarity** ranking, so aliases don't dilute the match on the name; a name that starts with the query ranks higher.
+- **Judged query set**: `apps/server/test/korean-search.test.ts`. Every case must put the expected result first; add a case for each real query that fails.
+- Still to measure at catalog scale (CQ-SRC-3): the unanchored `LIKE` on space-stripped text cannot use an index.

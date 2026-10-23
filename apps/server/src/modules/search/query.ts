@@ -3,7 +3,7 @@ import type { AppContext } from '../../app/context.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { primaryReleases } from '../catalog/index.js';
 import { workspaceIdsOf } from '../identity/index.js';
-import { normalize } from './indexer.js';
+import { exactKey, normalize } from './indexer.js';
 
 export type SearchScope = 'all' | 'catalog' | 'mine';
 export type SearchKind =
@@ -14,8 +14,8 @@ export type SearchKind =
  * part of the SQL WHERE clause — never only a post-filter — and private hits are
  * re-checked against the canonical `audio_source` row in the same query, so a
  * stale index entry for deleted or foreign audio cannot leak (T05).
- * Ranking: exact identity/title first, then full-text rank, then trigram
- * similarity. Popularity is not a ranking input.
+ * Ranking: exact identity/title first, then initials prefix (Korean), full-text hit,
+ * name prefix, full-text rank, word similarity. Popularity is not a ranking input.
  */
 export async function search(
   ctx: AppContext,
@@ -29,6 +29,11 @@ export async function search(
   },
 ) {
   const norm = normalize(q.q);
+  const exact = exactKey(q.q);
+  // A query with lone Hangul consonants (ㄴㅈㅅ, 뉴진ㅅ) is matched by initials.
+  const byInitials = /[\u3131-\u314e]/.test(q.q);
+  const like = (s: string) => s.replace(/[\\%_]/g, (m) => `\\${m}`);
+  const compact = like(norm.replace(/ /g, ''));
   const workspaces = q.scope === 'catalog' ? [] : await workspaceIdsOf(ctx.db, principal.userId);
   const scopeKey = {
     userId: principal.userId,
@@ -49,10 +54,10 @@ export async function search(
       'd.title',
       'd.subtitle',
       'd.visibility',
-      sql<boolean>`(${norm} = ANY(d.exact_keys) OR lower(d.title) = ${norm})`.as('exact'),
+      sql<boolean>`(${exact} = ANY(d.exact_keys) OR lower(d.title) = ${exact})`.as('exact'),
       sql<boolean>`d.tsv @@ ${tsq}`.as('text_hit'),
       sql<number>`ts_rank(d.tsv, ${tsq})`.as('rank'),
-      sql<number>`similarity(d.norm, ${norm})`.as('sim'),
+      sql<number>`word_similarity(${norm}, d.norm)`.as('sim'),
     ])
     .where((eb) => {
       const scopes = [];
@@ -72,17 +77,27 @@ export async function search(
     })
     .where((eb) =>
       eb.or([
-        sql<boolean>`${norm} = ANY(d.exact_keys)`,
+        sql<boolean>`${exact} = ANY(d.exact_keys)`,
         sql<boolean>`d.tsv @@ ${tsq}`,
         sql<boolean>`d.norm % ${norm}`,
-        sql<boolean>`d.norm LIKE ${`%${norm.replace(/[\\%_]/g, (m) => `\\${m}`)}%`}`,
+        // Close to some part of the text: a name among aliases, a typo (word similarity).
+        sql<boolean>`${norm} <% d.norm`,
+        sql<boolean>`d.norm LIKE ${`%${like(norm)}%`}`,
+        // Spacing differs often in Korean (푸른밤 for 푸른 밤).
+        sql<boolean>`replace(d.norm, ' ', '') LIKE ${`%${compact}%`}`,
+        ...(byInitials ? [sql<boolean>`d.initials LIKE '%' || rabit_initials(${q.q}) || '%'`] : []),
       ]),
     )
     .$if(q.types !== null, (qb) => qb.where('d.doc_kind', 'in', q.types ?? []))
-    .orderBy(sql`(${norm} = ANY(d.exact_keys) OR lower(d.title) = ${norm})`, 'desc')
+    .orderBy(sql`(${exact} = ANY(d.exact_keys) OR lower(d.title) = ${exact})`, 'desc')
+    .$if(byInitials, (qb) =>
+      qb.orderBy(sql`starts_with(d.initials, rabit_initials(${q.q}))`, 'desc'),
+    )
     .orderBy(sql`d.tsv @@ ${tsq}`, 'desc')
+    // What is being typed: the start of a name.
+    .orderBy(sql`starts_with(d.norm, ${norm})`, 'desc')
     .orderBy(sql`ts_rank(d.tsv, ${tsq})`, 'desc')
-    .orderBy(sql`similarity(d.norm, ${norm})`, 'desc')
+    .orderBy(sql`word_similarity(${norm}, d.norm)`, 'desc')
     .orderBy('d.id')
     .offset(offset)
     .limit(q.limit + 1)

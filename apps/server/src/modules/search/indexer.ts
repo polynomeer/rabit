@@ -2,9 +2,18 @@ import { sql } from 'kysely';
 import type { DbOrTx } from '../../platform/db/db.js';
 import { entitySummaries } from '../catalog/index.js';
 
-/** Lowercased, accent-folded text used for trigram (fuzzy) matching. */
+/**
+ * Lowercased, accent-folded text used for full-text and trigram (fuzzy) matching.
+ * Hangul is decomposed into jamo, so a syllable still being typed (뉴지 for 뉴진) and a
+ * one-jamo typo still match.
+ */
 export function normalize(s: string): string {
   return s.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+/** For exact matches against stored titles and keys, which keep Hangul composed. */
+export function exactKey(s: string): string {
+  return s.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 async function upsert(
@@ -17,9 +26,13 @@ async function upsert(
     subtitle: string | null;
     body: string;
     keys: string[];
+    /** Other names of the entity: matched like the title (CQ-SRC-1). */
+    aliases?: string[];
   },
 ): Promise<void> {
-  const text = [d.title, d.subtitle ?? '', d.body].join(' ');
+  const aliases = d.aliases ?? [];
+  const text = [d.title, d.subtitle ?? '', ...aliases, d.body].join(' ');
+  const named = [d.title, d.subtitle ?? '', ...aliases].join(' ');
   const values = {
     doc_kind: d.kind,
     owner_workspace_id: d.owner,
@@ -27,9 +40,10 @@ async function upsert(
     title: d.title,
     subtitle: d.subtitle,
     body: d.body,
-    exact_keys: d.keys.map((k) => k.toLowerCase()),
+    exact_keys: [...d.keys, ...aliases].map(exactKey),
     tsv: sql<string>`to_tsvector('simple', ${normalize(text)})`,
-    norm: normalize(`${d.title} ${d.subtitle ?? ''}`),
+    norm: normalize(named),
+    initials: sql<string>`rabit_initials(${named})`,
     updated_at: new Date(),
   };
   await db
@@ -104,14 +118,36 @@ export async function indexEntity(db: DbOrTx, entityId: string): Promise<void> {
       .executeTakeFirst();
     if (r?.upc) keys.push(r.upc);
   }
+  let aliases: string[] = [];
   if (e.entity_type === 'recording' || e.entity_type === 'release') {
     const credits = await db
       .selectFrom('credit as c')
       .innerJoin('music_entity as m', 'm.id', 'c.contributor_entity_id')
-      .select('m.display_name')
+      .select(['m.display_name', 'm.aliases'])
       .where('c.subject_entity_id', '=', entityId)
       .execute();
-    body = credits.map((c) => c.display_name).join(' ');
+    // The main artists' other names find their tracks and releases too.
+    const artists =
+      e.entity_type === 'recording'
+        ? db
+            .selectFrom('recording_artist as a')
+            .innerJoin('music_entity as m', 'm.id', 'a.artist_id')
+            .select('m.aliases')
+            .where('a.recording_id', '=', entityId)
+        : db
+            .selectFrom('release_artist as a')
+            .innerJoin('music_entity as m', 'm.id', 'a.artist_id')
+            .select('m.aliases')
+            .where('a.release_id', '=', entityId);
+    const artistAliases = (await artists.execute()).flatMap((a) => a.aliases);
+    body = [...credits.flatMap((c) => [c.display_name, ...c.aliases]), ...artistAliases].join(' ');
+  } else {
+    const m = await db
+      .selectFrom('music_entity')
+      .select('aliases')
+      .where('id', '=', entityId)
+      .executeTakeFirst();
+    aliases = m?.aliases ?? [];
   }
   await upsert(db, {
     id: entityId,
@@ -121,5 +157,6 @@ export async function indexEntity(db: DbOrTx, entityId: string): Promise<void> {
     subtitle: e.subtitle,
     body,
     keys,
+    aliases,
   });
 }

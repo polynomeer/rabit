@@ -14,6 +14,9 @@ import { ensureCatalogWorkspace } from '../identity/index.js';
 import { createGrant } from './rights.js';
 
 const key = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
+const name = z.string().min(1).max(300);
+/** Other names: a Korean name's romanization, a former name (searchable, CQ-SRC-1). */
+const aliases = z.array(name).max(20).default([]);
 const basis = z.enum(['verified_fact', 'declared', 'ml_inferred']);
 const verification = z.enum([
   'self_declared',
@@ -30,9 +33,9 @@ const verification = z.enum([
  */
 export const manifestSchema = z.strictObject({
   source: z.string().min(1).max(100),
-  artists: z.array(z.strictObject({ key, name: z.string().min(1).max(300) })).default([]),
-  people: z.array(z.strictObject({ key, name: z.string().min(1).max(300) })).default([]),
-  labels: z.array(z.strictObject({ key, name: z.string().min(1).max(300) })).default([]),
+  artists: z.array(z.strictObject({ key, name, aliases })).default([]),
+  people: z.array(z.strictObject({ key, name, aliases })).default([]),
+  labels: z.array(z.strictObject({ key, name, aliases })).default([]),
   recordings: z.array(
     z.strictObject({
       key,
@@ -171,11 +174,12 @@ async function insertEntity(
   db: DbOrTx,
   kind: Extract<IdKind, 'artist' | 'person' | 'label' | 'release' | 'recording'>,
   name: string,
+  aliases: string[] = [],
 ): Promise<string> {
   const id = newId(kind);
   await db
     .insertInto('music_entity')
-    .values({ id, entity_type: kind, display_name: name, sort_name: sortName(name) })
+    .values({ id, entity_type: kind, display_name: name, sort_name: sortName(name), aliases })
     .execute();
   return id;
 }
@@ -223,9 +227,9 @@ export async function ingestCatalog(
       if (!id) throw new Error(`manifest references unknown key: ${k}`);
       return id;
     };
-    for (const a of m.artists) ids[a.key] = await insertEntity(tx, 'artist', a.name);
-    for (const p of m.people) ids[p.key] = await insertEntity(tx, 'person', p.name);
-    for (const l of m.labels) ids[l.key] = await insertEntity(tx, 'label', l.name);
+    for (const a of m.artists) ids[a.key] = await insertEntity(tx, 'artist', a.name, a.aliases);
+    for (const p of m.people) ids[p.key] = await insertEntity(tx, 'person', p.name, p.aliases);
+    for (const l of m.labels) ids[l.key] = await insertEntity(tx, 'label', l.name, l.aliases);
 
     const workspaceId = await ensureCatalogWorkspace(tx, () => newId('workspace'));
     const sources: Record<string, string> = {};
