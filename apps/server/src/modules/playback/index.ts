@@ -23,6 +23,7 @@ export {
 } from './policy.js';
 export { computePopularity, tierFor, POPULARITY_POLICY } from './listening.js';
 export { closeUsageStatements, foldAccountUsage, USAGE_POLICY } from './usage.js';
+export { playbackValidationSection } from './validation.js';
 export type { RadioProvider } from './queue.js';
 export {
   revokeSessions,

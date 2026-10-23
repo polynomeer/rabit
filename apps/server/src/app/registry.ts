@@ -1,6 +1,7 @@
 import {
   audioModule,
   audioSupportSection,
+  audioValidationSection,
   deleteAccountAudio,
   storageUsage,
 } from '../modules/audio/index.js';
@@ -21,6 +22,7 @@ import {
   collectionExportSection,
   collectionModule,
   collectionSupportSection,
+  collectionValidationSection,
   deleteAccountCollection,
 } from '../modules/collection/index.js';
 import {
@@ -35,6 +37,7 @@ import {
   deleteAccountDig,
   digExportSection,
   digModule,
+  digValidationSection,
   radioFor,
   type DigDeps,
 } from '../modules/dig/index.js';
@@ -42,6 +45,7 @@ import {
   deleteAccountLibrary,
   libraryModule,
   librarySupportSection,
+  libraryValidationSection,
 } from '../modules/library/index.js';
 import { deleteAccountSearch, searchModule } from '../modules/search/index.js';
 import {
@@ -57,6 +61,7 @@ import {
   playabilities,
   playbackModule,
   playbackSupportSection,
+  playbackValidationSection,
   type CatalogAccess,
   type CatalogDecision,
 } from '../modules/playback/index.js';
@@ -167,6 +172,13 @@ export function allModules(): Module[] {
         librarySupportSection,
         collectionSupportSection,
         integritySupportSection,
+      ],
+      validationSections: () => [
+        audioValidationSection,
+        playbackValidationSection,
+        libraryValidationSection,
+        digValidationSection,
+        collectionValidationSection,
       ],
     }),
     digModule(digDeps),

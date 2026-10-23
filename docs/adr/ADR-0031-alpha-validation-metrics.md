@@ -39,7 +39,7 @@ The data to answer this already exists: accounts, playback sessions, uploads, Au
   - **Mixed library** (H2): the share of people who have a playlist holding both catalog recordings and their own audio. The share of people who played their own audio at least once.
   - **Digging** (H3): DIG sessions started by the cohort; the share that ended with something kept (the session saved, or a trail step saved). The share of people who dug at least once.
   - **Collection** (H5): the share of people with at least one record and with 20 or more.
-- **Small-number suppression**: any rate whose denominator is under 5 people (or 5 sessions) is returned without its numbers (`suppressed: true`). This keeps a single person from being read off a small cohort.
+- **Small-number suppression**: any rate whose denominator is under 5 people (or 5 sessions) is returned without its count and rate (`suppressed: true`); only the denominator is shown. This keeps a single person from being read off a small cohort.
 - **Access**: operators only, `GET /v1/ops/metrics/alpha`. Each view is audited (`ops.alpha_metrics_viewed`) with the cohort dates; no reason is required because nothing personal is shown.
 - **Notice**: the alpha tester notice (O-10) states this purpose before anyone outside the team is invited.
 

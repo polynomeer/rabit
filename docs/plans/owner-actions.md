@@ -22,7 +22,7 @@
 
 | # | Action | Why it blocks | Prepared |
 |---|---|---|---|
-| O-10 | Tester notice on how personal data and uploads are handled (R6) | Testers' data may only be processed with notice | [privacy](../06-security/privacy.md) lists what is stored and logged |
+| O-10 | Tester notice on how personal data and uploads are handled (R6), including product validation as a purpose (cohort aggregates only, ADR-0031) | Testers' data may only be processed with notice | [privacy](../06-security/privacy.md) lists what is stored and logged; operators read the alpha metrics at Ops → 알파 지표 |
 | O-11 | Decide whether per-workspace encryption keys are needed for the alpha ([ADR-0021](../adr/ADR-0021-workspace-key-scope.md)) | Private uploads from people outside the team | Recommendation: one key for alpha, envelope encryption before external launch |
 | O-12 | Run a manual screen-reader pass (VoiceOver/TalkBack) on the main flows | Automated checks (axe, keyboard-only) cannot judge reading order and announcements | `apps/web/e2e/a11y.spec.ts` covers the automated part |
 | O-13 | Choose the alert recipients (`alert_emails`, Q18 first version) and confirm each SNS subscription email after `tofu apply` | Alerts (R8) reach no one until a subscription is confirmed | `infra/aws/observability.tf`, `infra/observability/alerts.yml`, runbooks |

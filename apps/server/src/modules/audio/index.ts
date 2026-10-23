@@ -19,6 +19,7 @@ export {
   type SourceRow,
 } from './sources.js';
 export { storageUsage } from './uploads.js';
+export { audioValidationSection } from './validation.js';
 export { processSource, deleteSourceNow } from './jobs.js';
 export { createCatalogSource, markSourceFailed, resetSourceForRetry } from './catalog-sources.js';
 export type { RecordingExists } from './audio-logs.js';

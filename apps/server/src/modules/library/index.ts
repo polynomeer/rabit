@@ -17,6 +17,7 @@ export { createPlaylist, playlistView } from './playlists.js';
 export { addLibraryItem } from './library.js';
 export { resolveRef, type Ownership, type ResolvedRef } from './resolve.js';
 export type { ExportSection } from './export.js';
+export { libraryValidationSection } from './validation.js';
 
 export const deleteAccountLibrary: AccountDataDeleter = async (ctx, account) => {
   await ctx.db.deleteFrom('playlist').where('owner_user_id', '=', account.userId).execute();

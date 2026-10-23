@@ -5,6 +5,7 @@ import type { ExportSection } from '../library/index.js';
 import { collectionRoutes } from './routes.js';
 
 export { validGtin } from './routes.js';
+export { collectionValidationSection, COLLECTOR_THRESHOLD } from './validation.js';
 
 /** Physical items are personal data (notes, what the user owns): removed with the account. */
 export const deleteAccountCollection: AccountDataDeleter = async (ctx, account) => {
