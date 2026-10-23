@@ -53,7 +53,7 @@ function message(o: Opts = {}) {
     <MessageCreatedDateTime>2026-10-20T09:00:00Z</MessageCreatedDateTime>
   </MessageHeader>
   <PartyList>
-    <Party><PartyReference>PArtist</PartyReference><PartyName><FullName>새벽빛</FullName></PartyName></Party>
+    <Party><PartyReference>PArtist</PartyReference><PartyName><FullName>등대지기</FullName></PartyName></Party>
     <Party><PartyReference>PProducer</PartyReference><PartyName><FullName>Marguerite Okonkwo</FullName></PartyName></Party>
     <Party><PartyReference>PLabel</PartyReference><PartyName><FullName>Tidal Room Records</FullName></PartyName></Party>
   </PartyList>
@@ -61,7 +61,7 @@ function message(o: Opts = {}) {
     <SoundRecording>
       <ResourceReference>A1</ResourceReference><Type>MusicalWorkSoundRecording</Type>
       <SoundRecordingEdition><ResourceId><ISRC>${isrc1}</ISRC></ResourceId></SoundRecordingEdition>
-      <DisplayTitleText>${o.trackTitle ?? '푸른 밤'}</DisplayTitleText>
+      <DisplayTitleText>${o.trackTitle ?? '밤의 항구'}</DisplayTitleText>
       <DisplayArtist SequenceNumber="1"><ArtistPartyReference>PArtist</ArtistPartyReference><DisplayArtistRole>MainArtist</DisplayArtistRole></DisplayArtist>
       <Contributor><ContributorPartyReference>PProducer</ContributorPartyReference><Role>Producer</Role></Contributor>
       <Duration>PT3M20S</Duration><ParentalWarningType>NotExplicit</ParentalWarningType>
@@ -72,7 +72,7 @@ function message(o: Opts = {}) {
     <SoundRecording>
       <ResourceReference>A2</ResourceReference><Type>MusicalWorkSoundRecording</Type>
       <SoundRecordingEdition><ResourceId><ISRC>${isrc2}</ISRC></ResourceId></SoundRecordingEdition>
-      <DisplayTitleText>여름의 끝</DisplayTitleText>
+      <DisplayTitleText>등대 아래</DisplayTitleText>
       <DisplayArtist SequenceNumber="1"><ArtistPartyReference>PArtist</ArtistPartyReference><DisplayArtistRole>MainArtist</DisplayArtistRole></DisplayArtist>
       <Duration>PT2M10S</Duration><ParentalWarningType>NotExplicit</ParentalWarningType>
     </SoundRecording>
@@ -81,7 +81,7 @@ function message(o: Opts = {}) {
     <Release>
       <ReleaseReference>R0</ReleaseReference><ReleaseType>Album</ReleaseType>
       <ReleaseId><ICPN>${o.icpn ?? '8800000000017'}</ICPN></ReleaseId>
-      <DisplayTitleText>${o.title ?? '새벽의 노래'}</DisplayTitleText>
+      <DisplayTitleText>${o.title ?? '항구의 노래'}</DisplayTitleText>
       <DisplayArtist SequenceNumber="1"><ArtistPartyReference>PArtist</ArtistPartyReference><DisplayArtistRole>MainArtist</DisplayArtistRole></DisplayArtist>
       <ReleaseLabelReference>PLabel</ReleaseLabelReference>
       <OriginalReleaseDate>2026-03-01</OriginalReleaseDate>
@@ -103,14 +103,14 @@ describe('ERN 4.3 conversion', () => {
   it('maps parties, recordings, track order, credits and deals', () => {
     const c = ernToManifest(message(), NOW);
     const m = c.manifest;
-    expect(m.artists).toEqual([{ key: 'a-partist', name: '새벽빛' }]);
+    expect(m.artists).toEqual([{ key: 'a-partist', name: '등대지기' }]);
     expect(m.labels).toEqual([{ key: 'l-plabel', name: 'Tidal Room Records' }]);
     expect(m.recordings.map((r) => [r.key, r.title, r.isrc, r.audio ?? null])).toEqual([
-      ['r-a1', '푸른 밤', 'KRA402600001', 'resources/a1.wav'],
-      ['r-a2', '여름의 끝', 'KRA402600002', null],
+      ['r-a1', '밤의 항구', 'KRA402600001', 'resources/a1.wav'],
+      ['r-a2', '등대 아래', 'KRA402600002', null],
     ]);
     expect(m.releases?.[0]).toMatchObject({
-      title: '새벽의 노래',
+      title: '항구의 노래',
       type: 'album',
       label: 'l-plabel',
       date: '2026-03-01',
@@ -226,7 +226,7 @@ describe('ERN 4.3 conversion', () => {
         `<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol"><!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">]>`,
       )
       .replace(
-        '<DisplayTitleText>푸른 밤</DisplayTitleText>',
+        '<DisplayTitleText>밤의 항구</DisplayTitleText>',
         '<DisplayTitleText>&lol2;</DisplayTitleText>',
       );
     const c = ernToManifest(bomb, NOW);
@@ -381,7 +381,7 @@ describe('ERN 4.3 ingest, updates and takedowns', () => {
     const { base, releaseId } = await delivered();
     const renamed = await ingestErn(
       h.ctx,
-      message({ ...base, title: '새벽의 노래 (리마스터)', trackTitle: '푸른 밤 (2026)' }),
+      message({ ...base, title: '항구의 노래 (리마스터)', trackTitle: '밤의 항구 (2026)' }),
       dir,
       NOW,
     );
@@ -391,7 +391,7 @@ describe('ERN 4.3 ingest, updates and takedowns', () => {
       .select('title')
       .where('id', '=', releaseId)
       .executeTakeFirstOrThrow();
-    expect(release.title).toBe('새벽의 노래 (리마스터)');
+    expect(release.title).toBe('항구의 노래 (리마스터)');
 
     const otherTracks = message({ ...base, isrc: [base.isrc?.[0] ?? '', 'KRC402699999'] });
     await expect(ingestErn(h.ctx, otherTracks, dir, NOW)).rejects.toThrow(/track list/);
