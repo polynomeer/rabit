@@ -134,6 +134,8 @@ export const manifestSchema = z.strictObject({
           .array(z.enum(['stream', 'download', 'preview', 'transform', 'stem', 'analysis']))
           .min(1),
         contract_ref: z.string().min(1).max(200),
+        /** When the grant starts (a delivery's deal may start later); default: always. */
+        valid_from: z.iso.datetime().optional(),
         valid_to: z.iso.datetime().optional(),
       }),
     )
@@ -363,7 +365,7 @@ export async function ingestCatalog(
           rights_holder: g.rights_holder,
           territories: g.territories,
           uses: g.uses,
-          valid_from: new Date(0).toISOString(),
+          valid_from: g.valid_from ?? new Date(0).toISOString(),
           valid_to: g.valid_to,
           contract_ref: g.contract_ref,
         },

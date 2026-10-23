@@ -227,3 +227,49 @@ export async function expireGrants(db: Db): Promise<number> {
     return rows.length;
   });
 }
+
+/**
+ * A licensor changed when a grant ends (ADR-0030: a DDEX deal gained, lost or moved its
+ * end). An end at or before now expires the grant at once; either way the change is
+ * audited and announced, so playback sessions under it are revoked (ADR-0016).
+ * A grant withdrawn before it starts never applied: it is revoked, its period kept.
+ * An operator's suspension is kept.
+ */
+export async function setGrantEnd(
+  tx: DbOrTx,
+  g: GrantRow,
+  end: Date | null,
+  reason: string,
+  now = new Date(),
+): Promise<GrantRow> {
+  const live = g.status === 'active' || g.status === 'suspended';
+  const neverStarted = live && end !== null && end <= g.valid_from;
+  const expire = !neverStarted && live && end !== null && end <= now;
+  const status = neverStarted ? 'revoked' : expire ? 'expired' : g.status;
+  const updated = await tx
+    .updateTable('rights_grant')
+    .set({
+      valid_to: neverStarted ? g.valid_to : end,
+      status,
+      version: g.version + 1,
+      updated_at: new Date(),
+    })
+    .where('id', '=', g.id)
+    .returningAll()
+    .executeTakeFirstOrThrow();
+  await audit(tx, {
+    actorType: 'system',
+    actorId: null,
+    action: neverStarted
+      ? 'rights_grant.revoked'
+      : expire
+        ? 'rights_grant.expired'
+        : 'rights_grant.end_changed',
+    subjectType: 'rights_grant',
+    subjectId: g.id,
+    reason,
+    details: { from: g.valid_to?.toISOString() ?? null, to: end?.toISOString() ?? null },
+  });
+  await emitChanged(tx, updated, null);
+  return updated;
+}
