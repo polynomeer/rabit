@@ -18,6 +18,7 @@ struct RabitApp: App {
     // Pending diagnostics go out when the app leaves the screen (ADR-0027).
     .onChange(of: scenePhase) { _, phase in
       if phase == .background { model.diagnostics.flush() }
+      if phase == .active { Task { await model.refreshFeatures() } }
     }
   }
 }

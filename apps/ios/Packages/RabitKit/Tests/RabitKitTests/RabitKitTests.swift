@@ -678,4 +678,26 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   #expect(body["app_version"] as? String == "0.1.0+7")
   #expect(body["platform"] as? String == "ios")
   #expect(body["launches"] as? Int == 1)
+@Test func featureFlagsKeepTheirSnakeCaseNames() async throws {
+  let t = StubTransport([(200, #"{"features":{"client_diagnostics":false,"home_hero":true}}"#)])
+  let api = APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)
+  let flags = try await FeatureService(api: api).load()
+  #expect(flags == ["client_diagnostics": false, "home_hero": true])
+}
+
+@Test func decodesEditorialShelves() async throws {
+  let json = """
+    {"shelves":[{"shelf_id":"eds_01HZZZZZZZZZZZZZZZZZZZZZZZ","title":"이번 주의 발견","description":null,
+      "items":[{"release":{"release_id":"rel_01HZZZZZZZZZZZZZZZZZZZZZZZ","title":"Harbour Lights",
+        "release_type":"album","release_date":"2024-03-01"},
+        "artists":[{"entity_id":"art_01HZZZZZZZZZZZZZZZZZZZZZZZ","entity_type":"artist","name":"Velvet Quasar",
+          "subtitle":null,"primary_release_id":null}],
+        "label":null,"available_tracks":2,"playable_tracks":2,"note":"밤바다를 닮은 앨범"}]}]}
+    """
+  let t = StubTransport([(200, json)])
+  let api = APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)
+  let shelves = try await CatalogService(api: api).editorialShelves()
+  #expect(shelves.first?.title == "이번 주의 발견")
+  #expect(shelves.first?.items.first?.note == "밤바다를 닮은 앨범")
+  #expect(shelves.first?.items.first?.release.releaseId == ReleaseID("rel_01HZZZZZZZZZZZZZZZZZZZZZZZ"))
 }

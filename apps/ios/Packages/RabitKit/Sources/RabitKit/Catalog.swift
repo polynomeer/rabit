@@ -90,3 +90,53 @@ public struct CoverStyle: Hashable, Sendable {
     return abs(Int64(h))
   }
 }
+
+/// A curated Home shelf (ADR-0029), already filtered by the server to releases the
+/// caller's region can hear, in the editors' order.
+public struct EditorialShelf: Codable, Hashable, Sendable, Identifiable {
+  public struct Item: Codable, Hashable, Sendable {
+    public let release: CrateItem.ReleaseRef
+    public let artists: [EntitySummary]
+    public let availableTracks: Int
+    public let playableTracks: Int
+    /// The editors' line about the pick.
+    public let note: String?
+  }
+  public let shelfId: String
+  public let title: String
+  public let description: String?
+  public let items: [Item]
+  public var id: String { shelfId }
+}
+
+extension CatalogService {
+  public func editorialShelves() async throws -> [EditorialShelf] {
+    struct Live: Decodable { let shelves: [EditorialShelf] }
+    return try await api.get("/v1/editorial/shelves", as: Live.self).shelves
+  }
+}
+
+/// Feature flags the app may read (ADR-0028), evaluated for the signed-in user.
+public struct FeatureService: Sendable {
+  let api: APIClient
+
+  public init(api: APIClient) { self.api = api }
+
+  public func load() async throws -> [String: Bool] {
+    struct Flags: Decodable { let features: [String: Bool] }
+    let flags = try await api.get("/v1/features", as: Flags.self).features
+    // The snake_case key strategy also renames dictionary keys (client_diagnostics →
+    // clientDiagnostics); flag keys are lowercase snake_case, so this restores them.
+    return Dictionary(uniqueKeysWithValues: flags.map { (Self.snake($0.key), $0.value) })
+  }
+
+  static func snake(_ key: String) -> String {
+    key.reduce(into: "") { out, c in
+      if c.isUppercase {
+        out += "_" + c.lowercased()
+      } else {
+        out.append(c)
+      }
+    }
+  }
+}
