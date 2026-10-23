@@ -244,6 +244,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/client-diagnostics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description A batch of client diagnostics (ADR-0027): launches or page loads since the last batch, up to 20 errors, crashes or hangs, and web vitals. Errors are grouped by a fingerprint the server computes; messages and frames are scrubbed of emails, URL queries, ids and long numbers. Nothing links the report to the caller. Clients must keep titles and other content out of messages. */
+    post: operations['reportClientDiagnostics'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/queue': {
     parameters: {
       query?: never;
@@ -1506,6 +1523,23 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['opsRetryJob'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/ops/client-errors': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Client error groups (ADR-0027), most recently seen first. They hold no personal data. */
+    get: operations['opsListClientErrors'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3337,6 +3371,51 @@ export interface operations {
       };
       400: components['responses']['Error'];
       404: components['responses']['Error'];
+    };
+  };
+  reportClientDiagnostics: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          platform: 'web' | 'ios';
+          app_version: string;
+          /** @default 0 */
+          launches?: number;
+          errors?: {
+            /** @enum {string} */
+            kind: 'error' | 'unhandled' | 'crash' | 'hang';
+            name: string;
+            message: string;
+            frames: string[];
+            /** @default 1 */
+            count?: number;
+          }[];
+          vitals?: {
+            lcp_ms?: number;
+            inp_ms?: number;
+            cls?: number;
+          };
+        };
+      };
+    };
+    responses: {
+      /** @description Recorded */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['Error'];
+      401: components['responses']['Error'];
+      429: components['responses']['Error'];
     };
   };
   getQueue: {
@@ -5668,6 +5747,49 @@ export interface operations {
       403: components['responses']['Error'];
       404: components['responses']['Error'];
       409: components['responses']['Error'];
+    };
+  };
+  opsListClientErrors: {
+    parameters: {
+      query?: {
+        platform?: 'web' | 'ios';
+        kind?: 'error' | 'unhandled' | 'crash' | 'hang';
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Error groups */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              fingerprint: string;
+              /** @enum {string} */
+              platform: 'web' | 'ios';
+              /** @enum {string} */
+              kind: 'error' | 'unhandled' | 'crash' | 'hang';
+              name: string;
+              message: string;
+              frames: string[];
+              count: number;
+              first_app_version: string;
+              last_app_version: string;
+              /** Format: date-time */
+              first_seen_at: string;
+              /** Format: date-time */
+              last_seen_at: string;
+            }[];
+          };
+        };
+      };
+      403: components['responses']['Error'];
     };
   };
   opsListReports: {

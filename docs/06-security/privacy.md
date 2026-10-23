@@ -21,6 +21,7 @@
 | Reports | Trust | `report` | Legal | — |
 | Audit log | Accountability | `audit_log` | Legal | — |
 | Logs | Operations | log backend | 30–90 days (proposal) | — |
+| Client error groups (scrubbed message, stack frames, app version, counts) | Fixing client errors and crashes (ADR-0027) | `client_error_group` | 30 days after last seen | no user data: not linked to the account |
 | Location | — | **not collected** | — | — |
 | Transcripts / ASR | — | **not in MVP** | — | — |
 

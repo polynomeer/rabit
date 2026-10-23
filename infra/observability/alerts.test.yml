@@ -150,6 +150,47 @@ tests:
         alertname: PlaybackErrorsHigh
         exp_alerts: []
 
+  - name: client crashes and slow web pages open tickets
+    interval: 1m
+    input_series:
+      # iOS: 10 launches and 1 crash a minute (10 %); web: launches without crashes.
+      - series: 'rabit_client_launches_total{platform="ios"}'
+        values: '0+10x420'
+      - series: 'rabit_client_errors_reported_total{platform="ios",kind="crash"}'
+        values: '0+1x420'
+      - series: 'rabit_client_launches_total{platform="web"}'
+        values: '0+10x420'
+      - series: 'rabit_client_errors_reported_total{platform="web",kind="crash"}'
+        values: '0x420'
+      # Every page view's LCP in the 3 s bucket.
+      - series: 'rabit_web_vitals_lcp_seconds_bucket{le="2.5"}'
+        values: '0x420'
+      - series: 'rabit_web_vitals_lcp_seconds_bucket{le="3"}'
+        values: '0+6x420'
+      - series: 'rabit_web_vitals_lcp_seconds_bucket{le="+Inf"}'
+        values: '0+6x420'
+      - series: 'rabit_web_vitals_lcp_seconds_count'
+        values: '0+6x420'
+    alert_rule_test:
+      # 500 launches are needed first, then 30 m of `for`.
+      - eval_time: 40m
+        alertname: ClientCrashRateHigh
+        exp_alerts: []
+      - eval_time: 90m
+        alertname: ClientCrashRateHigh
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              impact: More than 0.2 % of iOS app launches end in a crash.
+              runbook: docs/09-operations/runbooks.md#client-diagnostics
+      - eval_time: 150m
+        alertname: WebLcpSlow
+        exp_alerts:
+          - exp_labels: { severity: ticket }
+            exp_annotations:
+              impact: The web app's main content takes more than 2.5 s to appear (p75 LCP).
+              runbook: docs/09-operations/runbooks.md#client-diagnostics
+
   - name: missing worker metrics page after 5 minutes
     interval: 1m
     input_series:

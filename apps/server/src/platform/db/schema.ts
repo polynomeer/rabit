@@ -217,6 +217,21 @@ export interface PlayQueueItemTable {
   played_at: Date | null;
 }
 
+/** A distinct client error (ADR-0027); no user data. */
+export interface ClientErrorGroupTable {
+  fingerprint: string;
+  platform: 'web' | 'ios';
+  kind: 'error' | 'unhandled' | 'crash' | 'hang';
+  name: string;
+  message: string;
+  frames: JSONColumnType<string[]>;
+  count: number;
+  first_app_version: string;
+  last_app_version: string;
+  first_seen_at: Generated<Date>;
+  last_seen_at: Generated<Date>;
+}
+
 export interface UsageStatementTable {
   month: ColumnType<string, string, never>;
   policy: string;
@@ -825,6 +840,7 @@ export interface Database {
   usage_statement: UsageStatementTable;
   play_queue: PlayQueueTable;
   play_queue_item: PlayQueueItemTable;
+  client_error_group: ClientErrorGroupTable;
   usage_statement_line: UsageStatementLineTable;
   usage_carryover: UsageCarryoverTable;
   app_user: AppUserTable;

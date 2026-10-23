@@ -97,6 +97,42 @@ export const metrics = {
     labelNames: ['platform', 'code'] as const,
     registers: [registry],
   }),
+  clientLaunches: new Counter({
+    name: 'rabit_client_launches_total',
+    help: 'App launches (iOS) and page loads (web) reported by signed-in clients (ADR-0027)',
+    labelNames: ['platform'] as const,
+    registers: [registry],
+  }),
+  clientErrorsReported: new Counter({
+    name: 'rabit_client_errors_reported_total',
+    help: 'Client errors, crashes and hangs reported, by kind (ADR-0027)',
+    labelNames: ['platform', 'kind'] as const,
+    registers: [registry],
+  }),
+  clientErrorGroupsDropped: new Counter({
+    name: 'rabit_client_error_groups_dropped_total',
+    help: 'New client error groups not stored because the group cap was reached',
+    labelNames: ['platform'] as const,
+    registers: [registry],
+  }),
+  webVitalsLcp: new Histogram({
+    name: 'rabit_web_vitals_lcp_seconds',
+    help: 'Largest Contentful Paint of web page views',
+    buckets: [0.5, 1, 1.5, 2, 2.5, 3, 4, 6, 10],
+    registers: [registry],
+  }),
+  webVitalsInp: new Histogram({
+    name: 'rabit_web_vitals_inp_seconds',
+    help: 'Interaction to Next Paint of web page views',
+    buckets: [0.05, 0.1, 0.2, 0.3, 0.5, 1, 2],
+    registers: [registry],
+  }),
+  webVitalsCls: new Histogram({
+    name: 'rabit_web_vitals_cls',
+    help: 'Cumulative Layout Shift of web page views',
+    buckets: [0.01, 0.05, 0.1, 0.15, 0.25, 0.5, 1],
+    registers: [registry],
+  }),
   playbackQualityReports: new Counter({
     name: 'rabit_playback_quality_reports_total',
     help: 'Playback quality reports by outcome (accepted, duplicate, implausible)',
