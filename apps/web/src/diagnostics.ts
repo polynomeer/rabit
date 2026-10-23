@@ -6,6 +6,7 @@
  */
 import { onCLS, onINP, onLCP } from 'web-vitals';
 import { API_BASE, bearerToken } from './api';
+import { featureOn } from './features';
 
 export const APP_VERSION = (import.meta.env['VITE_APP_VERSION'] as string | undefined) ?? 'dev';
 
@@ -67,6 +68,12 @@ export function reportError(error: unknown, kind: Kind = 'error'): void {
 function flush(keepalive = false): void {
   const token = bearerToken();
   if (!token) return;
+  // Kill switch (ADR-0028): while it is off, nothing is kept or sent.
+  if (!featureOn('client_diagnostics', true)) {
+    pending.clear();
+    launches = 0;
+    return;
+  }
   const errors = [...pending.values()];
   const sendVitals = !vitalsSent && Object.keys(vitals).length > 0 && keepalive;
   if (errors.length === 0 && launches === 0 && !sendVitals) return;
