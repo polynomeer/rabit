@@ -18,6 +18,8 @@ final class AppModel {
   let player: PlayerController
   let store: StoreController
   let diagnostics: Diagnostics
+  /// Feature flags for this user (ADR-0028); empty until loaded, then defaults apply.
+  private(set) var features: [String: Bool] = [:]
   private(set) var signedIn: Bool
 
   private let api: APIClient
@@ -73,12 +75,24 @@ final class AppModel {
   private func didSignIn() {
     store.listen()
     player.restore()
-    diagnostics.enabled = true
-    diagnostics.flush()
+    Task {
+      await refreshFeatures()
+      diagnostics.flush()
+    }
+  }
+
+  /// Reads the flags again (sign-in, back to the foreground). A failed read keeps the
+  /// last values; a flag never read uses its built-in default.
+  func refreshFeatures() async {
+    guard signedIn else { return }
+    if let flags = try? await FeatureService(api: api).load() { features = flags }
+    // Kill switch for client reports (ADR-0027); on unless the server says otherwise.
+    diagnostics.enabled = signedIn && (features["client_diagnostics"] ?? true)
   }
 
   func signOut() {
     diagnostics.enabled = false
+    features = [:]
     player.stop()
     store.stop()
     if let oidc, let refresh = tokens.refreshToken {

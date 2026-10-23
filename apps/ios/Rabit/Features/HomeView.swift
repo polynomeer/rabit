@@ -1,7 +1,8 @@
 import RabitKit
 import SwiftUI
 
-/// Home: what the user saved recently and the DIG sessions to continue.
+/// Home: what the user saved recently, the editors' shelves (ADR-0029) and the DIG
+/// sessions to continue.
 struct HomeView: View {
   @Environment(AppModel.self) private var model
   @Environment(PlayerController.self) private var player
@@ -9,6 +10,7 @@ struct HomeView: View {
 
   @State private var library: [RabitKit.LibraryItem]?
   @State private var digs: [DigSessionSummary] = []
+  @State private var shelves: [EditorialShelf] = []
   @State private var failed = false
 
   var body: some View {
@@ -16,6 +18,7 @@ struct HomeView: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 28) {
           recent
+          ForEach(shelves) { EditorialShelfRow(shelf: $0) }
           if !digs.isEmpty { digSection }
           if failed {
             Label("불러오지 못했어요. 아래로 당겨 다시 시도해 주세요.", systemImage: "exclamationmark.triangle")
@@ -87,8 +90,11 @@ struct HomeView: View {
     do {
       async let items = model.catalog.library(limit: 20)
       async let sessions = model.catalog.recentDigSessions(limit: 3)
+      async let editorial = model.catalog.editorialShelves()
       library = try await items
       digs = (try? await sessions) ?? []
+      // Editorial shelves are extra: Home works without them.
+      shelves = (try? await editorial) ?? []
     } catch is CancellationError {
     } catch let e as URLError where e.code == .cancelled {
     } catch {
@@ -139,5 +145,46 @@ private struct LibraryCard: View {
 
   private var coverId: String? {
     item.refType == .audioSource ? nil : (releaseId?.rawValue ?? item.refId)
+  }
+}
+
+/// One editorial shelf: a row of albums, each with the editors' note.
+private struct EditorialShelfRow: View {
+  let shelf: EditorialShelf
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(shelf.title).font(.title3.bold())
+        if let description = shelf.description {
+          Text(description).font(.footnote).foregroundStyle(Palette.muted)
+        }
+      }
+      .padding(.horizontal, 20)
+      ScrollView(.horizontal) {
+        LazyHStack(alignment: .top, spacing: 14) {
+          ForEach(shelf.items, id: \.release.releaseId) { item in
+            NavigationLink(value: item.release.releaseId) {
+              VStack(alignment: .leading, spacing: 6) {
+                CoverView(id: item.release.releaseId.rawValue, corner: 12)
+                Text(item.release.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(item.artists.map(\.name).joined(separator: ", "))
+                  .font(.footnote).foregroundStyle(Palette.muted).lineLimit(1)
+                if let note = item.note {
+                  Text(note).font(.caption).foregroundStyle(Palette.muted).lineLimit(2)
+                }
+              }
+              .frame(width: 150)
+              .foregroundStyle(Palette.text)
+              .accessibilityElement(children: .combine)
+            }
+          }
+        }
+        .scrollTargetLayout()
+        .padding(.horizontal, 20)
+      }
+      .scrollIndicators(.hidden)
+      .scrollTargetBehavior(.viewAligned)
+    }
   }
 }
