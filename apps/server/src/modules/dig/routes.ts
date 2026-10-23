@@ -4,7 +4,7 @@ import type { AppContext } from '../../app/context.js';
 import { errors } from '../../platform/errors.js';
 import { routeLimit } from '../../platform/http/app.js';
 import { withIdempotency } from '../../platform/http/idempotency.js';
-import { requirePrincipal } from '../../platform/http/principal.js';
+import { requireOperator, requirePrincipal } from '../../platform/http/principal.js';
 import {
   etag,
   idempotencyKeyFrom,
@@ -31,6 +31,7 @@ import {
 } from './service.js';
 import { labelTimeline } from './labels.js';
 import { digCrate, newReleases } from './crates.js';
+import { allShelves, deleteShelf, liveShelves, saveShelf, shelfInput } from './editorial.js';
 import { decideBlindItem, getBlindDig, startBlindDig } from './blind.js';
 
 const axis = z.enum(Object.keys(AXIS_GROUP) as [DigAxis, ...DigAxis[]]);
@@ -94,6 +95,34 @@ export const digRoutes =
         req.query,
       );
       return newReleases(ctx, deps, p, q);
+    });
+
+    // Editorial shelves (ADR-0029): live ones for listeners, all of them for operators.
+    app.get('/v1/editorial/shelves', routeLimit(600, '1 hour'), async (req) => {
+      return liveShelves(ctx, deps, requirePrincipal(req.principal));
+    });
+
+    const shelfParams = z.object({ shelf_id: idOf('editorialShelf') });
+    app.get('/v1/ops/editorial/shelves', async (req) => {
+      requireOperator(req.principal);
+      return { items: await allShelves(ctx.db) };
+    });
+    app.post('/v1/ops/editorial/shelves', async (req, reply) => {
+      const op = requireOperator(req.principal);
+      const shelf = await saveShelf(ctx.db, op, null, parse(shelfInput, req.body), req.id);
+      return reply.status(201).send(shelf);
+    });
+    app.put('/v1/ops/editorial/shelves/:shelf_id', async (req) => {
+      const op = requireOperator(req.principal);
+      const { shelf_id } = parse(shelfParams, req.params);
+      return saveShelf(ctx.db, op, shelf_id, parse(shelfInput, req.body), req.id);
+    });
+    app.delete('/v1/ops/editorial/shelves/:shelf_id', async (req, reply) => {
+      const op = requireOperator(req.principal);
+      const { shelf_id } = parse(shelfParams, req.params);
+      const { reason } = parse(z.object({ reason: z.string().min(3).max(500) }), req.query);
+      await deleteShelf(ctx.db, op, shelf_id, reason, req.id);
+      return reply.status(204).send();
     });
 
     app.get('/v1/dig/labels/:label_id/timeline', async (req) => {

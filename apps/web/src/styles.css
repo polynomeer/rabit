@@ -2585,3 +2585,11 @@ form.inline input:not([type='checkbox']):not([type='radio']) {
   display: block;
   margin: 8px 0;
 }
+
+/* An editor's line on an editorial shelf pick (ADR-0029). */
+.cover-grid .shelf-note {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

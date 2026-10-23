@@ -41,6 +41,7 @@
 | [0026](ADR-0026-play-queue-and-autoplay.md) | Play queue with history, saved playlists and track-based autoplay | Accepted (queue, autoplay sources) / Proposed (default mode: 재생목록 + autoplay on) | PLY-001, DSC-003–006 |
 | [0027](ADR-0027-client-diagnostics.md) | Client diagnostics (errors, crashes, hangs, web vitals) | Accepted (self-hosted) / Proposed (vendor later) | CQ-IOS-4, CQ-WEB-1 |
 | [0028](ADR-0028-feature-flags.md) | Feature flags with gradual rollout and kill switches | Accepted | CQ-ANA-2, R12 |
+| [0029](ADR-0029-editorial-shelves.md) | Editorial shelves on Home | Accepted | CQ-CAT-8, DSC-005 |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 

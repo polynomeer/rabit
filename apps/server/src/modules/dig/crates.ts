@@ -161,12 +161,27 @@ export async function newReleases(
     .orderBy('id', 'desc')
     .limit(200)
     .execute();
+  return { items: await availableReleases(ctx, deps, principal, releases, q.size) };
+}
+
+/**
+ * Release cards for `releases`, in their order, keeping only those with at least one
+ * track available in the caller's region (playable now, or after subscribing or
+ * buying) and none excluded by a reviewed integrity decision.
+ */
+export async function availableReleases(
+  ctx: AppContext,
+  deps: DigDeps,
+  principal: Principal,
+  releases: ReleaseRow[],
+  size: number,
+) {
   const excluded = await deps.excludedEntities(
     ctx.db,
     releases.map((r) => r.id),
   );
   const pool = releases.filter((r) => !excluded.has(r.id));
-  if (pool.length === 0) return { items: [] };
+  if (pool.length === 0) return [];
   const tracks = await ctx.db
     .selectFrom('release_track')
     .select(['release_id', 'recording_id'])
@@ -190,18 +205,16 @@ export async function newReleases(
     const available = own.filter((d) => d.playable || AVAILABLE_REASONS.has(d.reason ?? '')).length;
     if (available === 0) continue;
     picked.push({ release: r, available, playable });
-    if (picked.length === q.size) break;
+    if (picked.length === size) break;
   }
   const shelf = await releaseSummaries(
     ctx,
     deps,
     picked.map((p) => p.release),
   );
-  return {
-    items: picked.map((p) => ({
-      ...shelf(p.release),
-      available_tracks: p.available,
-      playable_tracks: p.playable,
-    })),
-  };
+  return picked.map((p) => ({
+    ...shelf(p.release),
+    available_tracks: p.available,
+    playable_tracks: p.playable,
+  }));
 }

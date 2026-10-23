@@ -4,7 +4,7 @@ import { Cover, Icon, type IconName } from './brand';
 import { EntityMark, type SessionSummary } from './dig';
 import { formatDate, t, type MessageKey } from './i18n';
 import { digSessionHref, entityHref, navigate, searchHref, tabHref, type Tab } from './route';
-import { DecadeShelf, NewReleasesShelf, OnSaleShelf } from './shelves';
+import { DecadeShelf, EditorialShelves, NewReleasesShelf, OnSaleShelf } from './shelves';
 
 const AREAS: readonly { tab: Tab; icon: IconName; label: string; hint: MessageKey }[] = [
   { tab: 'Search', icon: 'search', label: 'Search', hint: 'home.area.search' },
@@ -87,6 +87,7 @@ export function Home() {
           ))}
         </ul>
       </nav>
+      <EditorialShelves />
       <NewReleasesShelf />
       <OnSaleShelf />
       <DecadeShelf />
