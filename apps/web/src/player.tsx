@@ -307,8 +307,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
             xhr.open('GET', withToken(url, token.current), true);
           },
         });
+        // A dropped connection or a decoder hiccup is retried before playback gives up:
+        // the network twice (1 s, then 2 s), the media pipeline once.
+        let networkRetries = 0;
+        let mediaRetries = 0;
         h.on(HlsLib.Events.ERROR, (_event, d) => {
           if (!d.fatal) return;
+          if (d.type === HlsLib.ErrorTypes.NETWORK_ERROR && networkRetries < 2) {
+            networkRetries += 1;
+            setTimeout(() => {
+              if (hls.current === h) h.startLoad();
+            }, 1000 * networkRetries);
+            return;
+          }
+          if (d.type === HlsLib.ErrorTypes.MEDIA_ERROR && mediaRetries < 1) {
+            mediaRetries += 1;
+            h.recoverMediaError();
+            return;
+          }
+          setMessage(t('player.stopped', { reason: t('player.error') }));
           qoe.current?.failed(
             d.type === HlsLib.ErrorTypes.NETWORK_ERROR
               ? 'network'
@@ -514,6 +531,75 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (el && el.currentTime > 3) el.currentTime = 0;
     else if (index > 0) jump(index - 1);
   };
+  // Lock screen, media keys and headset buttons (Media Session API). The handlers call
+  // the latest controls; a Blind Digging track shows nothing that names it (DIG-010).
+  const controls = useRef({ toggle, next: playNext, previous });
+  controls.current = { toggle, next: playNext, previous };
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+      [
+        'play',
+        () => {
+          controls.current.toggle();
+        },
+      ],
+      [
+        'pause',
+        () => {
+          controls.current.toggle();
+        },
+      ],
+      [
+        'nexttrack',
+        () => {
+          controls.current.next();
+        },
+      ],
+      [
+        'previoustrack',
+        () => {
+          controls.current.previous();
+        },
+      ],
+      [
+        'seekto',
+        (d) => {
+          if (audio.current && d.seekTime !== undefined) audio.current.currentTime = d.seekTime;
+        },
+      ],
+    ];
+    for (const [action, handler] of handlers) {
+      try {
+        ms.setActionHandler(action, handler);
+      } catch {
+        // An action this browser does not support.
+      }
+    }
+    return () => {
+      for (const [action] of handlers) {
+        try {
+          ms.setActionHandler(action, null);
+        } catch {
+          // As above.
+        }
+      }
+    };
+  }, []);
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    ms.metadata = current
+      ? new MediaMetadata(
+          current.hidden
+            ? { title: t('player.hiddenTrack') }
+            : { title: current.title, artist: current.subtitle ?? '', album: 'Rabit' },
+        )
+      : null;
+    ms.playbackState = current ? (playing ? 'playing' : 'paused') : 'none';
+  }, [current, playing]);
+
   const playNow = async (entries: QueueEntry[], at: number) => {
     if (entries.some((e) => e.hidden)) {
       local.current = true;

@@ -609,6 +609,7 @@ export const ko = {
   'player.cannotPlay': '재생할 수 없습니다: {reason}',
   'player.stopped': '재생이 중단되었습니다: {reason}',
   'player.error': '오류',
+  'player.hiddenTrack': '블라인드 곡',
   'player.region': '플레이어',
   'player.quality': '{codec} {kbps}kbps',
   'player.quality.lossless': 'lossless',
