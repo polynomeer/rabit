@@ -20,6 +20,8 @@ export {
 export { activeGrant, activeGrants, createGrant } from './rights.js';
 export { detachCatalogSource } from './entities.js';
 export { ingestCatalog, manifestSchema, type CatalogManifest } from './ingest.js';
+export { deliveryPath, ernToManifest, ErnError, type ErnConversion } from './ddex.js';
+export { ingestErn } from './ddex-ingest.js';
 export type { CatalogPlayability, Playability } from './routes.js';
 
 export function catalogModule(deps: { playability: CatalogPlayability }): Module {
