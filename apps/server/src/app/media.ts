@@ -1,11 +1,12 @@
 import { timingSafeEqual } from 'node:crypto';
 import cors from '@fastify/cors';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { MediaTokenCodec } from '../platform/media-token.js';
+import { ArtworkTokenCodec, MediaTokenCodec } from '../platform/media-token.js';
 import { createHttpApp } from '../platform/http/app.js';
 import { metrics } from '../platform/metrics.js';
 import { BUCKETS } from '../platform/storage/blob-store.js';
 import { HLS_FILE } from '../modules/audio/index.js';
+import { artworkObject } from '../modules/catalog/index.js';
 import { mediaAccessAllowed } from '../modules/playback/index.js';
 import { readinessChecks, type AppContext } from './context.js';
 
@@ -62,6 +63,32 @@ export async function buildMediaApp(ctx: AppContext): Promise<FastifyInstance> {
   };
   app.get('/media/v1/:token/:file', serve);
   app.get('/media/v1/:token/:rendition/:file', serve);
+
+  // Release covers (ADR-0031): signed per release and version, so a version can be
+  // cached anywhere for good; only the current version of a ready cover is served.
+  const artwork = new ArtworkTokenCodec(ctx.config.secrets.mediaToken);
+  app.get('/artwork/v1/:token/:file', async (req, reply) => {
+    const p = req.params as { token: string; file: string };
+    const deny = (status: number, outcome: string) => {
+      metrics.mediaRequests.inc({ kind: 'artwork', outcome });
+      return reply.status(status).header('cache-control', 'no-store').send();
+    };
+    const size = /^(300|600|1200)\.jpg$/.exec(p.file)?.[1];
+    if (!size) return deny(404, 'bad_path');
+    const claims = artwork.verify(p.token);
+    if (!claims) return deny(403, 'bad_token');
+    const where = await artworkObject(ctx.db, claims.releaseId, claims.version, Number(size));
+    if (!where) return deny(404, 'not_current');
+    const obj = await ctx.blobs.getStream(where.bucket, where.key);
+    if (!obj) return deny(404, 'missing');
+    metrics.mediaRequests.inc({ kind: 'artwork', outcome: 'ok' });
+    return reply
+      .status(200)
+      .header('content-type', 'image/jpeg')
+      .header('content-length', String(obj.bytes))
+      .header('cache-control', 'public, max-age=31536000, immutable')
+      .send(obj.body);
+  });
 
   // Catalog segments the CDN requests after checking the token at the edge
   // (infra/aws/functions/media-edge.js). Shared by every session, so cacheable;

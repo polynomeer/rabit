@@ -1704,6 +1704,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/artwork/v1/{token}/{file}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description A release cover (ADR-0031), from the URLs in a release's `artwork`. The token signs the release and the cover version and does not expire, so responses are cached for good; only the current version of a ready cover is served. */
+    get: operations['getArtwork'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/media/v1/{token}/{file}': {
     parameters: {
       query?: never;
@@ -2244,6 +2261,7 @@ export interface components {
       label: components['schemas']['ArtistRef'] | null;
       /** Format: date */
       release_date: string | null;
+      artwork?: components['schemas']['ReleaseArtwork'] | null;
       tracks: {
         disc_no: number;
         position: number;
@@ -2532,6 +2550,16 @@ export interface components {
       release_type: 'album' | 'single' | 'ep' | 'compilation';
       /** Format: date */
       release_date: string | null;
+      artwork?: components['schemas']['ReleaseArtwork'] | null;
+    };
+    /** @description Signed URLs of the release cover by edge in pixels (ADR-0031); null while there is no processed cover, in which case clients draw their stand-in. */
+    ReleaseArtwork: {
+      /** Format: uri */
+      300: string;
+      /** Format: uri */
+      600: string;
+      /** Format: uri */
+      1200: string;
     };
     Money: {
       /** @description Integer minor units (KRW has none) */
@@ -6277,6 +6305,41 @@ export interface operations {
       };
       403: components['responses']['Error'];
       404: components['responses']['Error'];
+    };
+  };
+  getArtwork: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+        file: '300.jpg' | '600.jpg' | '1200.jpg';
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The cover */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Token invalid */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown size */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   getMedia: {

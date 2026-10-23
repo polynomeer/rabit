@@ -1671,6 +1671,23 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
 
+  /artwork/v1/{token}/{file}:
+    get:
+      tags: [media]
+      operationId: getArtwork
+      security: []
+      description: >-
+        A release cover (ADR-0031), from the URLs in a release's `artwork`. The token signs the
+        release and the cover version and does not expire, so responses are cached for good; only
+        the current version of a ready cover is served.
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: file, in: path, required: true, schema: { type: string, enum: ['300.jpg', '600.jpg', '1200.jpg'] } }
+      responses:
+        '200': { description: The cover, square JPEG of that edge in pixels (or smaller, never upscaled) }
+        '403': { description: Token invalid }
+        '404': { description: Unknown size, or not the current cover }
+
   /media/v1/{token}/{file}:
     get:
       tags: [media]
@@ -2243,6 +2260,7 @@ components:
         artists: { type: array, items: { $ref: '#/components/schemas/ArtistRef' } }
         label: { oneOf: [ { $ref: '#/components/schemas/ArtistRef' }, { type: 'null' } ] }
         release_date: { type: [string, 'null'], format: date }
+        artwork: { oneOf: [ { $ref: '#/components/schemas/ReleaseArtwork' }, { type: 'null' } ] }
         tracks:
           type: array
           items:
@@ -2553,6 +2571,18 @@ components:
         title: { type: string }
         release_type: { type: string, enum: [album, single, ep, compilation] }
         release_date: { type: [string, 'null'], format: date }
+        artwork: { oneOf: [ { $ref: '#/components/schemas/ReleaseArtwork' }, { type: 'null' } ] }
+    ReleaseArtwork:
+      type: object
+      description: >-
+        Signed URLs of the release cover by edge in pixels (ADR-0031); null while there is no
+        processed cover, in which case clients draw their stand-in.
+      additionalProperties: false
+      required: ['300', '600', '1200']
+      properties:
+        '300': { type: string, format: uri }
+        '600': { type: string, format: uri }
+        '1200': { type: string, format: uri }
     Money:
       type: object
       required: [amount_minor, currency, tax_minor, tax_included]
