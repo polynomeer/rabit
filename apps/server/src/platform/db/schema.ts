@@ -307,6 +307,8 @@ export interface MusicEntityTable {
   entity_type: EntityType;
   display_name: string;
   sort_name: string;
+  /** Other names (a romanization, a former name): searchable like the name. */
+  aliases: Generated<string[]>;
   search_tsv: ColumnType<string, never, never>;
   created_at: CreatedAt;
   updated_at: UpdatedAt;
@@ -559,6 +561,8 @@ export interface SearchDocumentTable {
   exact_keys: string[];
   tsv: ColumnType<string, string, string>;
   norm: string;
+  /** Initial consonants of Hangul plus letters and digits (`rabit_initials`). */
+  initials: ColumnType<string, string, string>;
   updated_at: UpdatedAt;
 }
 
