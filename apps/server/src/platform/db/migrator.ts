@@ -25,6 +25,7 @@ import * as m0022 from './migrations/0022_client_diagnostics.js';
 import * as m0023 from './migrations/0023_korean_search.js';
 import * as m0024 from './migrations/0024_feature_flags.js';
 import * as m0025 from './migrations/0025_editorial_shelves.js';
+import * as m0026 from './migrations/0026_release_artwork.js';
 
 // Migrations operate on the raw schema, independent of the current table types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,6 +61,7 @@ export const migrations: Record<string, Migration> = {
   '0023_korean_search': m0023,
   '0024_feature_flags': m0024,
   '0025_editorial_shelves': m0025,
+  '0026_release_artwork': m0026,
 };
 
 export function createMigrator(db: AnyDb): Migrator {

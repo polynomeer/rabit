@@ -226,6 +226,18 @@ export interface FeatureFlagTable {
   updated_at: Generated<Date>;
 }
 
+/** A release's cover (ADR-0031): original, processing state, current version. */
+export interface ReleaseArtworkTable {
+  release_id: string;
+  original_key: string;
+  version: Generated<number>;
+  status: 'processing' | 'ready' | 'failed';
+  width: number | null;
+  height: number | null;
+  failure: string | null;
+  updated_at: UpdatedAt;
+}
+
 /** An operator-curated Home shelf (ADR-0029). */
 export interface EditorialShelfTable {
   id: string;
@@ -879,6 +891,7 @@ export interface Database {
   client_error_group: ClientErrorGroupTable;
   feature_flag: FeatureFlagTable;
   editorial_shelf: EditorialShelfTable;
+  release_artwork: ReleaseArtworkTable;
   editorial_shelf_item: EditorialShelfItemTable;
   usage_statement_line: UsageStatementLineTable;
   usage_carryover: UsageCarryoverTable;

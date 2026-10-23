@@ -32,6 +32,7 @@ interface Opts {
   sender?: string;
   title?: string;
   trackTitle?: string;
+  coverUri?: string;
 }
 
 function message(o: Opts = {}) {
@@ -75,7 +76,13 @@ function message(o: Opts = {}) {
       <DisplayTitleText>등대 아래</DisplayTitleText>
       <DisplayArtist SequenceNumber="1"><ArtistPartyReference>PArtist</ArtistPartyReference><DisplayArtistRole>MainArtist</DisplayArtistRole></DisplayArtist>
       <Duration>PT2M10S</Duration><ParentalWarningType>NotExplicit</ParentalWarningType>
-    </SoundRecording>
+    </SoundRecording>${
+      o.coverUri
+        ? `<Image><ResourceReference>A9</ResourceReference><Type>FrontCoverImage</Type>
+             <TechnicalDetails><TechnicalResourceDetailsReference>T9</TechnicalResourceDetailsReference>
+             <File><URI>${o.coverUri}</URI></File></TechnicalDetails></Image>`
+        : ''
+    }
   </ResourceList>
   <ReleaseList>
     <Release>
@@ -174,6 +181,14 @@ describe('ERN 4.3 conversion', () => {
       expect.stringContaining('deal 3: ended 2025-12-31'),
       expect.stringContaining('deal 4: no streaming or download use'),
     ]);
+  });
+
+  it('takes the front cover image as the release cover, inside the delivery', () => {
+    const c = ernToManifest(message({ coverUri: 'resources/./cover.jpg' }), NOW);
+    expect(c.manifest.releases?.[0]?.cover).toBe('resources/cover.jpg');
+    expect(() => ernToManifest(message({ coverUri: '../cover.jpg' }), NOW)).toThrow(
+      /leaves the delivery/,
+    );
   });
 
   it('merges per-country deals with the same terms into one grant per track', () => {

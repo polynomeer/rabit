@@ -305,6 +305,13 @@ function convert(msg: Node, now: Date): ErnConversion {
   for (const g of arr(release['ResourceGroup'])) walk(g);
   if (tracks.length === 0) throw new ErnError('The Release lists none of the SoundRecordings.');
 
+  // The front cover: an Image resource of that type, with its file in the delivery.
+  const coverImage = arr(resources['Image']).find((im) => text(im['Type']) === 'FrontCoverImage');
+  const coverUri = coverImage
+    ? text(node(node(coverImage['TechnicalDetails'])['File'])['URI'])
+    : undefined;
+  const cover = coverUri ? deliveryPath(coverUri) : undefined;
+
   const icpn = text(node(release['ReleaseId'])['ICPN']);
   const validIcpn = icpn && /^\d{12,14}$/.test(icpn) ? icpn : null;
   const labelRef = text(release['ReleaseLabelReference']);
@@ -415,6 +422,7 @@ function convert(msg: Node, now: Date): ErnConversion {
           ...(label ? { label } : {}),
           ...(date ? { date } : {}),
           ...(validIcpn ? { upc: validIcpn } : {}),
+          ...(cover ? { cover } : {}),
           artists: releaseArtists,
           tracks,
         },

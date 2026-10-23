@@ -29,6 +29,7 @@ export {
   type ErnPurge,
 } from './ddex.js';
 export { ingestErn } from './ddex-ingest.js';
+export { artworkObject, artworkUrls, ARTWORK_SIZES } from './artwork.js';
 export type { CatalogPlayability, Playability } from './routes.js';
 
 export function catalogModule(deps: { playability: CatalogPlayability }): Module {

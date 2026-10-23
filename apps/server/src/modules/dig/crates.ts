@@ -2,7 +2,12 @@ import { sql } from 'kysely';
 import type { AppContext } from '../../app/context.js';
 import type { PopularityTier } from '../../platform/db/schema.js';
 import type { Principal } from '../../platform/http/principal.js';
-import { entitySummaries, recordingSources, type EntitySummary } from '../catalog/index.js';
+import {
+  artworkUrls,
+  entitySummaries,
+  recordingSources,
+  type EntitySummary,
+} from '../catalog/index.js';
 import { playabilities } from '../playback/index.js';
 import { popularityOf, POPULARITY_CEILING, type PopularityFilter } from './connections.js';
 import type { DigDeps } from './service.js';
@@ -125,12 +130,17 @@ async function releaseSummaries(ctx: AppContext, deps: DigDeps, releases: Releas
     ...artistRows.filter((a) => !hidden.has(a.artist_id)).map((a) => a.artist_id),
     ...releases.map((r) => r.label_id).filter((x): x is string => x !== null),
   ]);
+  const covers = await artworkUrls(
+    ctx,
+    releases.map((r) => r.id),
+  );
   return (r: ReleaseRow) => ({
     release: {
       release_id: r.id,
       title: r.title,
       release_type: r.release_type,
       release_date: r.release_date,
+      artwork: covers.get(r.id) ?? null,
     },
     artists: artistRows
       .filter((a) => a.release_id === r.id && !hidden.has(a.artist_id))

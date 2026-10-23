@@ -203,6 +203,18 @@ resource "aws_cloudfront_distribution" "media" {
     }
   }
 
+  # Release covers (ADR-0031): signed, versioned URLs whose content never changes, so the
+  # CDN keeps them; the media role checks the token and the current version on a miss.
+  ordered_cache_behavior {
+    path_pattern           = "/artwork/v1/*"
+    target_origin_id       = "media"
+    viewer_protocol_policy = "https-only"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    cache_policy_id        = data.aws_cloudfront_cache_policy.optimized.id
+    compress               = false
+  }
+
   default_cache_behavior {
     target_origin_id         = "media"
     viewer_protocol_policy   = "https-only"
