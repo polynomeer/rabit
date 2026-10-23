@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
  *   #/home  #/studio  #/archive  #/playlists  #/search  #/search/<query>  #/account
  *   #/dig  #/dig/<entity id> (starts a session)  #/dig-session/<session id>
  *   #/recording/<id>  #/release/<id>  #/entity/<id>  #/now (Now Playing)
- *   #/ops/<users|reports|jobs|rights|sales> (operators)
+ *   #/ops/<users|reports|jobs|rights|sales|editorial|metrics> (operators)
  */
 export const TABS = ['Home', 'Search', 'DIG', 'Archive', 'Studio', 'Playlists', 'Account'] as const;
 export type Tab = (typeof TABS)[number];
@@ -28,7 +28,15 @@ export type Route =
   | { kind: 'ops'; section: OpsSection }
   | { kind: 'now' };
 
-export const OPS_SECTIONS = ['users', 'reports', 'jobs', 'rights', 'sales', 'editorial'] as const;
+export const OPS_SECTIONS = [
+  'users',
+  'reports',
+  'jobs',
+  'rights',
+  'sales',
+  'editorial',
+  'metrics',
+] as const;
 export type OpsSection = (typeof OPS_SECTIONS)[number];
 
 const ID = /^[a-z]{3}_[0-9A-HJKMNP-TV-Z]{26}$/;

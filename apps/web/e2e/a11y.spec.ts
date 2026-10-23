@@ -114,6 +114,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await expect(page.getByRole('heading', { level: 2, name: '운영' })).toBeVisible();
       found.push(...(await scan(page, `ops-${section}`)));
     }
+    await page.goto('/#/ops/metrics');
+    await expect(page.getByRole('table', { name: '게이트 C 지표' })).toBeVisible();
+    found.push(...(await scan(page, 'ops-metrics')));
 
     // Findings also land in a file, for CI artifacts and for reports on other rule sets.
     writeFileSync(
