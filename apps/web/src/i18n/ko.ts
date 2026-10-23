@@ -119,6 +119,9 @@ export const ko = {
   'error.signInFailed': 'Sign-in failed',
   'error.requestFailed': 'Request failed ({status})',
   'error.withCode': '{message} ({code})',
+  'error.screen.title': '이 화면을 보여 주지 못했어요',
+  'error.screen.body': '문제를 기록했어요. 다시 불러오거나 다른 화면으로 이동해 주세요.',
+  'error.screen.reload': '다시 불러오기',
 
   // ——— Playability reasons (server codes) ———
   'reason.not_ready': '처리 중',

@@ -58,6 +58,11 @@ export function hasToken(): boolean {
   return token !== null;
 }
 
+/** The access token, for requests that cannot go through `api` (a keepalive report). */
+export function bearerToken(): string | null {
+  return token;
+}
+
 // T is the caller's expected response shape (validated server-side by the contract).
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 export async function api<T>(

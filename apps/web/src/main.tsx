@@ -1,4 +1,4 @@
-import { lazy, StrictMode, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Component, lazy, StrictMode, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SIGNED_OUT, devSignIn, get, hasToken } from './api';
 import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from './auth';
@@ -22,6 +22,7 @@ import { NowPlaying } from './nowplaying';
 import { Studio } from './studio';
 import { t } from './i18n';
 import { Account, Playlists, Search } from './views';
+import { reportError, startDiagnostics } from './diagnostics';
 import { applyTheme, storedTheme } from './theme';
 // UI typeface (OQ-BRD-01, decided 2026-10-13): Noto Sans KR, self-hosted (CSP font-src 'self').
 // One variable font split by unicode-range; browsers fetch only the slices a page uses.
@@ -33,6 +34,38 @@ const OpsConsole = lazy(() => import('./ops').then((m) => ({ default: m.OpsConso
 
 // Before the first render, so a chosen theme never flashes the OS one.
 applyTheme(storedTheme());
+startDiagnostics();
+
+/**
+ * A screen that throws while rendering shows a way out instead of a blank page; the
+ * error is reported (ADR-0027). Keyed by route, so moving elsewhere starts over.
+ */
+class ScreenBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  override componentDidCatch(error: unknown) {
+    reportError(error, 'unhandled');
+  }
+  override render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <section role="alert" className="screen-error">
+        <h2>{t('error.screen.title')}</h2>
+        <p className="muted">{t('error.screen.body')}</p>
+        <button
+          type="button"
+          onClick={() => {
+            window.location.reload();
+          }}
+        >
+          {t('error.screen.reload')}
+        </button>
+      </section>
+    );
+  }
+}
 
 const TAB_ICON: Record<Tab, IconName> = {
   Home: 'home',
@@ -250,36 +283,38 @@ function App() {
         </nav>
       </header>
       <main>
-        {route.kind === 'recording' ? <RecordingDetail id={route.id} /> : null}
-        {route.kind === 'release' ? <ReleaseDetail id={route.id} /> : null}
-        {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
-        {route.kind === 'now' ? <NowPlaying /> : null}
-        {tab === 'Home' ? <Home /> : null}
-        {tab === 'Studio' ? <Studio /> : null}
-        {tab === 'Archive' ? <Archive /> : null}
-        {tab === 'Playlists' ? <Playlists /> : null}
-        {tab === 'Search' ? (
-          <Search
-            query={route.kind === 'tab' ? route.query : ''}
-            onDig={(id) => {
-              navigate(digHref(id));
-            }}
-          />
-        ) : null}
-        {route.kind === 'tab' && route.tab === 'DIG' ? (
-          route.digStart ? (
-            <DigStart entityId={route.digStart} />
-          ) : (
-            <DigHome />
-          )
-        ) : null}
-        {route.kind === 'dig-session' ? <DigSessionView id={route.id} /> : null}
-        {route.kind === 'ops' ? (
-          <Suspense fallback={<p role="status">{t('common.loading')}</p>}>
-            <OpsConsole section={route.section} />
-          </Suspense>
-        ) : null}
-        {tab === 'Account' ? <Account /> : null}
+        <ScreenBoundary key={JSON.stringify(route)}>
+          {route.kind === 'recording' ? <RecordingDetail id={route.id} /> : null}
+          {route.kind === 'release' ? <ReleaseDetail id={route.id} /> : null}
+          {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
+          {route.kind === 'now' ? <NowPlaying /> : null}
+          {tab === 'Home' ? <Home /> : null}
+          {tab === 'Studio' ? <Studio /> : null}
+          {tab === 'Archive' ? <Archive /> : null}
+          {tab === 'Playlists' ? <Playlists /> : null}
+          {tab === 'Search' ? (
+            <Search
+              query={route.kind === 'tab' ? route.query : ''}
+              onDig={(id) => {
+                navigate(digHref(id));
+              }}
+            />
+          ) : null}
+          {route.kind === 'tab' && route.tab === 'DIG' ? (
+            route.digStart ? (
+              <DigStart entityId={route.digStart} />
+            ) : (
+              <DigHome />
+            )
+          ) : null}
+          {route.kind === 'dig-session' ? <DigSessionView id={route.id} /> : null}
+          {route.kind === 'ops' ? (
+            <Suspense fallback={<p role="status">{t('common.loading')}</p>}>
+              <OpsConsole section={route.section} />
+            </Suspense>
+          ) : null}
+          {tab === 'Account' ? <Account /> : null}
+        </ScreenBoundary>
       </main>
     </PlayerProvider>
   );

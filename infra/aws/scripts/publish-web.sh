@@ -12,7 +12,7 @@ DISTRIBUTION=${3:?distribution id}
 KEEP_DAYS=${KEEP_DAYS:-14}
 
 # Content-hashed files never change under their name.
-aws s3 sync "$DIST/assets" "s3://$BUCKET/assets" \
+aws s3 sync "$DIST/assets" "s3://$BUCKET/assets" --exclude '*.map' \
   --cache-control 'public, max-age=31536000, immutable'
 # Icons and the manifest keep their names: short cache, replaced in place.
 aws s3 sync "$DIST" "s3://$BUCKET" --exclude 'assets/*' --exclude index.html \

@@ -78,6 +78,13 @@ jobs:
           pnpm install --frozen-lockfile --filter @rabit/web...
           pnpm --filter @rabit/web build
           infra/aws/scripts/publish-web.sh apps/web/dist "${{ vars.WEB_BUCKET }}" "${{ vars.WEB_DISTRIBUTION_ID }}"
+      # Maps reported web stack frames to the source (runbooks#client-diagnostics).
+      - name: Keep the source maps
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-sourcemaps-${{ github.sha }}
+          path: apps/web/dist/assets/*.map
+          retention-days: 90
       - name: Post-deploy checks
         env:
           API_URL: ${{ vars.API_BASE_URL }}
