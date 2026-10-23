@@ -1,6 +1,7 @@
 // pnpm ios:check — type-checks the iOS shared package (RabitKit) with the Swift
-// compiler of the Command Line Tools, for machines without Xcode. The app target and
-// the tests need Xcode 26: they run in the `ios` workflow (or open apps/ios in Xcode).
+// compiler of the Command Line Tools, for machines without Xcode, and checks the syntax
+// of every other Swift file (app and tests), which catches a broken merge early. Type
+// checking the app and running the tests need Xcode 26: they run in the `ios` workflow.
 import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import process from 'node:process';
@@ -25,4 +26,22 @@ if (r.status !== 0) {
   process.exit(1);
 }
 ok('RabitKit type-checks');
-say(dim('  The app and the tests need Xcode 26 (ios workflow in CI).'));
+
+/** Every .swift file under `root`, recursively. */
+const swiftFiles = (root) =>
+  readdirSync(root, { withFileTypes: true, recursive: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.swift'))
+    .map((e) => resolve(e.parentPath, e.name));
+const others = [
+  ...swiftFiles(resolve(ROOT, 'apps/ios/Rabit')),
+  ...swiftFiles(resolve(ROOT, 'apps/ios/RabitTests')),
+  ...swiftFiles(resolve(ROOT, 'apps/ios/Packages/RabitKit/Tests')),
+];
+step(`App and tests: ${String(others.length)} files (syntax only)`);
+const p = run('swiftc', ['-parse', ...others], { stdio: 'inherit' });
+if (p.status !== 0) {
+  fail('a Swift file does not parse');
+  process.exit(1);
+}
+ok('App and test sources parse');
+say(dim('  Type-checking the app and running the tests need Xcode 26 (ios workflow in CI).'));
