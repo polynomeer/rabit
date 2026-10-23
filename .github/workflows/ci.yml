@@ -38,18 +38,14 @@ jobs:
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:9000/healthz && break; sleep 1; done
           curl -sf http://127.0.0.1:9000/healthz
           docker exec s3 sh /init/create-buckets.sh localhost:9333
-      # A stalled Ubuntu mirror once held this step for the whole job (20 min): give
-      # each attempt a deadline and try again.
+      # A stalled Ubuntu mirror once held this step for the whole job (20 min). A slow
+      # mirror still makes progress, so no overall deadline: apt drops a connection that
+      # stays silent for 30 s and retries it, and the step gives up after 10 minutes.
       - name: Install ffmpeg
-        timeout-minutes: 8
+        timeout-minutes: 10
         run: |
-          for attempt in 1 2 3; do
-            timeout 150 sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update &&
-              timeout 150 sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 \
-                install -y --no-install-recommends ffmpeg && exit 0
-            echo "ffmpeg install attempt $attempt failed; retrying" >&2
-          done
-          exit 1
+          apt="sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30"
+          $apt update && $apt install -y --no-install-recommends ffmpeg
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -99,18 +95,14 @@ jobs:
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:9000/healthz && break; sleep 1; done
           curl -sf http://127.0.0.1:9000/healthz
           docker exec s3 sh /init/create-buckets.sh localhost:9333
-      # A stalled Ubuntu mirror once held this step for the whole job (20 min): give
-      # each attempt a deadline and try again.
+      # A stalled Ubuntu mirror once held this step for the whole job (20 min). A slow
+      # mirror still makes progress, so no overall deadline: apt drops a connection that
+      # stays silent for 30 s and retries it, and the step gives up after 10 minutes.
       - name: Install ffmpeg
-        timeout-minutes: 8
+        timeout-minutes: 10
         run: |
-          for attempt in 1 2 3; do
-            timeout 150 sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update &&
-              timeout 150 sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 \
-                install -y --no-install-recommends ffmpeg && exit 0
-            echo "ffmpeg install attempt $attempt failed; retrying" >&2
-          done
-          exit 1
+          apt="sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30"
+          $apt update && $apt install -y --no-install-recommends ffmpeg
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
