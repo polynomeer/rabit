@@ -41,8 +41,27 @@ nonisolated extension Color {
 struct CoverView: View {
   let id: String
   var corner: CGFloat = 12
+  /// The release's real cover by edge in pixels (ADR-0031); without it, or while it
+  /// loads or if it fails, the stand-in drawn from the id.
+  var artwork: [String: URL]? = nil
 
   var body: some View {
+    if let url = artwork?["600"] ?? artwork?["300"] {
+      AsyncImage(url: url) { phase in
+        if let image = phase.image {
+          image.resizable().aspectRatio(1, contentMode: .fit)
+            .clipShape(.rect(cornerRadius: corner))
+            .accessibilityHidden(true)
+        } else {
+          standIn
+        }
+      }
+    } else {
+      standIn
+    }
+  }
+
+  private var standIn: some View {
     let style = CoverStyle(id: id)
     Canvas { ctx, size in
       let u = size.width / 100

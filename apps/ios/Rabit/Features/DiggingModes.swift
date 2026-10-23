@@ -224,7 +224,7 @@ private struct CrateCard: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      CoverView(id: item.release.releaseId.rawValue, corner: 12)
+      CoverView(id: item.release.releaseId.rawValue, corner: 12, artwork: item.release.artwork)
       VStack(alignment: .leading, spacing: 2) {
         Text(item.release.title).font(.subheadline.weight(.semibold)).lineLimit(1)
         Text(item.artists.map(\.name).joined(separator: ", ")).font(.footnote).foregroundStyle(Palette.muted)

@@ -125,6 +125,8 @@ public struct CrateItem: Codable, Hashable, Sendable {
     public let title: String
     public let releaseType: String
     public let releaseDate: String?
+    /// Signed cover URLs by edge in pixels ("300", "600", "1200"; ADR-0031), if any.
+    public let artwork: [String: URL]?
   }
   public let release: ReleaseRef
   public let artists: [EntitySummary]

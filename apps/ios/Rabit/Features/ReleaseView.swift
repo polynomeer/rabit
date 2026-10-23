@@ -37,7 +37,7 @@ struct ReleaseView: View {
 
   private func content(_ release: Release) -> some View {
     VStack(spacing: 0) {
-      CoverView(id: release.releaseId.rawValue, corner: 14)
+      CoverView(id: release.releaseId.rawValue, corner: 14, artwork: release.artwork)
         .frame(width: 250, height: 250)
         .shadow(color: .black.opacity(0.35), radius: 24, y: 14)
         .padding(.top, 8)
