@@ -632,3 +632,50 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   #expect(body.count == 1)
   #expect(body["mode"] as? String == "radio")
 }
+
+@Test func pendingDiagnosticsCountsRepeatsAndCaps() {
+  var pending = PendingDiagnostics()
+  pending.launched()
+  pending.launched()
+  let crash = DiagnosticsBatch.Report(kind: .crash, name: "EXC_BAD_ACCESS", message: "", frames: ["Rabit +0x10"])
+  pending.add(crash)
+  pending.add(crash)
+  for i in 0..<30 {
+    pending.add(.init(kind: .hang, name: "Hang", message: "", frames: ["Rabit +0x\(i)"]))
+  }
+  #expect(pending.reports.count == PendingDiagnostics.maxReports)
+  #expect(pending.reports.first?.count == 2)
+  let batch = pending.take(appVersion: "0.1.0+1")
+  #expect(batch?.launches == 2)
+  #expect(batch?.platform == "ios")
+  #expect(pending.isEmpty)
+  #expect(pending.take(appVersion: "0.1.0+1") == nil)
+}
+
+@Test func callStackTreeFramesFollowTheAttributedThread() {
+  let json = """
+    {"callStackTree":null,"callStacks":[
+      {"threadAttributed":false,"callStackRootFrames":[{"binaryName":"libsystem_kernel.dylib","offsetIntoBinaryTextSegment":4096}]},
+      {"threadAttributed":true,"callStackRootFrames":[
+        {"binaryName":"Rabit","offsetIntoBinaryTextSegment":26,"subFrames":[
+          {"binaryName":"SwiftUI","offsetIntoBinaryTextSegment":255}]}]}]}
+    """
+  #expect(CallStackTree.frames(from: Data(json.utf8)) == ["Rabit +0x1a", "SwiftUI +0xff"])
+  #expect(CallStackTree.frames(from: Data("not json".utf8)).isEmpty)
+}
+
+@Test func diagnosticsBatchIsSentSnakeCased() async throws {
+  let t = StubTransport([(204, "")])
+  let api = APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)
+  var pending = PendingDiagnostics()
+  pending.launched()
+  // Not inside #require: the macro cannot take a mutating call.
+  let batch = pending.take(appVersion: "0.1.0+7")
+  try await DiagnosticsService(api: api).send(try #require(batch))
+  let req = try #require(t.requests.first)
+  #expect(req.url?.path == "/v1/client-diagnostics")
+  let body = try JSONSerialization.jsonObject(with: req.httpBody!) as! [String: Any]
+  #expect(body["app_version"] as? String == "0.1.0+7")
+  #expect(body["platform"] as? String == "ios")
+  #expect(body["launches"] as? Int == 1)
+}
