@@ -280,12 +280,13 @@ describe('ERN 4.3 ingest, updates and takedowns', () => {
   });
   afterAll(() => h.close());
 
+  let deliveries = 0;
+
   /** A release of its own for each test: unique ICPN and ISRCs. */
   async function delivered(extra: Opts = {}) {
-    const suffix = ulid()
-      .slice(-7)
-      .replace(/[^0-9]/g, '7')
-      .padStart(7, '7');
+    // Seven digits, different for each call and each run (the test database persists).
+    deliveries += 1;
+    const suffix = String((Date.now() * 10 + deliveries) % 10_000_000).padStart(7, '0');
     const base: Opts = {
       icpn: `88${suffix}0001`,
       isrc: [`KRA40${suffix}`, `KRB40${suffix}`],
