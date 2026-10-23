@@ -11,7 +11,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:16-alpine
@@ -38,14 +38,28 @@ jobs:
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:9000/healthz && break; sleep 1; done
           curl -sf http://127.0.0.1:9000/healthz
           docker exec s3 sh /init/create-buckets.sh localhost:9333
-      # A stalled Ubuntu mirror once held this step for the whole job (20 min). A slow
-      # mirror still makes progress, so no overall deadline: apt drops a connection that
-      # stays silent for 30 s and retries it, and the step gives up after 10 minutes.
+      # The Ubuntu mirror is often slow (it once held this step for 20 minutes). The
+      # ffmpeg packages are cached between runs: with a warm cache they install without
+      # the network; when the image has moved on, apt downloads what changed. A silent
+      # connection is dropped after 30 s and retried. Filling the cache from a slow mirror can
+      # take long once, hence the generous step and job limits.
+      - name: Cache ffmpeg packages
+        uses: actions/cache@v6
+        with:
+          path: .apt-cache
+          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
       - name: Install ffmpeg
-        timeout-minutes: 10
+        timeout-minutes: 18
         run: |
-          apt="sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30"
-          $apt update && $apt install -y --no-install-recommends ffmpeg
+          mkdir -p .apt-cache/archives/partial
+          if ls .apt-cache/archives/*.deb >/dev/null 2>&1 &&
+            sudo dpkg -i .apt-cache/archives/*.deb >/dev/null 2>&1 && command -v ffmpeg >/dev/null; then
+            echo "ffmpeg from the package cache"
+          else
+            apt="sudo apt-get -o Dir::Cache::Archives=$PWD/.apt-cache/archives -o Acquire::Retries=5 -o Acquire::http::Timeout=30"
+            $apt update && $apt install -y --no-install-recommends ffmpeg
+          fi
+          sudo chown -R "$(id -u)" .apt-cache
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -68,7 +82,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:16-alpine
@@ -95,14 +109,28 @@ jobs:
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:9000/healthz && break; sleep 1; done
           curl -sf http://127.0.0.1:9000/healthz
           docker exec s3 sh /init/create-buckets.sh localhost:9333
-      # A stalled Ubuntu mirror once held this step for the whole job (20 min). A slow
-      # mirror still makes progress, so no overall deadline: apt drops a connection that
-      # stays silent for 30 s and retries it, and the step gives up after 10 minutes.
+      # The Ubuntu mirror is often slow (it once held this step for 20 minutes). The
+      # ffmpeg packages are cached between runs: with a warm cache they install without
+      # the network; when the image has moved on, apt downloads what changed. A silent
+      # connection is dropped after 30 s and retried. Filling the cache from a slow mirror can
+      # take long once, hence the generous step and job limits.
+      - name: Cache ffmpeg packages
+        uses: actions/cache@v6
+        with:
+          path: .apt-cache
+          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
       - name: Install ffmpeg
-        timeout-minutes: 10
+        timeout-minutes: 18
         run: |
-          apt="sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30"
-          $apt update && $apt install -y --no-install-recommends ffmpeg
+          mkdir -p .apt-cache/archives/partial
+          if ls .apt-cache/archives/*.deb >/dev/null 2>&1 &&
+            sudo dpkg -i .apt-cache/archives/*.deb >/dev/null 2>&1 && command -v ffmpeg >/dev/null; then
+            echo "ffmpeg from the package cache"
+          else
+            apt="sudo apt-get -o Dir::Cache::Archives=$PWD/.apt-cache/archives -o Acquire::Retries=5 -o Acquire::http::Timeout=30"
+            $apt update && $apt install -y --no-install-recommends ffmpeg
+          fi
+          sudo chown -R "$(id -u)" .apt-cache
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
