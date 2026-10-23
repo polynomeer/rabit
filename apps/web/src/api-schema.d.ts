@@ -6319,7 +6319,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description The cover */
+      /** @description The cover: a square JPEG of that edge in pixels, or smaller (never upscaled) */
       200: {
         headers: {
           [name: string]: unknown;
@@ -6333,7 +6333,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Unknown size */
+      /** @description Unknown size, or not the current cover */
       404: {
         headers: {
           [name: string]: unknown;

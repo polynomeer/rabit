@@ -1684,9 +1684,9 @@ paths:
         - { name: token, in: path, required: true, schema: { type: string } }
         - { name: file, in: path, required: true, schema: { type: string, enum: ['300.jpg', '600.jpg', '1200.jpg'] } }
       responses:
-        '200': { description: The cover, square JPEG of that edge in pixels (or smaller, never upscaled) }
+        '200': { description: 'The cover: a square JPEG of that edge in pixels, or smaller (never upscaled)' }
         '403': { description: Token invalid }
-        '404': { description: Unknown size, or not the current cover }
+        '404': { description: 'Unknown size, or not the current cover' }
 
   /media/v1/{token}/{file}:
     get:
