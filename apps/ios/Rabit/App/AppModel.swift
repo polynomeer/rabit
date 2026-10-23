@@ -26,13 +26,16 @@ final class AppModel {
   private let tokens: any TokenStore
   private let oidc: OIDCClient?
 
-  init(config: AppConfig = .load(), tokens: any TokenStore = KeychainTokenStore()) {
+  init(
+    config: AppConfig = .load(), tokens: any TokenStore = KeychainTokenStore(),
+    transport: any HTTPTransport = URLSession.shared
+  ) {
     self.config = config
     self.tokens = tokens
     let oidc = config.oidc.map { OIDCClient(config: $0) }
     self.oidc = oidc
     let api = APIClient(
-      baseURL: config.apiBaseURL, tokens: tokens,
+      baseURL: config.apiBaseURL, tokens: tokens, transport: transport,
       refresher: oidc.map { TokenRefresher(oidc: $0, tokens: tokens) },
       onUnauthorized: { NotificationCenter.default.post(name: .rabitSignedOut, object: nil) })
     self.api = api
