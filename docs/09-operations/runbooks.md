@@ -100,3 +100,11 @@ Client errors, crashes, hangs and web vitals (ADR-0027): `ClientCrashRateHigh`, 
 3. Web frames point at the built bundle; map them with the build's source maps (`apps/web/dist/assets/*.map`, kept as a CI artifact).
 4. Slow LCP: check the API (`GET /v1/home`, `/v1/me` latency), the CDN cache for the web bundle, and the bundle size of the last build.
 5. `rabit_client_error_groups_dropped_total` rising: the 5,000-group cap is full, usually one error with a changing message. Find and fix it; groups unseen for 30 days are purged daily.
+
+## feature-flags
+Switching a feature off or rolling it out (ADR-0028). Flags are declared in `apps/server/src/modules/flags/flags.ts`; the operator console and `GET /v1/ops/features` list them with their defaults and overrides.
+1. Kill switch: `PUT /v1/ops/features/<key>` with `{"override": {"enabled": false, "rollout_percent": 0}, "reason": "<ticket>"}`. API processes apply it within 15 s; clients on their next read (page load, app launch or foreground).
+2. Gradual rollout: raise `rollout_percent` step by step (for example 5, 25, 50, 100); a user's bucket is stable, so raising only adds users. Watch the feature's metrics between steps.
+3. Back to the code default: `{"override": null, "reason": "..."}`.
+4. Every change is in the audit log (`feature_flag.changed`). Flags never switch off authorization, rights, rate limits or audit logging.
+

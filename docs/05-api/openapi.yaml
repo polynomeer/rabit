@@ -241,6 +241,25 @@ paths:
         '204': { description: Recorded (or ignored as a repeat) }
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/features:
+    get:
+      tags: [account]
+      operationId: getFeatures
+      description: >-
+        Feature flags the clients may read (ADR-0028), evaluated for the caller: a rollout puts each
+        user in a stable bucket. Clients fall back to their built-in defaults when this fails.
+      responses:
+        '200':
+          description: Flags by key
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [features]
+                properties:
+                  features: { type: object, additionalProperties: { type: boolean } }
+        '401': { $ref: '#/components/responses/Error' }
   /v1/client-diagnostics:
     post:
       tags: [playback]
@@ -1427,6 +1446,54 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
 
+  /v1/ops/features:
+    get:
+      tags: [ops]
+      operationId: opsListFeatures
+      description: Every flag declared in code with its default and the override in force (ADR-0028).
+      responses:
+        '200':
+          description: Flags
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/FeatureFlag' } }
+        '403': { $ref: '#/components/responses/Error' }
+  /v1/ops/features/{key}:
+    parameters: [ { name: key, in: path, required: true, schema: { type: string, maxLength: 100 } } ]
+    put:
+      tags: [ops]
+      operationId: opsSetFeature
+      description: >-
+        Overrides a flag for this environment, or clears the override (`null`) so the code default
+        applies. Audited with the reason. Processes pick the change up within 15 seconds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [override, reason]
+              properties:
+                override:
+                  oneOf:
+                    - type: object
+                      additionalProperties: false
+                      required: [enabled, rollout_percent]
+                      properties:
+                        enabled: { type: boolean }
+                        rollout_percent: { type: integer, minimum: 0, maximum: 100 }
+                    - { type: 'null' }
+                reason: { $ref: '#/components/schemas/Reason' }
+      responses:
+        '200': { description: The flag, content: { application/json: { schema: { $ref: '#/components/schemas/FeatureFlag' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/ops/client-errors:
     get:
       tags: [ops]
@@ -1715,6 +1782,26 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 
   schemas:
+    FeatureFlag:
+      type: object
+      additionalProperties: false
+      required: [key, description, default, client, override]
+      properties:
+        key: { type: string }
+        description: { type: string }
+        default: { type: boolean }
+        client: { type: boolean, description: Readable by clients through /v1/features }
+        override:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [enabled, rollout_percent, updated_by, updated_at]
+              properties:
+                enabled: { type: boolean }
+                rollout_percent: { type: integer, minimum: 0, maximum: 100 }
+                updated_by: { type: string }
+                updated_at: { type: string, format: date-time }
+            - { type: 'null' }
     Id: { type: string, pattern: '^[a-z]{3}_[0-9A-HJKMNP-TV-Z]{26}$' }
     IdempotencyKey: { type: string, pattern: '^[A-Za-z0-9_-]{8,128}$' }
     Timestamp: { type: string, format: date-time }

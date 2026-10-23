@@ -217,6 +217,15 @@ export interface PlayQueueItemTable {
   played_at: Date | null;
 }
 
+/** An operator's override of a feature flag declared in code (ADR-0028). */
+export interface FeatureFlagTable {
+  key: string;
+  enabled: boolean;
+  rollout_percent: number;
+  updated_by: string;
+  updated_at: Generated<Date>;
+}
+
 /** A distinct client error (ADR-0027); no user data. */
 export interface ClientErrorGroupTable {
   fingerprint: string;
@@ -845,6 +854,7 @@ export interface Database {
   play_queue: PlayQueueTable;
   play_queue_item: PlayQueueItemTable;
   client_error_group: ClientErrorGroupTable;
+  feature_flag: FeatureFlagTable;
   usage_statement_line: UsageStatementLineTable;
   usage_carryover: UsageCarryoverTable;
   app_user: AppUserTable;

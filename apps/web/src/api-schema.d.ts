@@ -244,6 +244,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/features': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Feature flags the clients may read (ADR-0028), evaluated for the caller: a rollout puts each user in a stable bucket. Clients fall back to their built-in defaults when this fails. */
+    get: operations['getFeatures'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/client-diagnostics': {
     parameters: {
       query?: never;
@@ -1529,6 +1546,42 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/ops/features': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Every flag declared in code with its default and the override in force (ADR-0028). */
+    get: operations['opsListFeatures'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/ops/features/{key}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Overrides a flag for this environment, or clears the override (`null`) so the code default applies. Audited with the reason. Processes pick the change up within 15 seconds. */
+    put: operations['opsSetFeature'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/ops/client-errors': {
     parameters: {
       query?: never;
@@ -1796,6 +1849,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    FeatureFlag: {
+      key: string;
+      description: string;
+      default: boolean;
+      /** @description Readable by clients through /v1/features */
+      client: boolean;
+      override: {
+        enabled: boolean;
+        rollout_percent: number;
+        updated_by: string;
+        /** Format: date-time */
+        updated_at: string;
+      } | null;
+    };
     Id: string;
     IdempotencyKey: string;
     /** Format: date-time */
@@ -3371,6 +3438,31 @@ export interface operations {
       };
       400: components['responses']['Error'];
       404: components['responses']['Error'];
+    };
+  };
+  getFeatures: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flags by key */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            features: {
+              [key: string]: boolean;
+            };
+          };
+        };
+      };
+      401: components['responses']['Error'];
     };
   };
   reportClientDiagnostics: {
@@ -5747,6 +5839,64 @@ export interface operations {
       403: components['responses']['Error'];
       404: components['responses']['Error'];
       409: components['responses']['Error'];
+    };
+  };
+  opsListFeatures: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flags */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: components['schemas']['FeatureFlag'][];
+          };
+        };
+      };
+      403: components['responses']['Error'];
+    };
+  };
+  opsSetFeature: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          override: {
+            enabled: boolean;
+            rollout_percent: number;
+          } | null;
+          reason: components['schemas']['Reason'];
+        };
+      };
+    };
+    responses: {
+      /** @description The flag */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FeatureFlag'];
+        };
+      };
+      400: components['responses']['Error'];
+      403: components['responses']['Error'];
+      404: components['responses']['Error'];
     };
   };
   opsListClientErrors: {
