@@ -16,7 +16,7 @@ test('an operator publishes a shelf and a listener in its country sees it on Hom
 
   await operator.getByRole('button', { name: '새 선반' }).click();
   const form = operator.getByRole('form', { name: '편집 선반' });
-  await form.getByLabel('제목').fill(title);
+  await form.getByLabel('제목', { exact: true }).fill(title);
   await form.getByLabel(/지역/).fill('KR');
   await form.getByLabel('공개', { exact: true }).check();
   await form.getByLabel('앨범 제목으로 찾기').fill('Harbour Lights');
