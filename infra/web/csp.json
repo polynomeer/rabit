@@ -3,7 +3,7 @@
   "default-src": ["'self'"],
   "script-src": ["'self'"],
   "style-src": ["'self'"],
-  "img-src": ["'self'", "data:"],
+  "img-src": ["'self'", "data:", "{media}"],
   "font-src": ["'self'"],
   "connect-src": ["'self'", "{api}", "{media}", "{oidc}", "{upload}"],
   "media-src": ["'self'", "blob:", "{media}"],

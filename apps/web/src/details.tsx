@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get, type Connection, type EntitySummary, type Playability } from './api';
-import { Cover } from './brand';
+import { Cover, type Artwork } from './brand';
 import { AddToCollection } from './collection';
 import { LabelTimelineView } from './labels';
 import { AddToPlaylist } from './playlist-add';
@@ -32,6 +32,7 @@ interface Release {
   artists: Ref[];
   label: Ref | null;
   release_date: string | null;
+  artwork: Artwork;
   tracks: {
     disc_no: number;
     position: number;
@@ -174,6 +175,7 @@ function Page({
   kind,
   missing,
   coverId,
+  coverArt,
   hero,
   children,
 }: {
@@ -182,6 +184,8 @@ function Page({
   missing: boolean;
   /** Recordings and releases show their (stand-in) cover next to the title. */
   coverId?: string | undefined;
+  /** The release's real cover, when it has one (ADR-0031). */
+  coverArt?: Artwork;
   /** Meta and actions beside the title. */
   hero?: ReactNode;
   children?: ReactNode;
@@ -204,7 +208,7 @@ function Page({
       ) : (
         <>
           <div className={coverId ? 'detail-head with-cover' : 'detail-head'}>
-            {coverId ? <Cover id={coverId} size={240} round={14} /> : null}
+            {coverId ? <Cover id={coverId} size={240} round={14} art={coverArt} /> : null}
             <div className="detail-hero">
               <p className="eyebrow">{kind}</p>
               <h2 id="detail-h">{title}</h2>
@@ -499,6 +503,7 @@ export function ReleaseDetail({ id }: { id: string }) {
       kind={label(TYPE_TEXT, r?.release_type ?? null)}
       missing={missing}
       coverId={r?.release_id}
+      coverArt={r?.artwork}
       hero={
         r ? (
           <>
