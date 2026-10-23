@@ -16,6 +16,7 @@ export {
   type QuotaPolicy,
 } from './service.js';
 export type { AccountDataDeleter } from './account-deletion.js';
+export { validationCohort, type CohortMember } from './validation.js';
 export type { MeProviders } from './routes.js';
 
 export function identityModule(deps: {

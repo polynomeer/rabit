@@ -2524,6 +2524,19 @@ form[aria-label='Audio Log 편집'] label {
   color: var(--muted);
   font-weight: 500;
 }
+/* Metric tables are named for screen readers; the headings around them name them on screen. */
+.ops-metrics caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.ops-metrics tbody th {
+  color: var(--fg);
+  font-weight: 400;
+}
 .facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

@@ -6,18 +6,18 @@
 
 | Data | Purpose | Stored where | Retention (proposal) | User controls |
 |---|---|---|---|---|
-| OIDC issuer + subject, email_verified flag | Account identity | `app_user` | account lifetime | delete account |
+| OIDC issuer + subject, email_verified flag | Account identity; sign-up date and issuer define validation cohorts (ADR-0031) | `app_user` | account lifetime | delete account |
 | Email, name | — | **not stored** | — | — |
 | License country | Rights territory | `app_user.license_country` (operator/policy-set) | account lifetime | — |
-| Private audio + derivatives | User's archive | private buckets | until deleted | delete, export |
-| Audio Log title/note/tags/recorded_at/tz | User's archive | `audio_log` | until deleted | edit, delete, export |
-| Blind Digging rounds and Keep/Pass decisions | Discovery history | `blind_dig`, `blind_dig_item` | until account deletion | export |
-| Physical Collection (format, title, artist, barcode, catalog no., edition, notes) | Record of what the user owns (COL-001) | `physical_item` | until deleted or account deletion | edit, delete, export; support sees counts by format/state only |
+| Private audio + derivatives | User's archive; uploads counted, never read, for product validation (ADR-0031) | private buckets | until deleted | delete, export |
+| Audio Log title/note/tags/recorded_at/tz | User's archive; creation counted for product validation (ADR-0031) | `audio_log` | until deleted | edit, delete, export |
+| Blind Digging rounds and Keep/Pass decisions | Discovery history; rounds counted for product validation (ADR-0031) | `blind_dig`, `blind_dig_item` | until account deletion | export |
+| Physical Collection (format, title, artist, barcode, catalog no., edition, notes) | Record of what the user owns (COL-001); items counted for product validation (ADR-0031) | `physical_item` | until deleted or account deletion | edit, delete, export; support sees counts by format/state only |
 | Upload declared filename | Default title | `audio_source.title` only | until deleted | edit |
-| Playback sessions | Access control | `playback_session` | until their listening events are purged (90 days), then deleted | revoked on account deletion |
+| Playback sessions | Access control; product validation, cohort aggregates only (ADR-0031) | `playback_session` | until their listening events are purged (90 days), then deleted | revoked on account deletion |
 | Listening events | Popularity (Deep Cut), usage statements (ADR-0025) | `listening_event` | 90 days raw, and never before their month's usage statement is closed | deleted with the account (its qualifying streams of open months are kept first as anonymous carry-over); included in export (P1) |
 | Usage statements | Reports to rights holders (ADR-0025) | `usage_statement`, `usage_statement_line`, `usage_carryover` | at least 5 years; carry-over until its month closes | no user data (counts only) |
-| Library, playlists, DIG sessions | User features | DB | until deleted | delete, export |
+| Library, playlists, DIG sessions | User features; product validation, cohort aggregates only (ADR-0031) | DB | until deleted | delete, export |
 | Reports | Trust | `report` | Legal | — |
 | Audit log | Accountability | `audit_log` | Legal | — |
 | Logs | Operations | log backend | 30–90 days (proposal) | — |
@@ -29,6 +29,7 @@
 
 1. **Minimization**: no email/name persisted; no location; no device fingerprinting (device_id is a client-generated random ID per install).
 2. **Purpose limitation**: private audio is never used for recommendation, search outside the owner, or model training (NFR-PRV-007). Popularity uses only catalog listening.
+   - **Product validation** (ADR-0031, decided 2026-10-24): operators may see counts and rates over a sign-up cohort, computed from accounts, playback sessions, uploads, Audio Logs, library, playlists, DIG and Blind Digging rounds and Physical Collection items. Only timestamps, owners and kinds are read, private audio is only counted, and a rate over fewer than 5 people is withheld. No per-person view, profile, targeting or new collection; alpha testers are told before they are invited (O-10).
 3. **Logs**: redaction of tokens, URLs, titles, notes, filenames; IDs only.
 4. **Export**: one request packages originals + JSON metadata (sources, logs, library, playlists, DIG sessions) owned by the user. Catalog masters are never exported.
 5. **Deletion**:

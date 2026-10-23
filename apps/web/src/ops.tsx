@@ -3,6 +3,7 @@ import { api, ApiError, get } from './api';
 import { Icon } from './brand';
 import { formatDate, formatDateTime, t, type MessageKey } from './i18n';
 import { EditorialSection } from './ops-editorial';
+import { MetricsSection } from './ops-metrics';
 import { entityHref, opsHref, OPS_SECTIONS, type OpsSection } from './route';
 
 /**
@@ -17,6 +18,7 @@ const SECTION_TEXT: Record<OpsSection, MessageKey> = {
   rights: 'ops.section.rights',
   sales: 'ops.section.sales',
   editorial: 'ops.section.editorial',
+  metrics: 'ops.section.metrics',
 };
 /** Button labels for the status an entitlement or rights grant is moved to. */
 const GRANT_STATUS_ACTION: Record<'active' | 'suspended' | 'revoked', MessageKey> = {
@@ -111,6 +113,7 @@ export function OpsConsole({ section }: { section: OpsSection }) {
       {section === 'rights' ? <Rights reason={reason} valid={valid} /> : null}
       {section === 'sales' ? <Sales reason={reason} valid={valid} /> : null}
       {section === 'editorial' ? <Editorial reason={reason} valid={valid} /> : null}
+      {section === 'metrics' ? <MetricsSection /> : null}
     </section>
   );
 }
