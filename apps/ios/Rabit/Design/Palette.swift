@@ -61,7 +61,7 @@ struct CoverView: View {
     }
   }
 
-  private var standIn: some View {
+  @ViewBuilder private var standIn: some View {
     let style = CoverStyle(id: id)
     Canvas { ctx, size in
       let u = size.width / 100
