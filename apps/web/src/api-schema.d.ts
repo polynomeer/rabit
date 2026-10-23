@@ -958,6 +958,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/editorial/shelves': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Editorial shelves live for the caller (ADR-0029): published, inside their time window and targeting the caller's licence country (read on the server). Each keeps its curated order and only releases with a track available in the region; shelves left empty are omitted. Rate limited (600 per hour). */
+    get: operations['listEditorialShelves'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/dig/new-releases': {
     parameters: {
       query?: never;
@@ -1582,6 +1599,43 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/ops/editorial/shelves': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Every editorial shelf, drafts and ended ones included (ADR-0029). */
+    get: operations['opsListEditorialShelves'];
+    put?: never;
+    /** @description Creates a shelf (a draft unless `published`). Audited with the reason. */
+    post: operations['opsCreateEditorialShelf'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/ops/editorial/shelves/{shelf_id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        shelf_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Replaces a shelf with its items (publishing is a change like any other). Audited. */
+    put: operations['opsReplaceEditorialShelf'];
+    post?: never;
+    delete: operations['opsDeleteEditorialShelf'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/ops/client-errors': {
     parameters: {
       query?: never;
@@ -1849,6 +1903,54 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    EditorialShelfLive: {
+      shelf_id: string;
+      title: string;
+      description: string | null;
+      items: {
+        release: components['schemas']['ReleaseCard'];
+        artists: components['schemas']['EntitySummary'][];
+        label: null | components['schemas']['EntitySummary'];
+        available_tracks: number;
+        playable_tracks: number;
+        note: string | null;
+      }[];
+    };
+    EditorialShelfInput: {
+      title: string;
+      description?: string | null;
+      /** @default 0 */
+      position: number;
+      /** @description Empty means everywhere */
+      territories?: string[];
+      starts_at?: string | null;
+      ends_at?: string | null;
+      /** @default false */
+      published: boolean;
+      items?: {
+        release_id: string;
+        note?: string | null;
+      }[];
+      reason: components['schemas']['Reason'];
+    };
+    EditorialShelf: {
+      shelf_id: string;
+      title: string;
+      description: string | null;
+      position: number;
+      territories: string[];
+      starts_at: string | null;
+      ends_at: string | null;
+      published: boolean;
+      updated_by: string;
+      /** Format: date-time */
+      updated_at: string;
+      items: {
+        release_id: string;
+        title: string;
+        note: string | null;
+      }[];
+    };
     FeatureFlag: {
       key: string;
       description: string;
@@ -4821,6 +4923,29 @@ export interface operations {
       400: components['responses']['Error'];
     };
   };
+  listEditorialShelves: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Live shelves, in Home order */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            shelves: components['schemas']['EditorialShelfLive'][];
+          };
+        };
+      };
+      401: components['responses']['Error'];
+    };
+  };
   digNewReleases: {
     parameters: {
       query?: {
@@ -5893,6 +6018,109 @@ export interface operations {
         content: {
           'application/json': components['schemas']['FeatureFlag'];
         };
+      };
+      400: components['responses']['Error'];
+      403: components['responses']['Error'];
+      404: components['responses']['Error'];
+    };
+  };
+  opsListEditorialShelves: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Shelves */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: components['schemas']['EditorialShelf'][];
+          };
+        };
+      };
+      403: components['responses']['Error'];
+    };
+  };
+  opsCreateEditorialShelf: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EditorialShelfInput'];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EditorialShelf'];
+        };
+      };
+      400: components['responses']['Error'];
+      403: components['responses']['Error'];
+    };
+  };
+  opsReplaceEditorialShelf: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        shelf_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EditorialShelfInput'];
+      };
+    };
+    responses: {
+      /** @description The shelf */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EditorialShelf'];
+        };
+      };
+      400: components['responses']['Error'];
+      403: components['responses']['Error'];
+      404: components['responses']['Error'];
+    };
+  };
+  opsDeleteEditorialShelf: {
+    parameters: {
+      query: {
+        reason: string;
+      };
+      header?: never;
+      path: {
+        shelf_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted (audited) */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       400: components['responses']['Error'];
       403: components['responses']['Error'];

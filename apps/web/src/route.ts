@@ -28,7 +28,7 @@ export type Route =
   | { kind: 'ops'; section: OpsSection }
   | { kind: 'now' };
 
-export const OPS_SECTIONS = ['users', 'reports', 'jobs', 'rights', 'sales'] as const;
+export const OPS_SECTIONS = ['users', 'reports', 'jobs', 'rights', 'sales', 'editorial'] as const;
 export type OpsSection = (typeof OPS_SECTIONS)[number];
 
 const ID = /^[a-z]{3}_[0-9A-HJKMNP-TV-Z]{26}$/;

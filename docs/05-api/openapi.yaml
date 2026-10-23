@@ -889,6 +889,26 @@ paths:
       responses:
         '200': { description: The crate, content: { application/json: { schema: { $ref: '#/components/schemas/Crate' } } } }
         '400': { $ref: '#/components/responses/Error' }
+  /v1/editorial/shelves:
+    get:
+      tags: [dig]
+      operationId: listEditorialShelves
+      description: >-
+        Editorial shelves live for the caller (ADR-0029): published, inside their time window and
+        targeting the caller's licence country (read on the server). Each keeps its curated order
+        and only releases with a track available in the region; shelves left empty are omitted.
+        Rate limited (600 per hour).
+      responses:
+        '200':
+          description: Live shelves, in Home order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shelves]
+                properties:
+                  shelves: { type: array, items: { $ref: '#/components/schemas/EditorialShelfLive' } }
+        '401': { $ref: '#/components/responses/Error' }
   /v1/dig/new-releases:
     get:
       tags: [dig]
@@ -1494,6 +1514,57 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/ops/editorial/shelves:
+    get:
+      tags: [ops]
+      operationId: opsListEditorialShelves
+      description: Every editorial shelf, drafts and ended ones included (ADR-0029).
+      responses:
+        '200':
+          description: Shelves
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/EditorialShelf' } }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      tags: [ops]
+      operationId: opsCreateEditorialShelf
+      description: Creates a shelf (a draft unless `published`). Audited with the reason.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/EditorialShelfInput' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/EditorialShelf' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /v1/ops/editorial/shelves/{shelf_id}:
+    parameters: [ { name: shelf_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    put:
+      tags: [ops]
+      operationId: opsReplaceEditorialShelf
+      description: Replaces a shelf with its items (publishing is a change like any other). Audited.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/EditorialShelfInput' } } }
+      responses:
+        '200': { description: The shelf, content: { application/json: { schema: { $ref: '#/components/schemas/EditorialShelf' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [ops]
+      operationId: opsDeleteEditorialShelf
+      parameters:
+        - { name: reason, in: query, required: true, schema: { type: string, minLength: 3, maxLength: 500 } }
+      responses:
+        '204': { description: Deleted (audited) }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/ops/client-errors:
     get:
       tags: [ops]
@@ -1782,6 +1853,73 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
 
   schemas:
+    EditorialShelfLive:
+      type: object
+      required: [shelf_id, title, description, items]
+      properties:
+        shelf_id: { type: string }
+        title: { type: string }
+        description: { oneOf: [ { type: string }, { type: 'null' } ] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [release, artists, label, available_tracks, playable_tracks, note]
+            properties:
+              release: { $ref: '#/components/schemas/ReleaseCard' }
+              artists: { type: array, items: { $ref: '#/components/schemas/EntitySummary' } }
+              label: { oneOf: [ { type: 'null' }, { $ref: '#/components/schemas/EntitySummary' } ] }
+              available_tracks: { type: integer, minimum: 1 }
+              playable_tracks: { type: integer, minimum: 0 }
+              note: { oneOf: [ { type: string }, { type: 'null' } ] }
+    EditorialShelfInput:
+      type: object
+      additionalProperties: false
+      required: [title, reason]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        description: { oneOf: [ { type: string, maxLength: 500 }, { type: 'null' } ] }
+        position: { type: integer, minimum: 0, maximum: 1000, default: 0 }
+        territories: { type: array, maxItems: 50, items: { type: string, pattern: '^[A-Z]{2}$' }, description: Empty means everywhere }
+        starts_at: { oneOf: [ { type: string, format: date-time }, { type: 'null' } ] }
+        ends_at: { oneOf: [ { type: string, format: date-time }, { type: 'null' } ] }
+        published: { type: boolean, default: false }
+        items:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            additionalProperties: false
+            required: [release_id]
+            properties:
+              release_id: { type: string }
+              note: { oneOf: [ { type: string, maxLength: 200 }, { type: 'null' } ] }
+        reason: { $ref: '#/components/schemas/Reason' }
+    EditorialShelf:
+      type: object
+      additionalProperties: false
+      required: [shelf_id, title, description, position, territories, starts_at, ends_at, published, updated_by, updated_at, items]
+      properties:
+        shelf_id: { type: string }
+        title: { type: string }
+        description: { oneOf: [ { type: string }, { type: 'null' } ] }
+        position: { type: integer }
+        territories: { type: array, items: { type: string } }
+        starts_at: { oneOf: [ { type: string, format: date-time }, { type: 'null' } ] }
+        ends_at: { oneOf: [ { type: string, format: date-time }, { type: 'null' } ] }
+        published: { type: boolean }
+        updated_by: { type: string }
+        updated_at: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [release_id, title, note]
+            properties:
+              release_id: { type: string }
+              title: { type: string }
+              note: { oneOf: [ { type: string }, { type: 'null' } ] }
     FeatureFlag:
       type: object
       additionalProperties: false

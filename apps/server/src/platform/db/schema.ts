@@ -226,6 +226,29 @@ export interface FeatureFlagTable {
   updated_at: Generated<Date>;
 }
 
+/** An operator-curated Home shelf (ADR-0029). */
+export interface EditorialShelfTable {
+  id: string;
+  title: string;
+  description: string | null;
+  position: number;
+  /** ISO 3166-1 alpha-2 codes; empty means everywhere. */
+  territories: string[];
+  starts_at: ColumnType<Date | null, string | null, string | null>;
+  ends_at: ColumnType<Date | null, string | null, string | null>;
+  published: boolean;
+  updated_by: string;
+  created_at: CreatedAt;
+  updated_at: UpdatedAt;
+}
+
+export interface EditorialShelfItemTable {
+  shelf_id: string;
+  position: number;
+  release_id: string;
+  note: string | null;
+}
+
 /** A distinct client error (ADR-0027); no user data. */
 export interface ClientErrorGroupTable {
   fingerprint: string;
@@ -855,6 +878,8 @@ export interface Database {
   play_queue_item: PlayQueueItemTable;
   client_error_group: ClientErrorGroupTable;
   feature_flag: FeatureFlagTable;
+  editorial_shelf: EditorialShelfTable;
+  editorial_shelf_item: EditorialShelfItemTable;
   usage_statement_line: UsageStatementLineTable;
   usage_carryover: UsageCarryoverTable;
   app_user: AppUserTable;

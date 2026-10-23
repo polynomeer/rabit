@@ -36,6 +36,7 @@ import {
   digExportSection,
   digModule,
   radioFor,
+  type DigDeps,
 } from '../modules/dig/index.js';
 import {
   deleteAccountLibrary,
@@ -59,6 +60,7 @@ import {
   type CatalogAccess,
   type CatalogDecision,
 } from '../modules/playback/index.js';
+import type { Id } from '../platform/ids.js';
 import type { Module } from './modules.js';
 
 /**
@@ -103,6 +105,14 @@ export const catalogAccess: CatalogAccess = async (db, principal, recordingIds, 
 };
 
 /** All bounded-context modules, wired together (composition root). */
+/** DIG's view of other modules: playability, integrity exclusions, licence country. */
+const digDeps: DigDeps = {
+  catalogAccess,
+  excludedEntities,
+  licenseCountry: async (db, userId) =>
+    (await getUser(db, userId as Id<'user'>))?.license_country ?? null,
+};
+
 export function allModules(): Module[] {
   return [
     identityModule({
@@ -138,8 +148,7 @@ export function allModules(): Module[] {
     playbackModule({
       catalogAccess,
       resolveRecordingSource: recordingSource,
-      radio: (ctx, principal, seed, opts) =>
-        radioFor(ctx, { catalogAccess, excludedEntities }, principal, seed, opts),
+      radio: (ctx, principal, seed, opts) => radioFor(ctx, digDeps, principal, seed, opts),
     }),
     libraryModule({
       catalogAccess,
@@ -160,7 +169,7 @@ export function allModules(): Module[] {
         integritySupportSection,
       ],
     }),
-    digModule({ catalogAccess, excludedEntities }),
+    digModule(digDeps),
     diagnosticsModule(),
     flagsModule(),
   ];

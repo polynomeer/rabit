@@ -26,6 +26,8 @@ export interface DigDeps {
   catalogAccess: CatalogAccess;
   /** Entities excluded from DIG candidates by Music Integrity (DIG-020). */
   excludedEntities(db: DbOrTx, ids: string[]): Promise<Set<string>>;
+  /** The listener's licence country, set on the server (ADR-0016); never from the client. */
+  licenseCountry(db: DbOrTx, userId: string): Promise<string | null>;
 }
 
 export async function getAxes(db: DbOrTx, entityId: string) {

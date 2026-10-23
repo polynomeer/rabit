@@ -33,6 +33,7 @@ export const ID_PREFIX = {
   playlist: 'pls',
   playlistItem: 'pli',
   queueItem: 'pqi',
+  editorialShelf: 'eds',
   export: 'exp',
   digSession: 'dgs',
   digNode: 'dgn',

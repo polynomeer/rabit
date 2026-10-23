@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError, get } from './api';
 import { Icon } from './brand';
 import { formatDate, formatDateTime, t, type MessageKey } from './i18n';
+import { EditorialSection } from './ops-editorial';
 import { entityHref, opsHref, OPS_SECTIONS, type OpsSection } from './route';
 
 /**
@@ -15,6 +16,7 @@ const SECTION_TEXT: Record<OpsSection, MessageKey> = {
   jobs: 'ops.section.jobs',
   rights: 'ops.section.rights',
   sales: 'ops.section.sales',
+  editorial: 'ops.section.editorial',
 };
 /** Button labels for the status an entitlement or rights grant is moved to. */
 const GRANT_STATUS_ACTION: Record<'active' | 'suspended' | 'revoked', MessageKey> = {
@@ -108,6 +110,7 @@ export function OpsConsole({ section }: { section: OpsSection }) {
       {section === 'jobs' ? <Jobs reason={reason} valid={valid} /> : null}
       {section === 'rights' ? <Rights reason={reason} valid={valid} /> : null}
       {section === 'sales' ? <Sales reason={reason} valid={valid} /> : null}
+      {section === 'editorial' ? <Editorial reason={reason} valid={valid} /> : null}
     </section>
   );
 }
@@ -786,6 +789,16 @@ const won = (m: { amount_minor: number; currency: string }) =>
   new Intl.NumberFormat('ko-KR', { style: 'currency', currency: m.currency }).format(
     m.amount_minor,
   );
+
+function Editorial({ reason, valid }: Props) {
+  const { msg, run } = useAction();
+  return (
+    <div>
+      <EditorialSection reason={reason} valid={valid} run={run} />
+      <Status msg={msg} />
+    </div>
+  );
+}
 
 function Sales({ reason, valid }: Props) {
   return (

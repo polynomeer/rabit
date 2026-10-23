@@ -47,10 +47,13 @@ function Tile({
   release,
   artists,
   price,
+  note,
 }: {
   release: Release;
   artists: Artist[];
   price?: string;
+  /** The editor's line about the pick (editorial shelves). */
+  note?: string | null;
 }) {
   return (
     <li>
@@ -59,6 +62,7 @@ function Tile({
         <strong>{release.title}</strong>
         <span className="muted small">{byline(artists, release)}</span>
         {price ? <span className="small price">{price}</span> : null}
+        {note ? <span className="small shelf-note">{note}</span> : null}
       </a>
     </li>
   );
@@ -95,6 +99,45 @@ function Shelf({
         </ul>
       )}
     </section>
+  );
+}
+
+type EditorialShelf = Schemas['EditorialShelfLive'];
+
+/**
+ * Shelves the editors picked (ADR-0029), already filtered by the server to what plays
+ * in the listener's region; nothing shows while loading or when there are none.
+ */
+export function EditorialShelves() {
+  const [shelves, setShelves] = useState<EditorialShelf[]>([]);
+  useEffect(() => {
+    let stale = false;
+    get<{ shelves: EditorialShelf[] }>('/v1/editorial/shelves').then(
+      (r) => {
+        if (!stale) setShelves(r.shelves);
+      },
+      () => undefined,
+    );
+    return () => {
+      stale = true;
+    };
+  }, []);
+  return (
+    <>
+      {shelves.map((s) => (
+        <section key={s.shelf_id} aria-labelledby={`${s.shelf_id}-h`}>
+          <div className="section-head">
+            <h3 id={`${s.shelf_id}-h`}>{s.title}</h3>
+          </div>
+          {s.description ? <p className="muted">{s.description}</p> : null}
+          <ul className="cover-grid shelf" aria-label={s.title}>
+            {s.items.map((i) => (
+              <Tile key={i.release.release_id} {...i} />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </>
   );
 }
 
