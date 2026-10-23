@@ -27,6 +27,17 @@
 | O-12 | Run a manual screen-reader pass (VoiceOver/TalkBack) on the main flows | Automated checks (axe, keyboard-only) cannot judge reading order and announcements | `apps/web/e2e/a11y.spec.ts` covers the automated part |
 | O-13 | Choose the alert recipients (`alert_emails`, Q18 first version) and confirm each SNS subscription email after `tofu apply` | Alerts (R8) reach no one until a subscription is confirmed | `infra/aws/observability.tf`, `infra/observability/alerts.yml`, runbooks |
 
+## 2a. Waitlist landing (experiment E2)
+
+The [waitlist landing](waitlist-landing.md) is a draft that stores and ships nothing until these are done.
+
+| # | Action | Why it blocks | Prepared |
+|---|---|---|---|
+| O-14 | Domain for the landing (part of O-02) | A public page needs an address | Page served by the dev server only (`/landing.html`) |
+| O-15 | Where waitlist e-mails are stored, how long they are kept, and the privacy notice text | Collecting e-mails needs notice and a retention period | Form fields and consent wording drafted; `submitWaitlist` sends nothing |
+| O-16 | Promotion channels and whether to pay for ads (budget ceiling, Q12) | The test needs about 300 visits per message | Channel list in the experiment design |
+| O-17 | Whether to target VIBE users (VIBE stops sign-ups on 2026-11-27 and closes on 2026-12-31) | The window closes at the end of the year | VIBE is an answer in the services question |
+
 ## 3. Before external launch
 
 | # | Decision or action | Open question | Notes |
