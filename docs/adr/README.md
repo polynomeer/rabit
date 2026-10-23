@@ -43,6 +43,7 @@
 | [0028](ADR-0028-feature-flags.md) | Feature flags with gradual rollout and kill switches | Accepted | CQ-ANA-2, R12 |
 | [0029](ADR-0029-editorial-shelves.md) | Editorial shelves on Home | Accepted | CQ-CAT-8, DSC-005 |
 | [0030](ADR-0030-ddex-ern-ingest.md) | Catalog deliveries as DDEX ERN 4.3 | Accepted (new releases) / Proposed (updates, takedowns) | CQ-CAT-2, CAT-001 |
+| [0031](ADR-0031-alpha-validation-metrics.md) | Alpha validation metrics from existing data (cohort aggregates only) | Accepted | NFR-PRV-007, gate C |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 
