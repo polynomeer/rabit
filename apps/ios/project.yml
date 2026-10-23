@@ -80,6 +80,8 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: app.rabit.ios.uitests
         TEST_TARGET_NAME: Rabit
+        # XCTestCase's initializers are nonisolated; the test methods opt into MainActor.
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
 schemes:
   Rabit:
     build:

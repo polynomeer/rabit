@@ -2,8 +2,8 @@ import XCTest
 
 /// UI tests (CQ-IOS-3) against canned API answers (`FixtureTransport`): sign in, the
 /// editors' shelf on Home, an album from it, and the account's playback settings.
-@MainActor
 final class RabitUITests: XCTestCase {
+  @MainActor
   private func signedIn() -> XCUIApplication {
     continueAfterFailure = false
     let app = XCUIApplication()
@@ -17,11 +17,13 @@ final class RabitUITests: XCTestCase {
     return app
   }
 
+  @MainActor
   func testSignInShowsTheEditorsShelf() {
     let app = signedIn()
     XCTAssertTrue(app.staticTexts["이번 주의 발견"].waitForExistence(timeout: 15))
   }
 
+  @MainActor
   func testAnAlbumOpensFromTheShelfWithItsTracks() {
     let app = signedIn()
     let album = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Harbour Lights")).firstMatch
@@ -31,6 +33,7 @@ final class RabitUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["Morning Tide"].exists)
   }
 
+  @MainActor
   func testAccountShowsPlaybackSettings() {
     let app = signedIn()
     let account = app.buttons["계정"]
