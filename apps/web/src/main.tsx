@@ -38,12 +38,22 @@ startDiagnostics();
 
 /**
  * A screen that throws while rendering shows a way out instead of a blank page; the
- * error is reported (ADR-0027). Keyed by route, so moving elsewhere starts over.
+ * error is reported (ADR-0027). Moving to another route clears the failure without
+ * remounting the screens, so their state (a typed reason, a form) survives.
  */
-class ScreenBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  override state = { failed: false };
+class ScreenBoundary extends Component<
+  { route: string; children: ReactNode },
+  { failed: boolean; route: string }
+> {
+  override state = { failed: false, route: this.props.route };
   static getDerivedStateFromError() {
     return { failed: true };
+  }
+  static getDerivedStateFromProps(
+    props: { route: string },
+    state: { failed: boolean; route: string },
+  ) {
+    return props.route === state.route ? null : { failed: false, route: props.route };
   }
   override componentDidCatch(error: unknown) {
     reportError(error, 'unhandled');
@@ -283,7 +293,7 @@ function App() {
         </nav>
       </header>
       <main>
-        <ScreenBoundary key={JSON.stringify(route)}>
+        <ScreenBoundary route={JSON.stringify(route)}>
           {route.kind === 'recording' ? <RecordingDetail id={route.id} /> : null}
           {route.kind === 'release' ? <ReleaseDetail id={route.id} /> : null}
           {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
