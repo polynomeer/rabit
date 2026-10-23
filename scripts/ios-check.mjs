@@ -35,6 +35,7 @@ const swiftFiles = (root) =>
 const others = [
   ...swiftFiles(resolve(ROOT, 'apps/ios/Rabit')),
   ...swiftFiles(resolve(ROOT, 'apps/ios/RabitTests')),
+  ...swiftFiles(resolve(ROOT, 'apps/ios/RabitUITests')),
   ...swiftFiles(resolve(ROOT, 'apps/ios/Packages/RabitKit/Tests')),
 ];
 step(`App and tests: ${String(others.length)} files (syntax only)`);

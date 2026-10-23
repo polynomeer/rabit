@@ -1,11 +1,22 @@
+import RabitKit
 import SwiftUI
 
 @main
 struct RabitApp: App {
-  @State private var model = AppModel()
+  @State private var model = Self.makeModel()
   /// Colour theme (ADR-0022): follow the device, or force dark or light. Per device.
   @AppStorage(ThemeChoice.storageKey) private var theme: ThemeChoice = .system
   @Environment(\.scenePhase) private var scenePhase
+
+  private static func makeModel() -> AppModel {
+    #if DEBUG
+      // UI tests: no server, no keychain; every launch starts signed out.
+      if FixtureTransport.isActive {
+        return AppModel(tokens: InMemoryTokenStore(nil), transport: FixtureTransport())
+      }
+    #endif
+    return AppModel()
+  }
 
   var body: some Scene {
     WindowGroup {

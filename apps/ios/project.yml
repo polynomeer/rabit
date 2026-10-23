@@ -68,12 +68,27 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: app.rabit.ios.tests
+  # Drives the app in the simulator against canned answers (FixtureTransport).
+  RabitUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [RabitUITests]
+    dependencies:
+      - target: Rabit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: app.rabit.ios.uitests
+        TEST_TARGET_NAME: Rabit
+        # XCTestCase's initializers are nonisolated; the test methods opt into MainActor.
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
 schemes:
   Rabit:
     build:
       targets:
         Rabit: all
         RabitTests: [test]
+        RabitUITests: [test]
     run:
       config: Debug
       # Local StoreKit testing; run the api with APP_STORE_ENVIRONMENT=Xcode (ADR-0024).
@@ -94,3 +109,4 @@ schemes:
       config: Debug
       targets:
         - RabitTests
+        - RabitUITests
