@@ -678,6 +678,8 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   #expect(body["app_version"] as? String == "0.1.0+7")
   #expect(body["platform"] as? String == "ios")
   #expect(body["launches"] as? Int == 1)
+}
+
 @Test func featureFlagsKeepTheirSnakeCaseNames() async throws {
   let t = StubTransport([(200, #"{"features":{"client_diagnostics":false,"home_hero":true}}"#)])
   let api = APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)
