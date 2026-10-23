@@ -11,7 +11,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:16-alpine
@@ -41,14 +41,15 @@ jobs:
       # The Ubuntu mirror is often slow (it once held this step for 20 minutes). The
       # ffmpeg packages are cached between runs: with a warm cache they install without
       # the network; when the image has moved on, apt downloads what changed. A silent
-      # connection is dropped after 30 s and retried; the step gives up after 10 minutes.
+      # connection is dropped after 30 s and retried. Filling the cache from a slow mirror can
+      # take long once, hence the generous step and job limits.
       - name: Cache ffmpeg packages
         uses: actions/cache@v6
         with:
           path: .apt-cache
           key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
       - name: Install ffmpeg
-        timeout-minutes: 10
+        timeout-minutes: 18
         run: |
           mkdir -p .apt-cache/archives/partial
           if ls .apt-cache/archives/*.deb >/dev/null 2>&1 &&
@@ -81,7 +82,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     services:
       postgres:
         image: postgres:16-alpine
@@ -111,14 +112,15 @@ jobs:
       # The Ubuntu mirror is often slow (it once held this step for 20 minutes). The
       # ffmpeg packages are cached between runs: with a warm cache they install without
       # the network; when the image has moved on, apt downloads what changed. A silent
-      # connection is dropped after 30 s and retried; the step gives up after 10 minutes.
+      # connection is dropped after 30 s and retried. Filling the cache from a slow mirror can
+      # take long once, hence the generous step and job limits.
       - name: Cache ffmpeg packages
         uses: actions/cache@v6
         with:
           path: .apt-cache
           key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
       - name: Install ffmpeg
-        timeout-minutes: 10
+        timeout-minutes: 18
         run: |
           mkdir -p .apt-cache/archives/partial
           if ls .apt-cache/archives/*.deb >/dev/null 2>&1 &&
