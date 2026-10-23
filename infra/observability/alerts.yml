@@ -69,6 +69,29 @@ groups:
           impact: More than 2 % of playback sessions end in an error on the listener's device.
           runbook: docs/09-operations/runbooks.md#playback-quality
 
+      # Client diagnostics (ADR-0027). Tickets; crash-free launches target 99.8 %.
+      # Only the app crashes; a web page's errors are `unhandled`.
+      - alert: ClientCrashRateHigh
+        expr: >-
+          sum(increase(rabit_client_errors_reported_total{platform="ios",kind="crash"}[6h]))
+          / sum(increase(rabit_client_launches_total{platform="ios"}[6h])) > 0.002
+          and sum(increase(rabit_client_launches_total{platform="ios"}[6h])) > 500
+        for: 30m
+        labels: { severity: ticket }
+        annotations:
+          impact: More than 0.2 % of iOS app launches end in a crash.
+          runbook: docs/09-operations/runbooks.md#client-diagnostics
+
+      - alert: WebLcpSlow
+        expr: >-
+          histogram_quantile(0.75, sum by (le) (rate(rabit_web_vitals_lcp_seconds_bucket[1h]))) > 2.5
+          and sum(rate(rabit_web_vitals_lcp_seconds_count[1h])) > 0.05
+        for: 1h
+        labels: { severity: ticket }
+        annotations:
+          impact: The web app's main content takes more than 2.5 s to appear (p75 LCP).
+          runbook: docs/09-operations/runbooks.md#client-diagnostics
+
       - alert: UploadsStuck
         expr: max(rabit_job_oldest_queued_seconds{kind!="catalog.process"}) > 900
         for: 5m

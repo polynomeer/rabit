@@ -241,6 +241,53 @@ paths:
         '204': { description: Recorded (or ignored as a repeat) }
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/client-diagnostics:
+    post:
+      tags: [playback]
+      operationId: reportClientDiagnostics
+      description: >-
+        A batch of client diagnostics (ADR-0027): launches or page loads since the last batch, up
+        to 20 errors, crashes or hangs, and web vitals. Errors are grouped by a fingerprint the
+        server computes; messages and frames are scrubbed of emails, URL queries, ids and long
+        numbers. Nothing links the report to the caller. Clients must keep titles and other content
+        out of messages.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [platform, app_version]
+              properties:
+                platform: { type: string, enum: [web, ios] }
+                app_version: { type: string, pattern: '^[0-9A-Za-z][0-9A-Za-z.+_-]{0,31}$' }
+                launches: { type: integer, minimum: 0, maximum: 100, default: 0 }
+                errors:
+                  type: array
+                  maxItems: 20
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [kind, name, message, frames]
+                    properties:
+                      kind: { type: string, enum: [error, unhandled, crash, hang] }
+                      name: { type: string }
+                      message: { type: string }
+                      frames: { type: array, maxItems: 50, items: { type: string } }
+                      count: { type: integer, minimum: 1, maximum: 1000, default: 1 }
+                vitals:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    lcp_ms: { type: number, minimum: 0 }
+                    inp_ms: { type: number, minimum: 0 }
+                    cls: { type: number, minimum: 0 }
+      responses:
+        '204': { description: Recorded }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
   /v1/queue:
     get:
       tags: [playback]
@@ -1379,6 +1426,44 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+
+  /v1/ops/client-errors:
+    get:
+      tags: [ops]
+      operationId: opsListClientErrors
+      description: Client error groups (ADR-0027), most recently seen first. They hold no personal data.
+      parameters:
+        - { name: platform, in: query, schema: { type: string, enum: [web, ios] } }
+        - { name: kind, in: query, schema: { type: string, enum: [error, unhandled, crash, hang] } }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200':
+          description: Error groups
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [fingerprint, platform, kind, name, message, frames, count, first_app_version, last_app_version, first_seen_at, last_seen_at]
+                      properties:
+                        fingerprint: { type: string }
+                        platform: { type: string, enum: [web, ios] }
+                        kind: { type: string, enum: [error, unhandled, crash, hang] }
+                        name: { type: string }
+                        message: { type: string }
+                        frames: { type: array, items: { type: string } }
+                        count: { type: integer, minimum: 1 }
+                        first_app_version: { type: string }
+                        last_app_version: { type: string }
+                        first_seen_at: { type: string, format: date-time }
+                        last_seen_at: { type: string, format: date-time }
+        '403': { $ref: '#/components/responses/Error' }
 
   /v1/ops/reports:
     get:

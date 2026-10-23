@@ -92,3 +92,11 @@ Client-reported quality (QoE): `PlaybackStartSlow`, `RebufferingHigh`, `Playback
 3. Start time: `POST /v1/playback-sessions` latency (api histogram); the playlist is fetched from the origin on every start.
 4. Errors by `code`: `network` (connectivity, gateway 5xx), `media` (decode or format: check recent transcodes and the ffmpeg version), `other`.
 5. `rabit_playback_quality_reports_total{outcome="implausible"}` rising means a client reports times its sessions cannot have had (clock or client bug).
+
+## client-diagnostics
+Client errors, crashes, hangs and web vitals (ADR-0027): `ClientCrashRateHigh`, `WebLcpSlow`. Reports carry no user data; error groups are at `GET /v1/ops/client-errors` (operator console).
+1. Which platform and which version? `last_app_version` of the top groups (`?platform=ios&kind=crash`) shows whether a release introduced it. A new version with most crashes: stop the phased release in App Store Connect, or roll the web back.
+2. iOS frames are unsymbolicated (`Binary 0xaddress`). Symbolicate with the build's dSYM: `atos -arch arm64 -o Rabit.app.dSYM/Contents/Resources/DWARF/Rabit -l <load address> <address>`.
+3. Web frames point at the built bundle; map them with the build's source maps (`apps/web/dist/assets/*.map`, kept as a CI artifact).
+4. Slow LCP: check the API (`GET /v1/home`, `/v1/me` latency), the CDN cache for the web bundle, and the bundle size of the last build.
+5. `rabit_client_error_groups_dropped_total` rising: the 5,000-group cap is full, usually one error with a changing message. Find and fix it; groups unseen for 30 days are purged daily.

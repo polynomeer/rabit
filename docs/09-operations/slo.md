@@ -18,6 +18,8 @@
 | Transcoding latency | uploaded → ready for files ≤ 10 min | `rabit_upload_events_total` + job duration logs | p95 ≤ 5 min |
 | Transcoding failure | jobs ending `dead` for non-media reasons / all processing jobs | `rabit_jobs_total{kind="audio.process",outcome="dead"}` minus permanent media failures (logs) | ≤ 0.5 % |
 | Search | `GET /v1/search` p95 | histogram | ≤ 500 ms |
+| App stability | launches without a crash / launches | `rabit_client_errors_reported_total{kind="crash"}` / `rabit_client_launches_total` (ADR-0027) | ≥ 99.8 % |
+| Web page load | Largest Contentful Paint p75 | `rabit_web_vitals_lcp_seconds` | ≤ 2.5 s |
 | DIG traversal | `GET /v1/dig/entities/:id/connections` p95 | histogram | ≤ 500 ms |
 | Entitlement change → enforcement | event time → stale sessions revoked | `rabit_outbox_pending`, `rabit_job_oldest_queued_seconds`, `rabit_playback_sessions_revoked_total` | ≤ 60 s |
 | Deletion | delete request → objects gone | deletion job completion | ≤ 24 h (block is immediate) |

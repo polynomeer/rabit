@@ -75,6 +75,7 @@ describe('architecture (ADR-0001, domain-boundaries §2)', () => {
     commerce:
       'offer purchase_order payment_refund payment_event ledger_journal ledger_line mock_payment mock_card app_store_account',
     ops: 'job outbox_event audit_log idempotency_record rate_limit_counter',
+    diagnostics: 'client_error_group',
   };
   const owner = new Map(
     Object.entries(OWNS).flatMap(([m, ts]) => ts.split(' ').map((t) => [t, m] as const)),

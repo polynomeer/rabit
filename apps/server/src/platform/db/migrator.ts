@@ -21,6 +21,7 @@ import * as m0018 from './migrations/0018_retention_indexes.js';
 import * as m0019 from './migrations/0019_usage_statements.js';
 import * as m0020 from './migrations/0020_playback_quality.js';
 import * as m0021 from './migrations/0021_play_queue.js';
+import * as m0022 from './migrations/0022_client_diagnostics.js';
 
 // Migrations operate on the raw schema, independent of the current table types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,6 +53,7 @@ export const migrations: Record<string, Migration> = {
   '0019_usage_statements': m0019,
   '0020_playback_quality': m0020,
   '0021_play_queue': m0021,
+  '0022_client_diagnostics': m0022,
 };
 
 export function createMigrator(db: AnyDb): Migrator {

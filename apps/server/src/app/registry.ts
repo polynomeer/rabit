@@ -48,6 +48,7 @@ import {
   integrityModule,
   integritySupportSection,
 } from '../modules/integrity/index.js';
+import { diagnosticsModule } from '../modules/diagnostics/index.js';
 import { opsModule } from '../modules/ops/index.js';
 import {
   deleteAccountPlayback,
@@ -159,5 +160,6 @@ export function allModules(): Module[] {
       ],
     }),
     digModule({ catalogAccess, excludedEntities }),
+    diagnosticsModule(),
   ];
 }
