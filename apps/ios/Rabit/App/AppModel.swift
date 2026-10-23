@@ -17,6 +17,7 @@ final class AppModel {
   let account: AccountService
   let player: PlayerController
   let store: StoreController
+  let diagnostics: Diagnostics
   private(set) var signedIn: Bool
 
   private let api: APIClient
@@ -41,6 +42,7 @@ final class AppModel {
     store = StoreController(account: account)
     player = PlayerController(
       playback: PlaybackService(api: api, deviceId: DeviceID.current), queue: QueueService(api: api))
+    diagnostics = Diagnostics(service: DiagnosticsService(api: api))
     signedIn = tokens.accessToken != nil
     if signedIn { didSignIn() }
   }
@@ -71,9 +73,12 @@ final class AppModel {
   private func didSignIn() {
     store.listen()
     player.restore()
+    diagnostics.enabled = true
+    diagnostics.flush()
   }
 
   func signOut() {
+    diagnostics.enabled = false
     player.stop()
     store.stop()
     if let oidc, let refresh = tokens.refreshToken {

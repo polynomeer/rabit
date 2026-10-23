@@ -5,6 +5,7 @@ struct RabitApp: App {
   @State private var model = AppModel()
   /// Colour theme (ADR-0022): follow the device, or force dark or light. Per device.
   @AppStorage(ThemeChoice.storageKey) private var theme: ThemeChoice = .system
+  @Environment(\.scenePhase) private var scenePhase
 
   var body: some Scene {
     WindowGroup {
@@ -13,6 +14,10 @@ struct RabitApp: App {
         .environment(model.player)
         .tint(Palette.accent)
         .preferredColorScheme(theme.colorScheme)
+    }
+    // Pending diagnostics go out when the app leaves the screen (ADR-0027).
+    .onChange(of: scenePhase) { _, phase in
+      if phase == .background { model.diagnostics.flush() }
     }
   }
 }
