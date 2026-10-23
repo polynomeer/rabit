@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { get, type EntitySummary } from './api';
-import { Cover } from './brand';
+import { Cover, type Artwork } from './brand';
 import { TIER_TEXT } from './blind';
 import { POPULARITY } from './dig';
 import { t, tCode } from './i18n';
@@ -12,7 +12,12 @@ import { errorText } from './views';
  * era and a popularity level. Every album has something the user can play.
  */
 interface CrateItem {
-  release: { release_id: string; title: string; release_date: string | null };
+  release: {
+    release_id: string;
+    title: string;
+    release_date: string | null;
+    artwork?: Artwork;
+  };
   artists: EntitySummary[];
   label: EntitySummary | null;
   playable_tracks: number;
@@ -81,7 +86,7 @@ export function CrateDigPanel() {
         <ul className="crate-grid" aria-label={t('crate.list')}>
           {items.map((i) => (
             <li key={i.release.release_id}>
-              <Cover id={i.release.release_id} size={160} round={10} />
+              <Cover id={i.release.release_id} size={160} round={10} art={i.release.artwork} />
               <div>
                 <strong>
                   <a href={entityHref(i.release.release_id)}>{i.release.title}</a>

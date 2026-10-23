@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 /**
  * The rabbit symbol (BRD §2.1): a side profile with two ears and an eye. Shape S2,
@@ -175,7 +175,54 @@ function hash(text: string): number {
  * Stand-in artwork: the catalog has no cover images yet, so each release or track
  * gets a fixed abstract composition. Decorative — the title next to it names it.
  */
-export function Cover({ id, size, round = 12 }: { id: string; size: number; round?: number }) {
+/** Signed cover URLs by edge in pixels (ADR-0031), from the API. */
+export type Artwork = Partial<Record<'300' | '600' | '1200', string>> | null | undefined;
+
+/**
+ * A release's cover: the real one when the API gave its URLs (the browser picks the
+ * size for the screen), otherwise, or if it fails to load, the stand-in drawn from
+ * the id.
+ */
+export function Cover({
+  id,
+  size,
+  round = 12,
+  art,
+}: {
+  id: string;
+  size: number;
+  round?: number;
+  art?: Artwork;
+}) {
+  const [broken, setBroken] = useState(false);
+  const small = art?.['300'];
+  if (art && small && !broken) {
+    const srcSet = (['300', '600', '1200'] as const)
+      .filter((k) => art[k])
+      .map((k) => `${art[k] ?? ''} ${k}w`)
+      .join(', ');
+    return (
+      <img
+        className="cover"
+        src={small}
+        srcSet={srcSet}
+        sizes={`${String(size)}px`}
+        width={size}
+        height={size}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        style={{ borderRadius: round }}
+        onError={() => {
+          setBroken(true);
+        }}
+      />
+    );
+  }
+  return <StandInCover id={id} size={size} round={round} />;
+}
+
+function StandInCover({ id, size, round }: { id: string; size: number; round: number }) {
   const [bg, disc, line] = COVER_PALETTES[hash(id) % COVER_PALETTES.length] ?? [
     '#2b2540',
     '#eb7b4c',

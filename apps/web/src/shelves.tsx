@@ -58,7 +58,7 @@ function Tile({
   return (
     <li>
       <a href={entityHref(release.release_id)}>
-        <Cover id={release.release_id} size={160} round={10} />
+        <Cover id={release.release_id} size={160} round={10} art={release.artwork} />
         <strong>{release.title}</strong>
         <span className="muted small">{byline(artists, release)}</span>
         {price ? <span className="small price">{price}</span> : null}
