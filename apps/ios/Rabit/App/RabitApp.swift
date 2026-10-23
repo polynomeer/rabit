@@ -1,3 +1,4 @@
+import RabitKit
 import SwiftUI
 
 @main
