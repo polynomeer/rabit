@@ -1,8 +1,17 @@
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { deliveryPath, ernToManifest, ErnError, ingestErn } from '../src/modules/catalog/index.js';
+import {
+  activeGrants,
+  createGrant,
+  deliveryPath,
+  ernToManifest,
+  ErnError,
+  ingestErn,
+  readErn,
+} from '../src/modules/catalog/index.js';
 import { ulid } from '../src/platform/ids.js';
 import { fixtures } from './helpers/audio-fixtures.js';
 import { createHarness, type Harness } from './helpers/harness.js';
@@ -20,6 +29,9 @@ interface Opts {
   deals?: string;
   namespace?: string;
   root?: string;
+  sender?: string;
+  title?: string;
+  trackTitle?: string;
 }
 
 function message(o: Opts = {}) {
@@ -36,7 +48,7 @@ function message(o: Opts = {}) {
 <ern:${root} xmlns:ern="${ns}" LanguageAndScriptCode="ko">
   <MessageHeader>
     <MessageThreadId>T1</MessageThreadId><MessageId>MSG-${ulid()}</MessageId>
-    <MessageSender><PartyId>PADPIDA2026TIDAL</PartyId><PartyName><FullName>Tidal Room Records</FullName></PartyName></MessageSender>
+    <MessageSender><PartyId>${o.sender ?? 'PADPIDA2026TIDAL'}</PartyId><PartyName><FullName>Tidal Room Records</FullName></PartyName></MessageSender>
     <MessageRecipient><PartyId>PADPIDA2026RABIT</PartyId><PartyName><FullName>Rabit</FullName></PartyName></MessageRecipient>
     <MessageCreatedDateTime>2026-10-20T09:00:00Z</MessageCreatedDateTime>
   </MessageHeader>
@@ -49,7 +61,7 @@ function message(o: Opts = {}) {
     <SoundRecording>
       <ResourceReference>A1</ResourceReference><Type>MusicalWorkSoundRecording</Type>
       <SoundRecordingEdition><ResourceId><ISRC>${isrc1}</ISRC></ResourceId></SoundRecordingEdition>
-      <DisplayTitleText>푸른 밤</DisplayTitleText>
+      <DisplayTitleText>${o.trackTitle ?? '푸른 밤'}</DisplayTitleText>
       <DisplayArtist SequenceNumber="1"><ArtistPartyReference>PArtist</ArtistPartyReference><DisplayArtistRole>MainArtist</DisplayArtistRole></DisplayArtist>
       <Contributor><ContributorPartyReference>PProducer</ContributorPartyReference><Role>Producer</Role></Contributor>
       <Duration>PT3M20S</Duration><ParentalWarningType>NotExplicit</ParentalWarningType>
@@ -69,7 +81,7 @@ function message(o: Opts = {}) {
     <Release>
       <ReleaseReference>R0</ReleaseReference><ReleaseType>Album</ReleaseType>
       <ReleaseId><ICPN>${o.icpn ?? '8800000000017'}</ICPN></ReleaseId>
-      <DisplayTitleText>새벽의 노래</DisplayTitleText>
+      <DisplayTitleText>${o.title ?? '새벽의 노래'}</DisplayTitleText>
       <DisplayArtist SequenceNumber="1"><ArtistPartyReference>PArtist</ArtistPartyReference><DisplayArtistRole>MainArtist</DisplayArtistRole></DisplayArtist>
       <ReleaseLabelReference>PLabel</ReleaseLabelReference>
       <OriginalReleaseDate>2026-03-01</OriginalReleaseDate>
@@ -128,7 +140,7 @@ describe('ERN 4.3 conversion', () => {
           // Worldwide downloads until the end of 2027 (an end date covers that day).
           deal(`<TerritoryCode>Worldwide</TerritoryCode><ValidityPeriod><StartDate>2026-01-01</StartDate>
             <EndDate>2027-12-31</EndDate></ValidityPeriod><UseType>PermanentDownload</UseType>`),
-          // Starts next year: granting now would give rights early.
+          // Starts next year: a grant from then on, not before.
           deal(`<TerritoryCode>KR</TerritoryCode><ValidityPeriod><StartDateTime>2027-01-01T00:00:00Z</StartDateTime>
             </ValidityPeriod><UseType>OnDemandStream</UseType>`),
           // Already ended.
@@ -146,12 +158,19 @@ describe('ERN 4.3 conversion', () => {
         recording: 'r-a1',
         territories: ['WORLD'],
         uses: ['download'],
+        valid_from: '2026-01-01T00:00:00.000Z',
         valid_to: '2027-12-31T23:59:59.999Z',
       }),
       expect.objectContaining({ recording: 'r-a2', territories: ['WORLD'] }),
+      expect.objectContaining({
+        recording: 'r-a1',
+        territories: ['KR'],
+        uses: ['stream'],
+        valid_from: '2027-01-01T00:00:00.000Z',
+      }),
+      expect.objectContaining({ recording: 'r-a2', valid_from: '2027-01-01T00:00:00.000Z' }),
     ]);
     expect(c.skippedDeals).toEqual([
-      expect.stringContaining('deal 2: starts 2027-01-01'),
       expect.stringContaining('deal 3: ended 2025-12-31'),
       expect.stringContaining('deal 4: no streaming or download use'),
     ]);
@@ -171,7 +190,7 @@ describe('ERN 4.3 conversion', () => {
   it('refuses what it cannot import faithfully', () => {
     const refused = (xml: string) => () => ernToManifest(xml, NOW);
     expect(refused(message({ namespace: 'http://ddex.net/xml/ern/382' }))).toThrow(ErnError);
-    expect(refused(message({ root: 'PurgeReleaseMessage' }))).toThrow(/PurgeReleaseMessage/);
+    expect(refused(message({ root: 'PurgeReleaseMessage' }))).toThrow(/NewReleaseMessage/);
     expect(
       refused(
         message({
@@ -215,50 +234,199 @@ describe('ERN 4.3 conversion', () => {
   });
 });
 
-describe('ERN 4.3 ingest', () => {
+function purge(icpn: string, sender = 'PADPIDA2026TIDAL') {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<ern:PurgeReleaseMessage xmlns:ern="http://ddex.net/xml/ern/432">
+  <MessageHeader><MessageThreadId>T2</MessageThreadId><MessageId>PURGE-${ulid()}</MessageId>
+    <MessageSender><PartyId>${sender}</PartyId><PartyName><FullName>Tidal Room Records</FullName></PartyName></MessageSender>
+    <MessageCreatedDateTime>2026-10-24T09:00:00Z</MessageCreatedDateTime></MessageHeader>
+  <PurgedRelease><ReleaseId><ICPN>${icpn}</ICPN></ReleaseId></PurgedRelease>
+</ern:PurgeReleaseMessage>`;
+}
+
+describe('ERN 4.3 purge message', () => {
+  it('reads the release to purge by ICPN', () => {
+    const p = readErn(purge('8800000000017'), NOW);
+    expect(p).toMatchObject({
+      kind: 'purge',
+      purge: { icpn: '8800000000017', senderId: 'PADPIDA2026TIDAL' },
+    });
+    expect(() => readErn(purge('not-an-icpn'), NOW)).toThrow(/ICPN/);
+  });
+});
+
+describe('ERN 4.3 ingest, updates and takedowns', () => {
   let h: Harness;
+  let dir: string;
   beforeAll(async () => {
     h = await createHarness();
+    dir = await mkdtemp(join(tmpdir(), 'rabit-ddex-'));
+    await writeFile(join(dir, 'a1.wav'), fixtures.wav());
   });
   afterAll(() => h.close());
 
-  it('ingests a delivery once and refuses the same release again', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'rabit-ddex-'));
-    await writeFile(join(dir, 'a1.wav'), fixtures.wav());
-    const suffix = String(Date.now()).slice(-7);
-    const icpn = `88${suffix}0001`;
-    const xml = message({
-      icpn,
+  /** A release of its own for each test: unique ICPN and ISRCs. */
+  async function delivered(extra: Opts = {}) {
+    const suffix = ulid()
+      .slice(-7)
+      .replace(/[^0-9]/g, '7')
+      .padStart(7, '7');
+    const base: Opts = {
+      icpn: `88${suffix}0001`,
       isrc: [`KRA40${suffix}`, `KRB40${suffix}`],
       uri: 'a1.wav',
-    });
-    const result = await ingestErn(h.ctx, xml, dir, NOW);
-    expect(result.skippedDeals).toEqual([]);
+      ...extra,
+    };
+    const created = await ingestErn(h.ctx, message(base), dir, NOW);
+    expect(created.action).toBe('created');
     await h.worker.drain();
-
     const release = await h.ctx.db
       .selectFrom('release')
-      .select(['id', 'title'])
-      .where('upc', '=', icpn)
+      .select('id')
+      .where('upc', '=', base.icpn ?? '')
       .executeTakeFirstOrThrow();
-    expect(release.title).toBe('새벽의 노래');
     const tracks = await h.ctx.db
-      .selectFrom('release_track as t')
-      .innerJoin('recording as r', 'r.id', 't.recording_id')
-      .select(['r.title', 'r.isrc'])
-      .where('t.release_id', '=', release.id)
-      .orderBy('t.position')
+      .selectFrom('release_track')
+      .select('recording_id')
+      .where('release_id', '=', release.id)
+      .orderBy('position')
       .execute();
-    expect(tracks.map((t) => t.title)).toEqual(['푸른 밤', '여름의 끝']);
-    const grants = await h.ctx.db
-      .selectFrom('rights_grant')
-      .select(['territories', 'rights_holder'])
-      .where('recording_id', '=', result.ids['r-a1'] ?? '')
-      .execute();
-    expect(grants).toEqual([
-      expect.objectContaining({ territories: ['KR', 'JP'], rights_holder: 'Tidal Room Records' }),
-    ]);
+    return { base, releaseId: release.id, recordings: tracks.map((t) => t.recording_id) };
+  }
 
-    await expect(ingestErn(h.ctx, xml, dir, NOW)).rejects.toThrow(/already in the catalog/);
+  const grantsOf = (recordingId: string) =>
+    h.ctx.db
+      .selectFrom('rights_grant')
+      .select(['territories', 'uses', 'status', 'valid_from', 'valid_to', 'contract_ref'])
+      .where('recording_id', '=', recordingId)
+      .orderBy('created_at')
+      .orderBy('id')
+      .execute();
+
+  const streamsIn = async (recordingId: string, country: string, at = NOW) =>
+    (await activeGrants(h.ctx.db, [recordingId], country, 'stream', at)).has(recordingId);
+
+  it('creates a release once; the same message again changes nothing', async () => {
+    const { base, releaseId, recordings } = await delivered();
+    expect(await streamsIn(recordings[0] ?? '', 'KR')).toBe(true);
+    const again = await ingestErn(h.ctx, message(base), dir, NOW);
+    expect(again).toMatchObject({
+      action: 'updated',
+      release_id: releaseId,
+      grants: { created: 0, ended: 0, moved: 0 },
+      renamed: 0,
+    });
+  });
+
+  it('takes a release down when its deal gains an end, and revokes sessions', async () => {
+    const { base, recordings } = await delivered();
+    const ended = deal(`<TerritoryCode>KR</TerritoryCode><TerritoryCode>JP</TerritoryCode>
+      <ValidityPeriod><StartDateTime>2026-01-01T00:00:00Z</StartDateTime>
+      <EndDateTime>2026-10-23T12:00:00Z</EndDateTime></ValidityPeriod>
+      <UseType>OnDemandStream</UseType><UseType>NonInteractiveStream</UseType>`);
+    const r = await ingestErn(h.ctx, message({ ...base, deals: ended }), dir, NOW);
+    expect(r).toMatchObject({ action: 'updated', grants: { created: 0, ended: 2, moved: 0 } });
+    for (const rec of recordings) expect(await streamsIn(rec, 'KR')).toBe(false);
+    expect((await grantsOf(recordings[0] ?? ''))[0]?.status).toBe('expired');
+    // The change is announced, so sessions under the grant are revoked (ADR-0016).
+    const events = await h.ctx.db
+      .selectFrom('outbox_event')
+      .select('payload')
+      .where('type', '=', 'RightsGrantChanged')
+      .where(sql<boolean>`payload->>'recording_id' = ${recordings[0] ?? ''}`)
+      .execute();
+    expect(events.map((e) => (e.payload as { status: string }).status)).toContain('expired');
+  });
+
+  it('schedules a future end, ends deals no longer sent and adds new ones', async () => {
+    const { base, recordings } = await delivered();
+    const rec = recordings[0] ?? '';
+    const deals = [
+      // KR and JP until the end of the year: the grant gets that end.
+      deal(`<TerritoryCode>KR</TerritoryCode><TerritoryCode>JP</TerritoryCode>
+        <ValidityPeriod><StartDateTime>2026-01-01T00:00:00Z</StartDateTime>
+        <EndDate>2026-12-31</EndDate></ValidityPeriod>
+        <UseType>OnDemandStream</UseType><UseType>NonInteractiveStream</UseType>`),
+      // Downloads from next year: a new grant that waits for its start.
+      deal(`<TerritoryCode>KR</TerritoryCode><ValidityPeriod><StartDate>2027-01-01</StartDate>
+        </ValidityPeriod><UseType>PermanentDownload</UseType>`),
+    ].join('');
+    const r = await ingestErn(h.ctx, message({ ...base, deals }), dir, NOW);
+    expect(r).toMatchObject({ grants: { created: 2, ended: 0, moved: 2 } });
+    expect(await streamsIn(rec, 'KR')).toBe(true);
+    expect(await streamsIn(rec, 'KR', new Date('2027-01-02T00:00:00Z'))).toBe(false);
+    const downloads = await activeGrants(h.ctx.db, [rec], 'KR', 'download', NOW);
+    expect(downloads.has(rec)).toBe(false);
+    const later = await activeGrants(
+      h.ctx.db,
+      [rec],
+      'KR',
+      'download',
+      new Date('2027-01-02T00:00:00Z'),
+    );
+    expect(later.has(rec)).toBe(true);
+
+    // Only JP is sent now: the KR+JP grant ends, a JP grant takes its place.
+    const jpOnly = deal(`<TerritoryCode>JP</TerritoryCode><ValidityPeriod>
+      <StartDateTime>2026-01-01T00:00:00Z</StartDateTime></ValidityPeriod>
+      <UseType>OnDemandStream</UseType><UseType>NonInteractiveStream</UseType>`);
+    const narrowed = await ingestErn(h.ctx, message({ ...base, deals: jpOnly }), dir, NOW);
+    // Ended: the KR+JP stream grant and the download grant, on both tracks.
+    expect(narrowed).toMatchObject({ grants: { created: 2, ended: 4, moved: 0 } });
+    expect(await streamsIn(rec, 'KR')).toBe(false);
+    expect(await streamsIn(rec, 'JP')).toBe(true);
+  });
+
+  it('updates titles, and refuses track list changes and other licensors', async () => {
+    const { base, releaseId } = await delivered();
+    const renamed = await ingestErn(
+      h.ctx,
+      message({ ...base, title: '새벽의 노래 (리마스터)', trackTitle: '푸른 밤 (2026)' }),
+      dir,
+      NOW,
+    );
+    expect(renamed).toMatchObject({ renamed: 2 });
+    const release = await h.ctx.db
+      .selectFrom('release')
+      .select('title')
+      .where('id', '=', releaseId)
+      .executeTakeFirstOrThrow();
+    expect(release.title).toBe('새벽의 노래 (리마스터)');
+
+    const otherTracks = message({ ...base, isrc: [base.isrc?.[0] ?? '', 'KRC402699999'] });
+    await expect(ingestErn(h.ctx, otherTracks, dir, NOW)).rejects.toThrow(/track list/);
+    const otherSender = message({ ...base, sender: 'PADPIDA2026OTHER' });
+    await expect(ingestErn(h.ctx, otherSender, dir, NOW)).rejects.toThrow(/not delivered by/);
+  });
+
+  it('purges the licensor grants and leaves an operator grant alone', async () => {
+    const { base, recordings } = await delivered();
+    const rec = recordings[0] ?? '';
+    await createGrant(
+      h.ctx.db,
+      { type: 'system', id: null },
+      {
+        recording_id: rec,
+        rights_holder: 'Direct licence',
+        territories: ['US'],
+        uses: ['stream'],
+        valid_from: new Date(0).toISOString(),
+        contract_ref: 'OPS-DIRECT-1',
+      },
+      'test: a grant outside the delivery',
+      null,
+    );
+    await expect(
+      ingestErn(h.ctx, purge(base.icpn ?? '', 'PADPIDA2026OTHER'), dir, NOW),
+    ).resolves.toMatchObject({
+      grants: { ended: 0 },
+    });
+    const p = await ingestErn(h.ctx, purge(base.icpn ?? ''), dir, NOW);
+    expect(p).toMatchObject({ action: 'purged', grants: { ended: 2 } });
+    expect(await streamsIn(rec, 'KR')).toBe(false);
+    expect(await streamsIn(rec, 'US')).toBe(true);
+    await expect(ingestErn(h.ctx, purge('8899999999999'), dir, NOW)).rejects.toThrow(
+      /not in the catalog/,
+    );
   });
 });
