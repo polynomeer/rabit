@@ -1,6 +1,7 @@
 # Release Readiness Audit
 
 - Status: Phase 23 (2026-10-04), audit of `main` at the end of the build track. Written without code changes. Independent code review: [phase-24-code-review](phase-24-code-review.md).
+- Work still needed for a commercial launch (target B), item by item: [commercial-quality-plan](commercial-quality-plan.md) (2026-10-23).
 - Classification: **Blocker** (must be resolved before the named release), **Must fix** (before the release, smaller), **Follow-up** (tracked, not blocking).
 - Two release targets are assessed separately, because the MVP was cut as an internal alpha behind the Commercial Gate (mvp-scope §0.3):
   - **A. Internal alpha** — invited team members, self-made fixture catalog, no payments.
