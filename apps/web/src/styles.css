@@ -2592,6 +2592,7 @@ form.inline input:not([type='checkbox']):not([type='radio']) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
 
 /* A screen that failed to render (ADR-0027 error boundary). */
 .screen-error {
