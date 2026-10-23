@@ -42,6 +42,7 @@
 | [0027](ADR-0027-client-diagnostics.md) | Client diagnostics (errors, crashes, hangs, web vitals) | Accepted (self-hosted) / Proposed (vendor later) | CQ-IOS-4, CQ-WEB-1 |
 | [0028](ADR-0028-feature-flags.md) | Feature flags with gradual rollout and kill switches | Accepted | CQ-ANA-2, R12 |
 | [0029](ADR-0029-editorial-shelves.md) | Editorial shelves on Home | Accepted | CQ-CAT-8, DSC-005 |
+| [0030](ADR-0030-ddex-ern-ingest.md) | Catalog deliveries as DDEX ERN 4.3 | Accepted (new releases) / Proposed (updates, takedowns) | CQ-CAT-2, CAT-001 |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 
