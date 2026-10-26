@@ -40,7 +40,9 @@ const connections = async (entity: string, axis: string, cutoff?: string) => {
     headers: u.headers,
   });
   expect(r.statusCode, r.body).toBe(200);
-  return r.json<{ items: { entity: { entity_id: string } }[] }>().items.map((i) => i.entity.entity_id);
+  return r
+    .json<{ items: { entity: { entity_id: string } }[] }>()
+    .items.map((i) => i.entity.entity_id);
 };
 
 describe('DIG under a cutoff (EX-05)', () => {

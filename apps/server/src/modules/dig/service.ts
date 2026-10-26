@@ -1,11 +1,7 @@
 import type { Selectable } from 'kysely';
 import type { AppContext } from '../../app/context.js';
 import type { Db, DbOrTx } from '../../platform/db/db.js';
-import type {
-  DigEvidence,
-  DigSessionContext,
-  DigSessionTable,
-} from '../../platform/db/schema.js';
+import type { DigEvidence, DigSessionContext, DigSessionTable } from '../../platform/db/schema.js';
 import { errors } from '../../platform/errors.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
