@@ -7,6 +7,7 @@ import type { DigDeps } from './service.js';
 export type { DigDeps } from './service.js';
 export { connectionsFor, axesFor, type DigAxis } from './connections.js';
 export { radioFor, type RadioPick, type RadioReason } from './radio.js';
+export { releasesBetween, timeMachineFor, type TimeMachineReason } from './time-radio.js';
 export { digValidationSection } from './validation.js';
 
 export const deleteAccountDig: AccountDataDeleter = async (ctx, account) => {

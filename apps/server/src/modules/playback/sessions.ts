@@ -7,7 +7,7 @@ import { MediaTokenCodec } from '../../platform/media-token.js';
 import { metrics } from '../../platform/metrics.js';
 import { LADDER } from '../audio/index.js';
 import { evaluatePolicy, type CatalogAccess, type DenyReason } from './policy.js';
-import type { RadioProvider } from './queue.js';
+import type { QueueDeps, RadioProvider, TimeMachineProvider } from './queue.js';
 
 export const SESSION_SECONDS = 5 * 60;
 export const MEDIA_TOKEN_SECONDS = 60;
@@ -20,6 +20,9 @@ export interface PlaybackDeps {
   resolveRecordingSource: RecordingSourceResolver;
   /** Track-based suggestions for autoplay (DIG, ADR-0026). */
   radio: RadioProvider;
+  /** Time Radio suggestions and release counts (DIG, ADR-0034). */
+  timeMachine: TimeMachineProvider;
+  releasesBetween: QueueDeps['releasesBetween'];
 }
 
 export function denialError(reason: DenyReason) {

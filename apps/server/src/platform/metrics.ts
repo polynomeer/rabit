@@ -42,6 +42,17 @@ export const metrics = {
     labelNames: ['kind', 'outcome'] as const,
     registers: [registry],
   }),
+  timeMachineCandidates: new Counter({
+    name: 'rabit_time_machine_candidates_total',
+    help: 'Time Radio suggestion batches by mode and outcome (filled, short, empty) (ADR-0034)',
+    labelNames: ['mode', 'outcome'] as const,
+    registers: [registry],
+  }),
+  timeMachineCutoffViolations: new Counter({
+    name: 'rabit_time_machine_cutoff_violations_total',
+    help: 'Time Radio picks dropped because they were not out by the cutoff; must stay 0 (ADR-0033)',
+    registers: [registry],
+  }),
   playbackDecisions: new Counter({
     name: 'rabit_playback_decisions_total',
     help: 'Playback policy decisions',

@@ -120,7 +120,7 @@ describe('OpenAPI contract (ADR-0010)', () => {
       `/v1/dig/entities/${ids['r1']}/connections?axis=credits`,
       '/v1/dig/entities/{entity_id}/connections',
     );
-    for (const key of ['exploration_journey', 'exploration_compare']) {
+    for (const key of ['exploration_journey', 'exploration_compare', 'exploration_time_machine']) {
       await h.api.inject({
         method: 'PUT',
         url: `/v1/ops/features/${key}`,
@@ -138,9 +138,31 @@ describe('OpenAPI contract (ADR-0010)', () => {
       `/v1/dig/artists/${ids['band']}/compare?release_a=${ids['album']}&release_b=${ids['single']}`,
       '/v1/dig/artists/{artist_id}/compare',
     );
+    await get(
+      `/v1/dig/time-machine/coverage?cutoff_at=2025-12-31T00:00:00Z&time_zone=UTC`,
+      '/v1/dig/time-machine/coverage',
+    );
+    const tm = await h.api.inject({
+      method: 'POST',
+      url: '/v1/queue/time-machine',
+      headers: u.headers,
+      payload: { cutoff_at: '2025-06-01T00:00:00Z', time_zone: 'UTC' },
+    });
+    validate('post', '/v1/queue/time-machine', tm.statusCode, tm.json());
+    const adv = await h.api.inject({
+      method: 'POST',
+      url: '/v1/queue/time-machine/advance',
+      headers: u.headers,
+      payload: { months: 1 },
+    });
+    validate('post', '/v1/queue/time-machine/advance', adv.statusCode, adv.json());
     await h.ctx.db
       .deleteFrom('feature_flag')
-      .where('key', 'in', ['exploration_journey', 'exploration_compare'])
+      .where('key', 'in', [
+        'exploration_journey',
+        'exploration_compare',
+        'exploration_time_machine',
+      ])
       .execute();
     clearFlagCache();
 
