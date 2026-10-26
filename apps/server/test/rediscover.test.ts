@@ -151,12 +151,9 @@ describe('Rediscover', () => {
       .set({ last_qualified_at: new Date(Date.now() - 200 * 86_400_000) })
       .where('user_id', '=', u.userId)
       .execute();
-    await h.ctx.db
-      .updateTable('library_item')
-      .set({ saved_at: new Date(Date.now() - 200 * 86_400_000) })
-      .where('user_id', '=', u.userId)
-      .where('ref_id', '=', cat.ids['r2']!)
-      .execute();
+    // saved_at is set by the database only; tests move it back directly.
+    await sql`UPDATE library_item SET saved_at = now() - interval '200 days'
+      WHERE user_id = ${u.userId} AND ref_id = ${cat.ids['r2']!}`.execute(h.ctx.db);
     const r = await get(u);
     expect(r.statusCode, r.body).toBe(200);
     const items = r.json<Rediscover>().items;
@@ -197,11 +194,8 @@ describe('Rediscover', () => {
     const a = await listener();
     const b = await listener();
     await save(a, cat.ids['r1']!);
-    await h.ctx.db
-      .updateTable('library_item')
-      .set({ saved_at: new Date(Date.now() - 400 * 86_400_000) })
-      .where('user_id', '=', a.userId)
-      .execute();
+    await sql`UPDATE library_item SET saved_at = now() - interval '400 days'
+      WHERE user_id = ${a.userId}`.execute(h.ctx.db);
     expect((await get(b)).json<Rediscover>().items).toEqual([]);
     expect((await get(a)).json<Rediscover>().items).toHaveLength(1);
   });
