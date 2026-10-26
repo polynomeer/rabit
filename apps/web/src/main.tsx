@@ -4,6 +4,7 @@ import { SIGNED_OUT, devSignIn, get, hasToken } from './api';
 import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from './auth';
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
+import { CompareView, JourneyView } from './journey';
 import { LineageView } from './lineage';
 import { PlayerProvider } from './player';
 import {
@@ -254,7 +255,12 @@ function App() {
       />
     );
   // Detail pages belong to no tab; a DIG session belongs to the DIG tab.
-  const tab = route.kind === 'tab' ? route.tab : route.kind === 'dig-session' ? 'DIG' : null;
+  const tab =
+    route.kind === 'tab'
+      ? route.tab
+      : route.kind === 'dig-session' || route.kind === 'journey' || route.kind === 'compare'
+        ? 'DIG'
+        : null;
   return (
     <PlayerProvider>
       <header className="top">
@@ -302,6 +308,10 @@ function App() {
           {route.kind === 'release' ? <ReleaseDetail id={route.id} /> : null}
           {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
           {route.kind === 'lineage' ? <LineageView id={route.id} /> : null}
+          {route.kind === 'journey' ? <JourneyView artistId={route.id} /> : null}
+          {route.kind === 'compare' ? (
+            <CompareView artistId={route.id} a={route.a} b={route.b} />
+          ) : null}
           {route.kind === 'now' ? <NowPlaying /> : null}
           {tab === 'Home' ? <Home /> : null}
           {tab === 'Studio' ? <Studio /> : null}

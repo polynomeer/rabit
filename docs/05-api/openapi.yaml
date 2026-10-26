@@ -953,6 +953,44 @@ paths:
       responses:
         '200': { description: Timeline, content: { application/json: { schema: { $ref: '#/components/schemas/LabelTimeline' } } } }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/dig/artists/{artist_id}/journey:
+    parameters: [ { name: artist_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [dig]
+      operationId: getArtistJourney
+      description: >-
+        Artist Journey (EX-02): the artist's releases and dated relations (`member_of`, `signed_to`)
+        in date order, from catalog facts only. Release dates carry their precision (ADR-0033) and
+        sort by the last day they could have come out. Without `cutoff_at` (modern view) undated
+        releases are listed apart; with it (historical view) only releases whose last possible day
+        and relations whose start are on or before the cutoff date in `time_zone` are kept, and
+        undated items are only counted. Up to 500 releases (`truncated` when more). 404 while the
+        `exploration_journey` flag is off for the caller. Rate limited (600 per hour).
+      parameters:
+        - { name: cutoff_at, in: query, required: false, schema: { type: string, format: date-time }, description: 'ISO date-time with offset; selects the historical view' }
+        - { name: time_zone, in: query, required: false, schema: { type: string, default: Asia/Seoul }, description: IANA time zone that turns `cutoff_at` into a calendar date }
+      responses:
+        '200': { description: Journey, content: { application/json: { schema: { $ref: '#/components/schemas/ArtistJourney' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/dig/artists/{artist_id}/compare:
+    parameters: [ { name: artist_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
+    get:
+      tags: [dig]
+      operationId: compareArtistReleases
+      description: >-
+        Album compare (EX-03): two releases of the artist side by side with catalog facts only
+        (date and precision, label, track count and length, producers from release or track
+        credits with their source, other listed artists) and what they share. 422 when a release
+        is not by the artist; 404 while the `exploration_compare` flag is off for the caller.
+      parameters:
+        - { name: release_a, in: query, required: true, schema: { $ref: '#/components/schemas/Id' } }
+        - { name: release_b, in: query, required: true, schema: { $ref: '#/components/schemas/Id' } }
+      responses:
+        '200': { description: Comparison, content: { application/json: { schema: { $ref: '#/components/schemas/ReleaseComparison' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /v1/blind-digs:
     post:
       tags: [dig]
@@ -2884,6 +2922,102 @@ components:
               properties:
                 code: { type: string }
                 params: { type: object, additionalProperties: { type: string } }
+    FactEvidence:
+      type: object
+      required: [basis, verification_state, source, confidence]
+      properties:
+        basis: { type: string, enum: [verified_fact, declared, ml_inferred] }
+        verification_state: { type: string }
+        source: { type: string }
+        confidence: { type: [number, 'null'] }
+    JourneyRelease:
+      type: object
+      required: [release_id, title, release_type, release_date, date_precision, role, label, tracks, duration_ms, artwork, evidence]
+      properties:
+        release_id: { $ref: '#/components/schemas/Id' }
+        title: { type: string }
+        release_type: { type: string, enum: [album, single, ep, compilation] }
+        release_date: { type: [string, 'null'], format: date, description: 'First day of the period when the precision is month or year; show only that precision (EXP-024)' }
+        date_precision: { type: [string, 'null'], enum: [day, month, year, null] }
+        role: { type: string, enum: [main, with], description: '`main` when the artist is listed first' }
+        label: { oneOf: [ { $ref: '#/components/schemas/EntitySummary' }, { type: 'null' } ] }
+        tracks: { type: integer, minimum: 0 }
+        duration_ms: { type: [integer, 'null'], description: 'null when any track length is unknown' }
+        artwork: { oneOf: [ { $ref: '#/components/schemas/ReleaseArtwork' }, { type: 'null' } ] }
+        evidence: { $ref: '#/components/schemas/FactEvidence' }
+    ArtistJourney:
+      type: object
+      required: [artist, view, cutoff, timeline, undated, coverage, truncated]
+      properties:
+        artist: { $ref: '#/components/schemas/EntitySummary' }
+        view: { type: string, enum: [modern, historical] }
+        cutoff: { type: [string, 'null'], format: date }
+        timeline:
+          type: array
+          items:
+            oneOf:
+              - type: object
+                required: [kind, release]
+                properties:
+                  kind: { const: release }
+                  release: { $ref: '#/components/schemas/JourneyRelease' }
+              - type: object
+                required: [kind, event]
+                properties:
+                  kind: { const: event }
+                  event:
+                    type: object
+                    required: [relation_id, relation_type, direction, other, valid_from, valid_to, evidence]
+                    properties:
+                      relation_id: { $ref: '#/components/schemas/Id' }
+                      relation_type: { type: string, enum: [member_of, signed_to] }
+                      direction: { type: string, enum: [outgoing, incoming], description: '`outgoing` when the artist is the subject' }
+                      other: { $ref: '#/components/schemas/EntitySummary' }
+                      valid_from: { type: string, format: date }
+                      valid_to: { type: [string, 'null'], format: date, description: 'null when open or after the cutoff' }
+                      evidence: { $ref: '#/components/schemas/FactEvidence' }
+        undated: { type: array, items: { $ref: '#/components/schemas/JourneyRelease' }, description: 'Modern view only' }
+        coverage:
+          type: object
+          required: [releases, dated, undated, after_cutoff, undated_events]
+          properties:
+            releases: { type: integer }
+            dated: { type: integer }
+            undated: { type: integer }
+            after_cutoff: { type: integer }
+            undated_events: { type: integer }
+        truncated: { type: boolean }
+    ReleaseComparison:
+      type: object
+      required: [artist, releases, shared]
+      properties:
+        artist: { $ref: '#/components/schemas/EntitySummary' }
+        releases:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            allOf:
+              - { $ref: '#/components/schemas/JourneyRelease' }
+              - type: object
+                required: [producers, guests]
+                properties:
+                  producers:
+                    type: array
+                    items:
+                      type: object
+                      required: [entity, evidence]
+                      properties:
+                        entity: { $ref: '#/components/schemas/EntitySummary' }
+                        evidence: { $ref: '#/components/schemas/FactEvidence' }
+                  guests: { type: array, items: { $ref: '#/components/schemas/EntitySummary' } }
+        shared:
+          type: object
+          required: [producers, guests, label]
+          properties:
+            producers: { type: array, items: { $ref: '#/components/schemas/EntitySummary' } }
+            guests: { type: array, items: { $ref: '#/components/schemas/EntitySummary' } }
+            label: { oneOf: [ { $ref: '#/components/schemas/EntitySummary' }, { type: 'null' } ] }
     LabelTimeline:
       type: object
       required: [label, years, artists, truncated]

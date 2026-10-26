@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
  *   #/home  #/studio  #/archive  #/playlists  #/search  #/search/<query>  #/account
  *   #/dig  #/dig/<entity id> (starts a session)  #/dig-session/<session id>
  *   #/recording/<id>  #/release/<id>  #/entity/<id>  #/lineage/<recording id>  #/now (Now Playing)
+ *   #/journey/<artist id>  #/compare/<artist id>/<release id>/<release id>
  *   #/ops/<users|reports|jobs|rights|sales|editorial|metrics> (operators)
  */
 export const TABS = ['Home', 'Search', 'DIG', 'Archive', 'Studio', 'Playlists', 'Account'] as const;
@@ -24,7 +25,8 @@ export const SECONDARY_TABS = ['Playlists', 'Account'] as const satisfies readon
 
 export type Route =
   | { kind: 'tab'; tab: Tab; digStart: string | null; query: string }
-  | { kind: 'recording' | 'release' | 'entity' | 'dig-session' | 'lineage'; id: string }
+  | { kind: 'recording' | 'release' | 'entity' | 'dig-session' | 'lineage' | 'journey'; id: string }
+  | { kind: 'compare'; id: string; a: string; b: string }
   | { kind: 'ops'; section: OpsSection }
   | { kind: 'now' };
 
@@ -42,16 +44,19 @@ export type OpsSection = (typeof OPS_SECTIONS)[number];
 const ID = /^[a-z]{3}_[0-9A-HJKMNP-TV-Z]{26}$/;
 
 export function parseHash(hash: string): Route {
-  const [, first = '', second = ''] = hash.replace(/^#/, '').split('/');
+  const [, first = '', second = '', third = '', fourth = ''] = hash.replace(/^#/, '').split('/');
   if (
     (first === 'recording' ||
       first === 'release' ||
       first === 'entity' ||
       first === 'dig-session' ||
-      first === 'lineage') &&
+      first === 'lineage' ||
+      first === 'journey') &&
     ID.test(second)
   )
     return { kind: first, id: second };
+  if (first === 'compare' && ID.test(second) && ID.test(third) && ID.test(fourth))
+    return { kind: 'compare', id: second, a: third, b: fourth };
   if (first === 'now') return { kind: 'now' };
   if (first === 'ops') {
     const section = OPS_SECTIONS.find((s) => s === second) ?? 'users';
@@ -83,6 +88,10 @@ export function entityHref(id: string): string {
 }
 
 export const digSessionHref = (sessionId: string) => `#/dig-session/${sessionId}`;
+/** Artist Journey (EX-02) and two of the artist's releases side by side (EX-03). */
+export const journeyHref = (artistId: string) => `#/journey/${artistId}`;
+export const compareHref = (artistId: string, a: string, b: string) =>
+  `#/compare/${artistId}/${a}/${b}`;
 /** Original-song lineage around a recording. */
 export const lineageHref = (recordingId: string) => `#/lineage/${recordingId}`;
 

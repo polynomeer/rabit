@@ -146,7 +146,7 @@ Server recomputes with the new cutoff, replaces **suggested** queue items only, 
 
 ## 6. Clients
 
-- Web: route kinds `explore` (`#/explore`, `#/explore/time`, `#/explore/rediscover`) and `journey` (`#/artist/{id}/journey`, `#/artist/{id}/compare?a&b`); sub-navigation inside DIG (D10); Time Radio is the existing player + queue panel with the time banner.
+- Web: route kinds `explore` (`#/explore`, `#/explore/time`, `#/explore/rediscover`) and `journey` (`#/journey/{artist_id}`, `#/compare/{artist_id}/{release_a}/{release_b}`, following the existing `#/<kind>/<id>` hash routes); sub-navigation inside DIG (D10); Time Radio is the existing player + queue panel with the time banner.
 - iOS: `DigRoute` gains `.explore`, `.timeMachine`, `.journey(ArtistID)`, `.rediscover`; RabitKit `Explore.swift` for the endpoints; queue sheet shows the cutoff banner when `mode == .timeMachine`.
 - Both: list views for every visual (EXP-025); reduced motion honoured; dates rendered with their precision (EXP-024).
 
