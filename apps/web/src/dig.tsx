@@ -12,6 +12,7 @@ import { BlindDigPanel } from './blind';
 import { Icon, Mark } from './brand';
 import { CrateDigPanel } from './crate';
 import { ExplorePanel } from './explore';
+import { featureOn } from './features';
 import { usePlayer } from './player';
 import { digSessionHref, entityHref, replaceRoute, tabHref } from './route';
 import { Status } from './views';
@@ -124,6 +125,74 @@ export function EvidenceLine({ e }: { e: Evidence }) {
   );
 }
 
+/**
+ * EX-05: dig only through what was out by a date. The date is stored on the session,
+ * so reopening its link restores it; the server also refuses later steps.
+ */
+function CutoffCard({
+  cutoff,
+  disabled,
+  onChange,
+}: {
+  cutoff: string | null;
+  disabled: boolean;
+  onChange: (context: { cutoff_at: string; time_zone: string } | null) => void;
+}) {
+  const [date, setDate] = useState(cutoff ?? '');
+  return (
+    <form
+      className="card dig-cutoff"
+      aria-labelledby="dig-cutoff-h"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!date) return;
+        onChange({
+          cutoff_at: new Date(`${date}T23:59:59`).toISOString(),
+          time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+      }}
+    >
+      <p id="dig-cutoff-h" className="dig-other-title">
+        {t('dig.cutoff.title')}
+      </p>
+      {cutoff ? (
+        <p className="small">{t('dig.cutoff.on', { date: formatDate(`${cutoff}T00:00:00`) })}</p>
+      ) : (
+        <p className="small muted">{t('dig.cutoff.hint')}</p>
+      )}
+      <label className="small">
+        {t('dig.cutoff.date')}{' '}
+        <input
+          type="date"
+          min="1900-01-01"
+          value={date}
+          disabled={disabled}
+          onChange={(e) => {
+            setDate(e.target.value);
+          }}
+        />
+      </label>
+      <div className="actions">
+        <button type="submit" disabled={disabled || !date}>
+          {t('dig.cutoff.apply')}
+        </button>
+        {cutoff ? (
+          <button
+            type="button"
+            className="link"
+            disabled={disabled}
+            onClick={() => {
+              onChange(null);
+            }}
+          >
+            {t('dig.cutoff.clear')}
+          </button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
 export function DigSessionView({ id }: { id: string }) {
   const player = usePlayer();
   const [session, setSession] = useState<DigSession | null>(null);
@@ -167,21 +236,33 @@ export function DigSessionView({ id }: { id: string }) {
     // point must not reset the chosen axis; a new point starts on its first axis.
   }, [nodeKey, nodeEntity]);
 
+  const cutoffAt = session?.context?.cutoff_at ?? null;
+  const cutoffZone = session?.context?.time_zone ?? null;
   useEffect(() => {
     if (!nodeEntity || !axis) {
       setConns([]);
       return;
     }
     let stale = false;
+    const q = new URLSearchParams({
+      axis,
+      popularity: pop,
+      include_inferred: String(inferred),
+      limit: '50',
+    });
+    if (cutoffAt && cutoffZone) {
+      q.set('cutoff_at', cutoffAt);
+      q.set('time_zone', cutoffZone);
+    }
     void get<{ items: Connection[] }>(
-      `/v1/dig/entities/${nodeEntity}/connections?axis=${axis}&popularity=${pop}&include_inferred=${inferred}&limit=50`,
+      `/v1/dig/entities/${nodeEntity}/connections?${q.toString()}`,
     ).then((r) => {
       if (!stale) setConns(r.items);
     });
     return () => {
       stale = true;
     };
-  }, [nodeEntity, axis, pop, inferred]);
+  }, [nodeEntity, axis, pop, inferred, cutoffAt, cutoffZone]);
 
   // Session changes run one at a time, in order. Concurrent ones (a quick second
   // click) could otherwise answer out of order, and an older session state would
@@ -207,7 +288,11 @@ export function DigSessionView({ id }: { id: string }) {
       ...(c.via.relation_id ? { relation_id: c.via.relation_id } : {}),
       ...(c.via.credit_id ? { credit_id: c.via.credit_id } : {}),
     });
-  const update = (patch: { title?: string | null; saved?: boolean }) => change('PATCH', '', patch);
+  const update = (patch: {
+    title?: string | null;
+    saved?: boolean;
+    context?: { cutoff_at: string; time_zone: string } | null;
+  }) => change('PATCH', '', patch);
   const act = (seq: number, action: 'played' | 'saved') =>
     change('POST', `/nodes/${String(seq)}/actions`, { action });
   const end = () => change('POST', '/end');
@@ -283,6 +368,13 @@ export function DigSessionView({ id }: { id: string }) {
               </p>
             ) : null}
           </div>
+          {featureOn('exploration_time_machine', false) ? (
+            <CutoffCard
+              cutoff={session.context?.cutoff ?? null}
+              disabled={ended}
+              onChange={(context) => void update({ context })}
+            />
+          ) : null}
           <div className="card dig-other">
             <p className="dig-other-title">{t('dig.other')}</p>
             <a href={tabHref('DIG')}>Blind Digging · Crate Digging</a>

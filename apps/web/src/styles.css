@@ -2929,3 +2929,16 @@ form.inline input:not([type='checkbox']):not([type='radio']) {
   flex-basis: 100%;
   margin: 0;
 }
+
+/* DIG under a cutoff (EX-05). */
+.dig-cutoff {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dig-cutoff p {
+  margin: 0;
+}
+.dig-cutoff input {
+  min-height: 40px;
+}

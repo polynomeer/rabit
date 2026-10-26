@@ -3173,6 +3173,12 @@ export interface components {
     UpdateDigSessionRequest: {
       title?: string | null;
       saved?: boolean;
+      /** @description EX-05: dig under a cutoff (steps to later recordings and releases are refused with 422); null leaves it */
+      context?: null | {
+        /** Format: date-time */
+        cutoff_at: string;
+        time_zone: string;
+      };
     };
     DigTrailNode: {
       seq: number;
@@ -3186,6 +3192,14 @@ export interface components {
     };
     DigSession: {
       dig_session_id: components['schemas']['Id'];
+      /** @description The cutoff this session digs under (EX-05), with its calendar date */
+      context: null | {
+        /** Format: date-time */
+        cutoff_at: string;
+        time_zone: string;
+        /** Format: date */
+        cutoff: string;
+      };
       /** @enum {string} */
       state: 'active' | 'ended';
       title: string | null;
@@ -5570,6 +5584,9 @@ export interface operations {
         axis: components['schemas']['DigAxis'];
         popularity?: components['schemas']['PopularityFilter'];
         include_inferred?: boolean;
+        /** @description EX-05 historical view: leaves out recordings and releases not out by the end of that day in `time_zone` (ADR-0033); undated ones too */
+        cutoff_at?: string;
+        time_zone?: string;
         limit?: components['parameters']['Limit'];
         cursor?: components['parameters']['Cursor'];
       };
@@ -5717,6 +5734,7 @@ export interface operations {
           'application/json': components['schemas']['DigSession'];
         };
       };
+      400: components['responses']['Error'];
       404: components['responses']['Error'];
     };
   };

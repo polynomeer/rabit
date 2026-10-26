@@ -187,6 +187,8 @@ export interface DigSession {
   saved: boolean;
   current_seq: number;
   empty_state: { reason: string; message: string } | null;
+  /** EX-05: the cutoff this session digs under. */
+  context: { cutoff_at: string; time_zone: string; cutoff: string } | null;
   trail: {
     seq: number;
     parent_seq: number | null;
