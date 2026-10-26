@@ -30,6 +30,7 @@ import {
   type DigDeps,
 } from './service.js';
 import { labelTimeline } from './labels.js';
+import { lineageOf } from './lineage.js';
 import { digCrate, newReleases } from './crates.js';
 import { allShelves, deleteShelf, liveShelves, saveShelf, shelfInput } from './editorial.js';
 import { decideBlindItem, getBlindDig, startBlindDig } from './blind.js';
@@ -66,6 +67,27 @@ export const digRoutes =
         req.query,
       );
       return explore(ctx, deps, principal, p.data.entity_id, q);
+    });
+
+    /** Original-song lineage around a recording (samples, covers, remixes), 1–2 steps each way. */
+    app.get('/v1/dig/entities/:entity_id/lineage', async (req) => {
+      const principal = requirePrincipal(req.principal);
+      const p = entityParams.safeParse(req.params);
+      if (!p.success) throw errors.notFound();
+      const q = parse(
+        z.object({
+          depth: z
+            .enum(['1', '2'])
+            .default('2')
+            .transform((v): 1 | 2 => (v === '1' ? 1 : 2)),
+          include_inferred: z
+            .enum(['true', 'false'])
+            .default('false')
+            .transform((v) => v === 'true'),
+        }),
+        req.query,
+      );
+      return lineageOf(ctx, deps, principal, p.data.entity_id, q);
     });
 
     app.get('/v1/dig/crate', routeLimit(240, '1 hour'), async (req) => {

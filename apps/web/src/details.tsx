@@ -8,7 +8,8 @@ import { AXIS_TEXT, EvidenceLine, roleText } from './dig';
 import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
 import { PurchasePanel } from './purchase';
-import { digHref, entityHref } from './route';
+import { useHasLineage } from './lineage';
+import { digHref, entityHref, lineageHref } from './route';
 import { SaveButton, Status } from './views';
 import { QueueActions } from './queue';
 
@@ -399,6 +400,7 @@ function PassportView({ recordingId }: { recordingId: string }) {
 export function RecordingDetail({ id }: { id: string }) {
   const player = usePlayer();
   const { data: r, missing } = useResource<Recording>(`/v1/recordings/${id}`);
+  const hasLineage = useHasLineage(id);
   return (
     <Page
       title={r?.title ?? null}
@@ -462,6 +464,11 @@ export function RecordingDetail({ id }: { id: string }) {
               <a className="button" href={digHref(r.recording_id)}>
                 DIG
               </a>
+              {hasLineage ? (
+                <a className="button" href={lineageHref(r.recording_id)}>
+                  {t('lineage.open')}
+                </a>
+              ) : null}
               <SaveButton refType="recording" refId={r.recording_id} />
               <AddToPlaylist refType="recording" refId={r.recording_id} />
             </div>

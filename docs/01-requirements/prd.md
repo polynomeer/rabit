@@ -230,7 +230,7 @@
 | TRU-002 | 검증 수준을 서로 다른 표시로 제공한다 (enum은 AP-03/AP-10 불일치) | AP-03 AC-09, AP-10 | REQ-09 | M1 | Open (CNF-07) |
 | TRU-003 | "검증됨" 하나로 모든 사실을 확정하지 않는다. Human 인증은 제작과정 증거 근거 없이 부여하지 않으며 품질·적법성 인증이 아니다 | AP-04, AP-10, PB Phase 16 | REQ-09/10 | M1 | Open (Q08, CNF-08) |
 | TRU-004 | Credit: recording/release, contributor, role, creation_method, evidence_ref | AP-05 | REQ-09 | M1 | Proposed |
-| TRU-005 | 관계 그래프: cover/remix/sample/remaster/live/demo/instrumental/derived_from을 증거와 함께 관리. 관계 확인은 권리 허가를 의미하지 않는다 | AP-03 | REQ-09 | M2 | Proposed |
+| TRU-005 | 관계 그래프: cover/remix/sample/remaster/live/demo/instrumental/derived_from을 증거와 함께 관리. 관계 확인은 권리 허가를 의미하지 않는다 | AP-03 | REQ-09 | M2 | 일부 구현 (2026-10-26: sample/cover/remix 원곡 계보 2단계 조회·화면, dig.md §Original-song lineage. 나머지 유형·구간·제보는 V1) |
 | TRU-006 | AI 필터 모드 Open / Transparent(기본 제안) / Human First / Human Only. 미확인 자료를 인간 제작으로 간주하지 않고, 직접 검색·사용자 선택 재생은 계속 허용하며 별도 검색 필터를 제공한다. 정책 변경은 새 추천에 적용하고 제한 사유와 이의제기를 제공한다 (AC-10) | AP-03, AP-10 | REQ-10 | M1 | Proposed (Human Only 기준 Open Q08) |
 | TRU-007 | AI 생성 여부, 기술 품질, 스팸 위험, 권리 상태, 추천 적격성은 별도 축이며 별도 score로 저장한다. 단일 "좋은 음악 점수"를 공개하지 않는다. AI-assisted mastering만으로 AI-generated로 분류하지 않는다 | AP-03, AP-10, PB 원칙 6 | REQ-10 | M1 | Confirmed |
 | TRU-008 | AI detector는 보조 신호다. AI 판정만으로 삭제·지급 몰수하지 않고 속도 제한 → 추가 증빙 → 추천 보류 → 운영 검토 → 권리 조치 순서와 appeal을 제공한다 | AP-10, AP-12 | REQ-10 | M1 | Proposed |
