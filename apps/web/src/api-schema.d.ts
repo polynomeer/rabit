@@ -1084,6 +1084,25 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/dig/entities/{entity_id}/lineage': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        entity_id: components['parameters']['EntityId'];
+      };
+      cookie?: never;
+    };
+    /** @description Original-song lineage around a recording (DIG-003, TRU-005): the recordings it samples, covers or remixes (`origin`) and the ones that sample, cover or remix it (`derived`), one or two steps each way, read from stored relations. Every edge carries its evidence; a relation never means the use was licensed (see `license_status`). Inferred relations are left out unless asked. `own_recordings` lists the caller's own Audio Logs linked to a recording in the graph; nobody else's private audio is ever included. 404 for an unknown id or one that is not a recording. */
+    get: operations['getLineage'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/dig-sessions': {
     parameters: {
       query?: never;
@@ -2765,7 +2784,7 @@ export interface components {
       license_status: null | 'unknown' | 'licensed' | 'not_applicable';
       /** @description English sentence, for example "Same producer: X". Kept for existing clients; localized clients render `reason`. */
       explanation: string;
-      /** @description The same reason as a code plus values, so clients render it in their own language. Null on trail nodes stored before codes existed (fall back to `explanation`). Codes: relation.<axis> (subject, object), credit (role, name, instrument?), credited_as (role, name), same_producer (name), same_session_player (name, instrument?), main_artist, on_release, recording_by_artist, appears_on, released_on_label, release_by_artist, same_label (name). `role` is a credit role code. Clients show `explanation` for codes they do not know. */
+      /** @description The same reason as a code plus values, so clients render it in their own language. Null on trail nodes stored before codes existed (fall back to `explanation`). Codes: relation.<axis> (subject, object), credit (role, name, instrument?), credited_as (role, name), same_producer (name), same_session_player (name, instrument?), main_artist, on_release, recording_by_artist, appears_on, released_on_label, release_by_artist, same_label (name), lineage.<samples|covers|remix_of> (derived, original). `role` is a credit role code. Clients show `explanation` for codes they do not know. */
       reason: null | {
         code: string;
         params: {
@@ -2861,6 +2880,40 @@ export interface components {
       /** @enum {string} */
       popularity_tier: 'top' | 'upper' | 'deep_cut' | 'obscure' | 'unknown';
       playability: components['schemas']['Playability'] | null;
+    };
+    Lineage: {
+      root: {
+        entity: components['schemas']['EntitySummary'];
+        playability: components['schemas']['Playability'];
+      };
+      nodes: {
+        entity: components['schemas']['EntitySummary'];
+        /** @enum {string} */
+        side: 'origin' | 'derived';
+        /** @enum {integer} */
+        depth: 1 | 2;
+        playability: components['schemas']['Playability'];
+        /** @description Origins only: how many recordings in all come from this one, for a "+N more" hint. */
+        derivative_count: number | null;
+      }[];
+      edges: {
+        relation_id: components['schemas']['Id'];
+        /** @enum {string} */
+        type: 'samples' | 'covers' | 'remix_of';
+        derived_id: components['schemas']['Id'];
+        original_id: components['schemas']['Id'];
+        evidence: components['schemas']['Evidence'];
+      }[];
+      own_recordings: {
+        audio_log_id: components['schemas']['Id'];
+        audio_source_id: components['schemas']['Id'];
+        title: string;
+        /** Format: date-time */
+        recorded_at: string;
+        linked_recording_id: components['schemas']['Id'];
+      }[];
+      /** @description True when the graph hit its size bound (200 recordings). */
+      truncated: boolean;
     };
     DigConnectionPage: {
       items: components['schemas']['DigConnection'][];
@@ -5136,6 +5189,33 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['DigConnectionPage'];
+        };
+      };
+      400: components['responses']['Error'];
+      404: components['responses']['Error'];
+    };
+  };
+  getLineage: {
+    parameters: {
+      query?: {
+        depth?: 1 | 2;
+        include_inferred?: boolean;
+      };
+      header?: never;
+      path: {
+        entity_id: components['parameters']['EntityId'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The lineage graph */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Lineage'];
         };
       };
       400: components['responses']['Error'];
