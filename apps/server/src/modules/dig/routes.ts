@@ -73,10 +73,21 @@ export const digRoutes =
             .transform((v) => v === 'true'),
           limit: limitSchema,
           cursor: z.string().max(512).optional(),
+          // EX-05 historical view: only what was out by the end of that day in the zone.
+          cutoff_at: z.iso.datetime({ offset: true }).optional(),
+          time_zone: z
+            .string()
+            .max(64)
+            .refine(isTimeZone, { message: 'unknown time zone' })
+            .default('Asia/Seoul'),
         }),
         req.query,
       );
-      return explore(ctx, deps, principal, p.data.entity_id, q);
+      const { cutoff_at, time_zone, ...rest } = q;
+      return explore(ctx, deps, principal, p.data.entity_id, {
+        ...rest,
+        cutoff: cutoff_at ? cutoffDate(new Date(cutoff_at), time_zone) : undefined,
+      });
     });
 
     /** Original-song lineage around a recording (samples, covers, remixes), 1–2 steps each way. */
@@ -289,6 +300,14 @@ export const digRoutes =
           .strictObject({
             title: z.string().max(200).nullable().optional(),
             saved: z.boolean().optional(),
+            // EX-05: dig under a cutoff; null leaves it.
+            context: z
+              .strictObject({
+                cutoff_at: z.iso.datetime({ offset: true }),
+                time_zone: z.string().max(64).refine(isTimeZone, { message: 'unknown time zone' }),
+              })
+              .nullable()
+              .optional(),
           })
           .refine((b) => Object.keys(b).length > 0, { message: 'at least one field is required' }),
         req.body,

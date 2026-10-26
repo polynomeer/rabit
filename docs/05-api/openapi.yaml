@@ -1134,6 +1134,8 @@ paths:
         - { name: axis, in: query, required: true, schema: { $ref: '#/components/schemas/DigAxis' } }
         - { name: popularity, in: query, schema: { $ref: '#/components/schemas/PopularityFilter' } }
         - { name: include_inferred, in: query, schema: { type: boolean, default: true } }
+        - { name: cutoff_at, in: query, schema: { type: string, format: date-time }, description: 'EX-05 historical view: leaves out recordings and releases not out by the end of that day in `time_zone` (ADR-0033); undated ones too' }
+        - { name: time_zone, in: query, schema: { type: string, default: Asia/Seoul } }
         - { $ref: '#/components/parameters/Limit' }
         - { $ref: '#/components/parameters/Cursor' }
       responses:
@@ -1194,6 +1196,7 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/UpdateDigSessionRequest' } } }
       responses:
         '200': { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/DigSession' } } } }
+        '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
   /v1/dig-sessions/{dig_session_id}/steps:
     parameters: [ { $ref: '#/components/parameters/DigSessionId' } ]
@@ -3322,6 +3325,16 @@ components:
       properties:
         title: { type: [string, 'null'], maxLength: 200 }
         saved: { type: boolean }
+        context:
+          description: 'EX-05: dig under a cutoff (steps to later recordings and releases are refused with 422); null leaves it'
+          oneOf:
+            - type: 'null'
+            - type: object
+              additionalProperties: false
+              required: [cutoff_at, time_zone]
+              properties:
+                cutoff_at: { type: string, format: date-time }
+                time_zone: { type: string }
     DigTrailNode:
       type: object
       required: [seq, parent_seq, entity, via_axis, evidence, played, saved, created_at]
@@ -3336,9 +3349,19 @@ components:
         created_at: { $ref: '#/components/schemas/Timestamp' }
     DigSession:
       type: object
-      required: [dig_session_id, state, title, saved, visibility, current_seq, empty_state, trail, started_at, ended_at, summary]
+      required: [dig_session_id, state, title, saved, visibility, current_seq, empty_state, context, trail, started_at, ended_at, summary]
       properties:
         dig_session_id: { $ref: '#/components/schemas/Id' }
+        context:
+          description: The cutoff this session digs under (EX-05), with its calendar date
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [cutoff_at, time_zone, cutoff]
+              properties:
+                cutoff_at: { type: string, format: date-time }
+                time_zone: { type: string }
+                cutoff: { type: string, format: date }
         state: { type: string, enum: [active, ended] }
         title: { type: [string, 'null'] }
         saved: { type: boolean }

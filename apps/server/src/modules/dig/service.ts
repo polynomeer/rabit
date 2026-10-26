@@ -1,12 +1,23 @@
 import type { Selectable } from 'kysely';
 import type { AppContext } from '../../app/context.js';
 import type { Db, DbOrTx } from '../../platform/db/db.js';
-import type { DigEvidence, DigSessionTable } from '../../platform/db/schema.js';
+import type {
+  DigEvidence,
+  DigSessionContext,
+  DigSessionTable,
+} from '../../platform/db/schema.js';
 import { errors } from '../../platform/errors.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
 import { getOwnSource } from '../audio/index.js';
-import { entitySummaries, recordingSources, type EntitySummary } from '../catalog/index.js';
+import {
+  cutoffDate,
+  entitySummaries,
+  recordingSources,
+  recordingsOutBy,
+  releasesOutBy,
+  type EntitySummary,
+} from '../catalog/index.js';
 import { createPlaylist } from '../library/index.js';
 import { playabilities, type CatalogAccess, type Playability } from '../playback/index.js';
 import {
@@ -36,6 +47,32 @@ export async function getAxes(db: DbOrTx, entityId: string) {
   return { entity, axes: await axesFor(db, entityId) };
 }
 
+/**
+ * Of `ids`, the recordings and releases that were not out by `cutoff` (EX-05):
+ * undated ones included, since they cannot be placed before it. People, artists and
+ * labels are not dated and always pass.
+ */
+async function afterCutoff(
+  db: DbOrTx,
+  summaries: Map<string, EntitySummary>,
+  ids: string[],
+  cutoff: string,
+): Promise<Set<string>> {
+  const of = (type: string) => ids.filter((id) => summaries.get(id)?.entity_type === type);
+  const recordings = of('recording');
+  const releases = of('release');
+  const [outRecordings, outReleases] = await Promise.all([
+    recordingsOutBy(db, recordings, cutoff),
+    releasesOutBy(db, releases, cutoff),
+  ]);
+  return new Set([
+    ...recordings.filter((id) => !outRecordings.has(id)),
+    ...releases.filter((id) => !outReleases.has(id)),
+  ]);
+}
+
+const contextCutoff = (c: DigSessionContext) => cutoffDate(new Date(c.cutoff_at), c.time_zone);
+
 export async function explore(
   ctx: AppContext,
   deps: DigDeps,
@@ -47,6 +84,8 @@ export async function explore(
     include_inferred: boolean;
     limit: number;
     cursor?: string | undefined;
+    /** Historical view: only what was out by this date (YYYY-MM-DD). */
+    cutoff?: string | undefined;
   },
 ) {
   await getAxes(ctx.db, entityId); // 404 for unknown entities
@@ -63,6 +102,10 @@ export async function explore(
     entitySummaries(ctx.db, ids),
     popularityOf(ctx.db, ids),
   ]);
+  if (q.cutoff) {
+    const later = await afterCutoff(ctx.db, summaries, ids, q.cutoff);
+    list = list.filter((c) => !later.has(c.entityId));
+  }
   // Deep Cut (DIG-007): filter by relative popularity; unknown never counts as popular.
   const ceiling = POPULARITY_CEILING[q.popularity];
   list = list.filter((c) => {
@@ -77,7 +120,7 @@ export async function explore(
 
   const scope = {
     userId: principal.userId,
-    query: `dig:${entityId}:${q.axis}:${q.popularity}:${q.include_inferred}`,
+    query: `dig:${entityId}:${q.axis}:${q.popularity}:${q.include_inferred}:${q.cutoff ?? ''}`,
   };
   const offset = Number((ctx.cursors.decode(scope, q.cursor) ?? [0])[0]);
   const page = list.slice(offset, offset + q.limit);
@@ -183,6 +226,7 @@ export async function sessionView(db: DbOrTx, s: SessionRow) {
     visibility: s.visibility,
     current_seq: s.current_seq,
     empty_state: emptyState,
+    context: s.context ? { ...s.context, cutoff: contextCutoff(s.context) } : null,
     trail: nodes.map((n) => ({
       seq: n.seq,
       parent_seq: n.parent_seq,
@@ -328,6 +372,16 @@ export async function addStep(
         'That connection does not exist from this point.',
       );
     }
+    // Under a cutoff (EX-05), nothing that came out later can join the trail.
+    if (s.context) {
+      const summaries = await entitySummaries(tx, [step.entity_id]);
+      const later = await afterCutoff(tx, summaries, [step.entity_id], contextCutoff(s.context));
+      if (later.has(step.entity_id))
+        throw errors.unprocessable(
+          'INVALID_RELATION_STEP',
+          "That was not out yet by this session's cutoff.",
+        );
+    }
     const last = await tx
       .selectFrom('dig_trail_node')
       .select((eb) => eb.fn.max('seq').as('m'))
@@ -406,7 +460,11 @@ export async function updateSession(
   db: Db,
   principal: Principal,
   id: string,
-  patch: { title?: string | null | undefined; saved?: boolean | undefined },
+  patch: {
+    title?: string | null | undefined;
+    saved?: boolean | undefined;
+    context?: DigSessionContext | null | undefined;
+  },
 ) {
   await ownSession(db, principal, id);
   const updated = await db
@@ -414,6 +472,9 @@ export async function updateSession(
     .set({
       ...(patch.title !== undefined ? { title: patch.title } : {}),
       ...(patch.saved !== undefined ? { saved: patch.saved } : {}),
+      ...(patch.context !== undefined
+        ? { context: patch.context ? JSON.stringify(patch.context) : null }
+        : {}),
     })
     .where('id', '=', id)
     .returningAll()

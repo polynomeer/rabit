@@ -77,6 +77,7 @@ export const digExportSection: ExportSection = async (ctx, userId) => {
       title: s.title,
       saved: s.saved,
       started_at: s.started_at.toISOString(),
+      context: s.context,
       trail: nodes.filter((n) => n.session_id === s.id).map(({ session_id: _, ...n }) => n),
     })),
   ];
