@@ -555,14 +555,17 @@ const summariesOf = (db: Db, ids: string[]): Promise<Map<string, Summary>> =>
 
 /**
  * Starts Time Radio (ADR-0034), or changes its cutoff or mode: suggestions are
- * replaced from the new cutoff; the listener's chosen items and history stay. With
- * nothing playing, the first suggestion becomes current so playback can start.
+ * replaced from the new cutoff; the listener's chosen items and history stay. When
+ * starting with no chosen item waiting, the first suggestion becomes current so
+ * Time Radio plays at once; moving the cutoff on (`playFirst: false`) leaves the
+ * current track playing.
  */
 export async function startTimeMachine(
   ctx: AppContext,
   deps: QueueDeps,
   principal: Principal,
   context: TimeMachineContext,
+  playFirst = true,
 ) {
   await ctx.db.transaction().execute(async (tx) => {
     const settings = await lockQueue(tx, principal.userId);
@@ -584,7 +587,7 @@ export async function startTimeMachine(
     );
     const at = current ? next.findIndex((i) => i.id === current) : -1;
     const upcoming = next.slice(at + 1);
-    if (at < 0 || upcoming.every((i) => i.origin === 'autoplay')) {
+    if (at < 0 || (playFirst && upcoming.every((i) => i.origin === 'autoplay'))) {
       // Nothing chosen is waiting: Time Radio plays from its first suggestion.
       const first = upcoming[0];
       if (first) {
@@ -636,7 +639,7 @@ export async function advanceTimeMachine(
   }
   const previous = row.radio_context;
   const next = advanceCutoff(previous, months);
-  const view = await startTimeMachine(ctx, deps, principal, next);
+  const view = await startTimeMachine(ctx, deps, principal, next, false);
   const before = cutoffDate(new Date(previous.cutoff_at), previous.time_zone);
   const after = cutoffDate(new Date(next.cutoff_at), next.time_zone);
   const fresh = after > before ? await deps.releasesBetween(ctx, before, after) : 0;

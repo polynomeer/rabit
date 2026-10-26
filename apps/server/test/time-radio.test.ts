@@ -114,19 +114,24 @@ describe('Time Radio', () => {
 
   it('moves the cutoff by months and says what came out in between', async () => {
     const u = await listener();
-    await start(u, { cutoff_at: '1906-12-31T12:00:00+09:00' });
+    const first = await start(u, { cutoff_at: '1907-05-31T12:00:00+09:00' });
+    expect(first.current_item_id).not.toBeNull();
     const r = await call(u, 'POST', '/v1/queue/time-machine/advance', { months: 6 });
     expect(r.statusCode, r.body).toBe(200);
     const q = r.json<Queue>();
-    expect(q.time_machine?.cutoff).toBe('1907-06-30');
-    expect(q.new_since_previous).toBeGreaterThanOrEqual(1);
+    expect(q.time_machine?.cutoff).toBe('1907-11-30');
+    // The track playing keeps playing; only what comes next changes.
+    expect(q.current_item_id).toBe(first.current_item_id);
+    expect(q.new_since_previous).toBeGreaterThanOrEqual(0);
     expect(recs(q)).not.toContain(cat.ids['r3']);
     await noLeaks(q);
 
     const end = (
       await call(u, 'POST', '/v1/queue/time-machine/advance', { months: 6 })
     ).json<Queue>();
-    expect(end.time_machine?.cutoff).toBe('1907-12-30');
+    expect(end.time_machine?.cutoff).toBe('1908-05-30');
+    // The year-only single counts as out once 1907 has ended.
+    expect(end.new_since_previous).toBeGreaterThanOrEqual(1);
     const last = await start(u, { cutoff_at: '1907-12-31T12:00:00+09:00' });
     await noLeaks(last);
   });
