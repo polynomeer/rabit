@@ -96,10 +96,7 @@ export async function rediscover(
           .execute(db)
           .then((r) => new Map(r.rows.map((x) => [x.recording_id, x])))
       : Promise.resolve(
-          new Map<
-            string,
-            { release_date: string; date_precision: ReleaseDatePrecision }
-          >(),
+          new Map<string, { release_date: string; date_precision: ReleaseDatePrecision }>(),
         ),
   ]);
   return {
