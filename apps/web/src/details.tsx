@@ -9,7 +9,8 @@ import { t, tCode, type MessageKey } from './i18n';
 import { usePlayer, type QueueEntry } from './player';
 import { PurchasePanel } from './purchase';
 import { useHasLineage } from './lineage';
-import { digHref, entityHref, lineageHref } from './route';
+import { featureOn } from './features';
+import { digHref, entityHref, journeyHref, lineageHref } from './route';
 import { SaveButton, Status } from './views';
 import { QueueActions } from './queue';
 
@@ -652,6 +653,11 @@ export function EntityDetail({ id }: { id: string }) {
             <a className="button" href={digHref(e.entity_id)}>
               {t('details.entity.startDig')}
             </a>
+            {e.entity_type === 'artist' && featureOn('exploration_journey', false) ? (
+              <a className="button" href={journeyHref(e.entity_id)}>
+                {t('details.entity.journey')}
+              </a>
+            ) : null}
           </div>
           {e.entity_type === 'label' ? <LabelTimelineView labelId={e.entity_id} /> : null}
           <div className="axes" role="tablist" aria-label={t('details.entity.axes')}>

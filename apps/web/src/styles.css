@@ -2668,3 +2668,165 @@ form.inline input:not([type='checkbox']):not([type='radio']) {
 .lineage-own {
   margin-top: 24px;
 }
+
+/* Artist Journey (EX-02): a date line with releases and dated relations. */
+.chips > button[role='radio'][aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+.journey-hero h2 {
+  margin: 4px 0;
+}
+.journey-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 12px 0;
+}
+.journey-controls .chips {
+  margin: 0;
+  padding: 0;
+}
+.journey-cutoff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.journey-cutoff input {
+  min-height: 40px;
+}
+.journey-line {
+  list-style: none;
+  margin: 16px 0 24px;
+  padding: 0;
+}
+.journey-line > li {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 14px;
+}
+.journey-year {
+  flex: 0 0 52px;
+  padding-top: 14px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+.journey-release,
+.journey-event {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.journey-release.picked {
+  border: 2px solid var(--accent);
+}
+.journey-event {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: none;
+  border-style: dashed;
+}
+.journey-release-body {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.journey-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.journey-title a {
+  font-weight: 700;
+  color: var(--fg);
+}
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 11px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.journey-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.journey-pick input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.journey-undated {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--surface);
+}
+.journey-undated h3 {
+  margin-top: 0;
+}
+@media (max-width: 599px) {
+  .journey-line > li {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .journey-year {
+    flex: none;
+    padding-top: 0;
+  }
+}
+/* Album compare (EX-03). */
+.compare-heads {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+.compare-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-bottom: 24px;
+}
+.compare-table th,
+.compare-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.compare-table thead th:first-child,
+.compare-table tbody th {
+  width: 28%;
+  color: var(--muted);
+  font-weight: 500;
+}

@@ -1011,6 +1011,44 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/dig/artists/{artist_id}/journey': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artist_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    /** @description Artist Journey (EX-02): the artist's releases and dated relations (`member_of`, `signed_to`) in date order, from catalog facts only. Release dates carry their precision (ADR-0033) and sort by the last day they could have come out. Without `cutoff_at` (modern view) undated releases are listed apart; with it (historical view) only releases whose last possible day and relations whose start are on or before the cutoff date in `time_zone` are kept, and undated items are only counted. Up to 500 releases (`truncated` when more). 404 while the `exploration_journey` flag is off for the caller. Rate limited (600 per hour). */
+    get: operations['getArtistJourney'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/dig/artists/{artist_id}/compare': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artist_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    /** @description Album compare (EX-03): two releases of the artist side by side with catalog facts only (date and precision, label, track count and length, producers from release or track credits with their source, other listed artists) and what they share. 422 when a release is not by the artist; 404 while the `exploration_compare` flag is off for the caller. */
+    get: operations['compareArtistReleases'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/blind-digs': {
     parameters: {
       query?: never;
@@ -2814,6 +2852,99 @@ export interface components {
         params: {
           [key: string]: string;
         };
+      };
+    };
+    FactEvidence: {
+      /** @enum {string} */
+      basis: 'verified_fact' | 'declared' | 'ml_inferred';
+      verification_state: string;
+      source: string;
+      confidence: number | null;
+    };
+    JourneyRelease: {
+      release_id: components['schemas']['Id'];
+      title: string;
+      /** @enum {string} */
+      release_type: 'album' | 'single' | 'ep' | 'compilation';
+      /**
+       * Format: date
+       * @description First day of the period when the precision is month or year; show only that precision (EXP-024)
+       */
+      release_date: string | null;
+      /** @enum {string|null} */
+      date_precision: 'day' | 'month' | 'year' | null;
+      /**
+       * @description `main` when the artist is listed first
+       * @enum {string}
+       */
+      role: 'main' | 'with';
+      label: components['schemas']['EntitySummary'] | null;
+      tracks: number;
+      /** @description null when any track length is unknown */
+      duration_ms: number | null;
+      artwork: components['schemas']['ReleaseArtwork'] | null;
+      evidence: components['schemas']['FactEvidence'];
+    };
+    ArtistJourney: {
+      artist: components['schemas']['EntitySummary'];
+      /** @enum {string} */
+      view: 'modern' | 'historical';
+      /** Format: date */
+      cutoff: string | null;
+      timeline: (
+        | {
+            /** @constant */
+            kind: 'release';
+            release: components['schemas']['JourneyRelease'];
+          }
+        | {
+            /** @constant */
+            kind: 'event';
+            event: {
+              relation_id: components['schemas']['Id'];
+              /** @enum {string} */
+              relation_type: 'member_of' | 'signed_to';
+              /**
+               * @description `outgoing` when the artist is the subject
+               * @enum {string}
+               */
+              direction: 'outgoing' | 'incoming';
+              other: components['schemas']['EntitySummary'];
+              /** Format: date */
+              valid_from: string;
+              /**
+               * Format: date
+               * @description null when open or after the cutoff
+               */
+              valid_to: string | null;
+              evidence: components['schemas']['FactEvidence'];
+            };
+          }
+      )[];
+      /** @description Modern view only */
+      undated: components['schemas']['JourneyRelease'][];
+      coverage: {
+        releases: number;
+        dated: number;
+        undated: number;
+        after_cutoff: number;
+        undated_events: number;
+      };
+      truncated: boolean;
+    };
+    ReleaseComparison: {
+      artist: components['schemas']['EntitySummary'];
+      releases: (components['schemas']['JourneyRelease'] & {
+        producers: {
+          entity: components['schemas']['EntitySummary'];
+          evidence: components['schemas']['FactEvidence'];
+        }[];
+        guests: components['schemas']['EntitySummary'][];
+      })[];
+      shared: {
+        producers: components['schemas']['EntitySummary'][];
+        guests: components['schemas']['EntitySummary'][];
+        label: components['schemas']['EntitySummary'] | null;
       };
     };
     LabelTimeline: {
@@ -5105,6 +5236,63 @@ export interface operations {
         };
       };
       404: components['responses']['Error'];
+    };
+  };
+  getArtistJourney: {
+    parameters: {
+      query?: {
+        /** @description ISO date-time with offset; selects the historical view */
+        cutoff_at?: string;
+        /** @description IANA time zone that turns `cutoff_at` into a calendar date */
+        time_zone?: string;
+      };
+      header?: never;
+      path: {
+        artist_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Journey */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ArtistJourney'];
+        };
+      };
+      400: components['responses']['Error'];
+      404: components['responses']['Error'];
+    };
+  };
+  compareArtistReleases: {
+    parameters: {
+      query: {
+        release_a: components['schemas']['Id'];
+        release_b: components['schemas']['Id'];
+      };
+      header?: never;
+      path: {
+        artist_id: components['schemas']['Id'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Comparison */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReleaseComparison'];
+        };
+      };
+      400: components['responses']['Error'];
+      404: components['responses']['Error'];
+      422: components['responses']['Error'];
     };
   };
   startBlindDig: {
