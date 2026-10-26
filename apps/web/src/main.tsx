@@ -4,6 +4,7 @@ import { SIGNED_OUT, devSignIn, get, hasToken } from './api';
 import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from './auth';
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
+import { LineageView } from './lineage';
 import { PlayerProvider } from './player';
 import {
   digHref,
@@ -300,6 +301,7 @@ function App() {
           {route.kind === 'recording' ? <RecordingDetail id={route.id} /> : null}
           {route.kind === 'release' ? <ReleaseDetail id={route.id} /> : null}
           {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
+          {route.kind === 'lineage' ? <LineageView id={route.id} /> : null}
           {route.kind === 'now' ? <NowPlaying /> : null}
           {tab === 'Home' ? <Home /> : null}
           {tab === 'Studio' ? <Studio /> : null}

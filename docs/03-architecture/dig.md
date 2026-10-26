@@ -106,3 +106,16 @@ Not included:
 - location and genre conditions, which need data the catalog does not have;
 - public crates and crate sharing, which need a moderation policy (OQ-DIG-07, DIG-024).
 
+
+## Original-song lineage (DIG-003, TRU-005, MVP)
+
+`GET /v1/dig/entities/{recording_id}/lineage?depth=1|2&include_inferred=false` returns the recordings a recording comes from (`origin`: what it samples, covers or remixes) and the ones that come from it (`derived`), up to two steps each way.
+- **Data:** stored `music_relation` rows of type `samples`, `covers` and `remix_of` only; nothing new is collected. A relation points from the derived recording to the original.
+- **Evidence:** every edge carries the usual evidence with reason `lineage.<type>`. The web shows the licence only when it is `licensed`, so "unknown" never reads as an unlicensed use.
+- **Inferred:** left out unless `include_inferred=true` (default off, unlike the axis connections).
+- **Hint:** each origin has `derivative_count` (all recordings that come from it), so the client can offer "N more" and re-centre on it.
+- **Own audio:** `own_recordings` lists the caller's Audio Logs linked to a recording in the graph. Another listener's private audio never appears (NFR-PRV-007).
+- **Bounds:** 50 relations per node and step, 200 recordings per graph (`truncated`). Integrity exclusions apply, and nodes cut off by one are dropped.
+- **Web:** `#/lineage/<recording id>`, reached from a recording page when it has any lineage.
+
+Not included (V1/V2 in the lineage plan): sample sections and side-by-side listening, `interpolates`, user reports and their review, external relation data (OQ-DIG-06), audio-based detection.

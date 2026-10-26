@@ -821,4 +821,26 @@ export const ko = {
   'landing.form.error.consent': '개인정보 수집·이용에 동의해야 등록할 수 있습니다.',
   'landing.form.notConnected':
     '초안이라 아무 데도 보내지 않았습니다. 대기자 저장은 보관 위치와 기간이 정해진 뒤 연결합니다.',
+  // ——— Original-song lineage (DIG-003, TRU-005) ———
+  'lineage.open': '원곡 계보',
+  'lineage.heading': '원곡 계보',
+  'lineage.origins': '이 곡이 가져온 곡',
+  'lineage.derived': '이 곡을 가져간 곡',
+  'lineage.further': '한 단계 더',
+  'lineage.none': '알려진 곡이 없습니다.',
+  'lineage.type.samples': '샘플',
+  'lineage.type.covers': '커버·리메이크',
+  'lineage.type.remix_of': '리믹스',
+  'lineage.licensed': '이용허락 확인됨',
+  'lineage.recenter': '이 곡의 계보',
+  'lineage.moreFrom': '이 곡을 쓴 곡 {count}개 더',
+  'lineage.includeInferred': '추정 연결 포함',
+  'lineage.continueDig': 'DIG에서 이어가기',
+  'lineage.note':
+    '연결마다 어떻게 아는지(검증된 사실, 신고된 정보, 추정)를 표시합니다. 연결이 있다고 해서 사용이 허락되었다는 뜻은 아닙니다.',
+  'lineage.own': '내 녹음',
+  'lineage.ownBadge': '나만 보기',
+  'lineage.ownLinked': '{name}에 연결 · {date}',
+  'lineage.missing': '계보를 볼 수 있는 곡이 아닙니다.',
+  'lineage.truncated': '연결이 많아 일부만 보여줍니다.',
 } as const;
