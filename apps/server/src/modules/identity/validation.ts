@@ -10,7 +10,7 @@ export interface CohortMember {
 
 /**
  * The people who signed up on `from`..`to` (Korean calendar days, inclusive) and are
- * still active (ADR-0031). Accounts from the operator issuer are left out.
+ * still active (ADR-0032). Accounts from the operator issuer are left out.
  */
 export async function validationCohort(
   db: DbOrTx,

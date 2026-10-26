@@ -18,7 +18,11 @@ beforeAll(async () => {
   h = await createHarness();
   u = await h.user();
   // The test database outlives runs: earlier copies of these names would tie.
-  await h.ctx.db.deleteFrom('search_document').where('title', 'in', NAMES).execute();
+  // Other tests' data with these names (or longer titles starting with them) would tie.
+  await h.ctx.db
+    .deleteFrom('search_document')
+    .where((eb) => eb.or(NAMES.map((n) => eb('title', 'like', `${n}%`))))
+    .execute();
   const res = await ingestCatalog(
     h.ctx,
     {

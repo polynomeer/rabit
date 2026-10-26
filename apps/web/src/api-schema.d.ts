@@ -1660,7 +1660,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Alpha validation metrics (ADR-0031) over the people who signed up between `from` and `to` (Korean calendar days, inclusive; operator-issuer accounts left out). Cohort aggregates only: a rate over fewer than `min_group` people or sessions is withheld. Week k of retention covers days 7(k−1)..7k−1 after each person's sign-up and counts only people whose week k is over. Every view is audited (`ops.alpha_metrics_viewed`). */
+    /** @description Alpha validation metrics (ADR-0032) over the people who signed up between `from` and `to` (Korean calendar days, inclusive; operator-issuer accounts left out). Cohort aggregates only: a rate over fewer than `min_group` people or sessions is withheld. Week k of retention covers days 7(k−1)..7k−1 after each person's sign-up and counts only people whose week k is over. Every view is audited (`ops.alpha_metrics_viewed`). */
     get: operations['opsAlphaMetrics'];
     put?: never;
     post?: never;
@@ -1715,6 +1715,23 @@ export interface paths {
     put?: never;
     /** @description Records a reviewed decision on one integrity axis. Only reviewed `recommendation_eligibility = excluded` removes an entity from DIG candidates. */
     post: operations['opsRecordIntegritySignal'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/artwork/v1/{token}/{file}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description A release cover (ADR-0031), from the URLs in a release's `artwork`. The token signs the release and the cover version and does not expire, so responses are cached for good; only the current version of a ready cover is served. */
+    get: operations['getArtwork'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1968,7 +1985,7 @@ export interface components {
         note: string | null;
       }[];
     };
-    /** @description `count` of `of`, with `rate` = count / of to three decimals. Withheld (`count` and `rate` null) when `of` is under `min_group` (ADR-0031). */
+    /** @description `count` of `of`, with `rate` = count / of to three decimals. Withheld (`count` and `rate` null) when `of` is under `min_group` (ADR-0032). */
     CohortRate: {
       count: number | null;
       of: number;
@@ -2268,6 +2285,7 @@ export interface components {
       label: components['schemas']['ArtistRef'] | null;
       /** Format: date */
       release_date: string | null;
+      artwork?: components['schemas']['ReleaseArtwork'] | null;
       tracks: {
         disc_no: number;
         position: number;
@@ -2556,6 +2574,16 @@ export interface components {
       release_type: 'album' | 'single' | 'ep' | 'compilation';
       /** Format: date */
       release_date: string | null;
+      artwork?: components['schemas']['ReleaseArtwork'] | null;
+    };
+    /** @description Signed URLs of the release cover by edge in pixels (ADR-0031); null while there is no processed cover, in which case clients draw their stand-in. */
+    ReleaseArtwork: {
+      /** Format: uri */
+      300: string;
+      /** Format: uri */
+      600: string;
+      /** Format: uri */
+      1200: string;
     };
     Money: {
       /** @description Integer minor units (KRW has none) */
@@ -6362,6 +6390,41 @@ export interface operations {
       };
       403: components['responses']['Error'];
       404: components['responses']['Error'];
+    };
+  };
+  getArtwork: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+        file: '300.jpg' | '600.jpg' | '1200.jpg';
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The cover: a square JPEG of that edge in pixels, or smaller (never upscaled) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Token invalid */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown size, or not the current cover */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   getMedia: {

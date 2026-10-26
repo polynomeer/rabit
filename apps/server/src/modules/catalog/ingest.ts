@@ -11,6 +11,7 @@ import { BUCKETS } from '../../platform/storage/blob-store.js';
 import { audit } from '../../platform/audit.js';
 import { createCatalogSource } from '../audio/index.js';
 import { ensureCatalogWorkspace } from '../identity/index.js';
+import { MAX_ARTWORK_BYTES, setArtwork } from './artwork.js';
 import { createGrant } from './rights.js';
 
 const key = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/);
@@ -62,6 +63,8 @@ export const manifestSchema = z.strictObject({
           .optional(),
         artists: z.array(key).min(1),
         tracks: z.array(key).min(1),
+        /** The front cover file (JPEG or PNG, square, ≥ 600 px; ADR-0031). */
+        cover: z.string().min(1).optional(),
       }),
     )
     .default([]),
@@ -134,6 +137,8 @@ export const manifestSchema = z.strictObject({
           .array(z.enum(['stream', 'download', 'preview', 'transform', 'stem', 'analysis']))
           .min(1),
         contract_ref: z.string().min(1).max(200),
+        /** When the grant starts (a delivery's deal may start later); default: always. */
+        valid_from: z.iso.datetime().optional(),
         valid_to: z.iso.datetime().optional(),
       }),
     )
@@ -220,6 +225,26 @@ export async function ingestCatalog(
     });
   }
 
+  // Covers too: stored first, registered (with their processing job) in the transaction.
+  const covers = new Map<string, string>();
+  for (const rel of m.releases) {
+    if (!rel.cover) continue;
+    const input = await readAudio(rel.cover);
+    const { bytes } = await sha256Of(input);
+    if (bytes > MAX_ARTWORK_BYTES) {
+      throw new Error(
+        `cover ${rel.cover} is ${String(bytes)} bytes; the limit is ${String(MAX_ARTWORK_BYTES)}`,
+      );
+    }
+    const key = `artwork/${randomBytes(12).toString('hex')}/original`;
+    const body = Buffer.isBuffer(input) ? input : createReadStream(input.path);
+    await ctx.blobs.put(BUCKETS.catalogOriginals, key, body, {
+      contentType: 'application/octet-stream',
+      bytes,
+    });
+    covers.set(rel.key, key);
+  }
+
   const result = await ctx.db.transaction().execute(async (tx) => {
     const ids: Record<string, string> = {};
     const need = (k: string) => {
@@ -301,6 +326,8 @@ export async function ingestCatalog(
           .values({ release_id: relId, disc_no: 1, position: i + 1, recording_id: need(t) })
           .execute();
       }
+      const cover = covers.get(rel.key);
+      if (cover) await setArtwork(tx, relId, cover);
     }
     for (const c of m.credits) {
       await tx
@@ -363,7 +390,7 @@ export async function ingestCatalog(
           rights_holder: g.rights_holder,
           territories: g.territories,
           uses: g.uses,
-          valid_from: new Date(0).toISOString(),
+          valid_from: g.valid_from ?? new Date(0).toISOString(),
           valid_to: g.valid_to,
           contract_ref: g.contract_ref,
         },

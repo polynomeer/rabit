@@ -149,7 +149,7 @@ const routes =
 export interface OpsDeps {
   /** Sections of the support summary, one per module that owns user data. */
   supportSections: () => SupportSection[];
-  /** Parts of the alpha validation metrics (ADR-0031), one per module whose data they read. */
+  /** Parts of the alpha validation metrics (ADR-0032), one per module whose data they read. */
   validationSections: () => ValidationSection[];
 }
 

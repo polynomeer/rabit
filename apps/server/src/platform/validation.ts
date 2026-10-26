@@ -2,7 +2,7 @@ import { sql, type RawBuilder } from 'kysely';
 import type { DbOrTx } from './db/db.js';
 
 /**
- * One module's part of the alpha validation metrics (ADR-0031): product validation over
+ * One module's part of the alpha validation metrics (ADR-0032): product validation over
  * a sign-up cohort, cohort aggregates only. Each module reads only its own tables (and
  * its listed read models), returns the days people acted and cohort-level counts, and
  * never titles, notes, content or a per-person value that leaves the server.

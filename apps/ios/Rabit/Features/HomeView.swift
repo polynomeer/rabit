@@ -166,7 +166,7 @@ private struct EditorialShelfRow: View {
           ForEach(shelf.items, id: \.release.releaseId) { item in
             NavigationLink(value: item.release.releaseId) {
               VStack(alignment: .leading, spacing: 6) {
-                CoverView(id: item.release.releaseId.rawValue, corner: 12)
+                CoverView(id: item.release.releaseId.rawValue, corner: 12, artwork: item.release.artwork)
                 Text(item.release.title).font(.subheadline.weight(.semibold)).lineLimit(1)
                 Text(item.artists.map(\.name).joined(separator: ", "))
                   .font(.footnote).foregroundStyle(Palette.muted).lineLimit(1)

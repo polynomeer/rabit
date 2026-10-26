@@ -703,3 +703,18 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   #expect(shelves.first?.items.first?.note == "밤바다를 닮은 앨범")
   #expect(shelves.first?.items.first?.release.releaseId == ReleaseID("rel_01HZZZZZZZZZZZZZZZZZZZZZZZ"))
 }
+
+@Test func decodesReleaseArtworkUrls() async throws {
+  let json = """
+    {"release_id":"rel_01HZZZZZZZZZZZZZZZZZZZZZZZ","title":"Harbour Lights","release_type":"album",
+     "artists":[],"label":null,"release_date":null,
+     "artwork":{"300":"https://media.rabit.test/artwork/v1/a1.x.y/300.jpg",
+                "600":"https://media.rabit.test/artwork/v1/a1.x.y/600.jpg",
+                "1200":"https://media.rabit.test/artwork/v1/a1.x.y/1200.jpg"},
+     "tracks":[]}
+    """
+  let t = StubTransport([(200, json)])
+  let api = APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t)
+  let r = try await CatalogService(api: api).release(ReleaseID("rel_01HZZZZZZZZZZZZZZZZZZZZZZZ"))
+  #expect(r.artwork?["600"]?.lastPathComponent == "600.jpg")
+}

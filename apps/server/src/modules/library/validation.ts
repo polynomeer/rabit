@@ -5,7 +5,7 @@ import { koreanDay } from '../../platform/validation.js';
 /**
  * Saving to the library and making or editing playlists count as activity.
  * `playlist_mixers` counts the people with a playlist that holds both a catalog
- * recording and their own audio (H2, ADR-0031); titles are never read.
+ * recording and their own audio (H2, ADR-0032); titles are never read.
  */
 export const libraryValidationSection: ValidationSection = {
   name: 'library',

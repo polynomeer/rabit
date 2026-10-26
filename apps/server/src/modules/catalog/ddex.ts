@@ -16,8 +16,18 @@ export interface ErnConversion {
   /** The release's ICPN and the recordings' ISRCs, to refuse a second delivery. */
   icpn: string | null;
   isrcs: string[];
-  /** Deals not turned into grants, with why (start later, ended, use not supported). */
+  /** Who sent it: grants carry `ddex:<sender>:` so an update touches only its own. */
+  senderId: string;
+  messageId: string;
+  /** Deals not turned into grants, with why (ended, use or territory not supported). */
   skippedDeals: string[];
+}
+
+/** A PurgeReleaseMessage: take the release out of the licensor's deals (ADR-0030). */
+export interface ErnPurge {
+  icpn: string;
+  senderId: string;
+  messageId: string;
 }
 
 type Node = Record<string, unknown>;
@@ -123,31 +133,68 @@ function dateOf(v: unknown): string | undefined {
   return t && /^\d{4}-\d{2}-\d{2}/.test(t) ? t.slice(0, 10) : undefined;
 }
 
-/** Converts one ERN 4.3 NewReleaseMessage. Throws ErnError on what it cannot import. */
-export function ernToManifest(xml: string, now = new Date()): ErnConversion {
+type Root = 'NewReleaseMessage' | 'PurgeReleaseMessage';
+
+/** Parses an ERN 4.3 message and returns its root element and which one it is. */
+function parseRoot(xml: string): { root: Root; msg: Node } {
   let doc: Node;
   try {
     doc = parser.parse(xml) as Node;
   } catch (e) {
     throw new ErnError(`Not well-formed XML: ${(e as Error).message}`);
   }
-  if ('PurgeReleaseMessage' in doc) {
-    throw new ErnError('PurgeReleaseMessage is handled with updates and takedowns (later step).');
-  }
-  const msg = doc['NewReleaseMessage'] as Node | undefined;
-  if (!msg) throw new ErnError('Not an ERN NewReleaseMessage.');
+  const root: Root | undefined =
+    'NewReleaseMessage' in doc
+      ? 'NewReleaseMessage'
+      : 'PurgeReleaseMessage' in doc
+        ? 'PurgeReleaseMessage'
+        : undefined;
+  if (!root) throw new ErnError('Not an ERN NewReleaseMessage or PurgeReleaseMessage.');
   // The parser drops namespace declarations; read the root element's from the source.
-  const rootTag = /<(?:[\w.-]+:)?NewReleaseMessage\b[^>]*>/.exec(xml)?.[0] ?? '';
+  const rootTag = new RegExp(`<(?:[\\w.-]+:)?${root}\\b[^>]*>`).exec(xml)?.[0] ?? '';
   const declared = [...rootTag.matchAll(/xmlns(?::[\w.-]+)?\s*=\s*"([^"]*)"/g)].map((m) => m[1]);
   if (!declared.some((ns) => ns !== undefined && NAMESPACE.test(ns))) {
     throw new ErnError('Only ERN 4.3 (namespace http://ddex.net/xml/ern/43x) is supported.');
   }
+  return { root, msg: doc[root] as Node };
+}
 
+function senderOf(msg: Node) {
   const header = node(msg['MessageHeader']);
   const sender = node(header['MessageSender']);
-  const senderName = text(node(arr(sender['PartyName'])[0])['FullName']) ?? 'Unknown licensor';
-  const senderId = text(sender['PartyId']) ?? 'unknown';
-  const messageId = text(header['MessageId']) ?? 'unknown';
+  return {
+    senderName: text(node(arr(sender['PartyName'])[0])['FullName']) ?? 'Unknown licensor',
+    senderId: text(sender['PartyId']) ?? 'unknown',
+    messageId: text(header['MessageId']) ?? 'unknown',
+  };
+}
+
+/** Reads either message: a release to create or update, or one to purge. */
+export function readErn(
+  xml: string,
+  now = new Date(),
+): { kind: 'release'; conversion: ErnConversion } | { kind: 'purge'; purge: ErnPurge } {
+  const { root, msg } = parseRoot(xml);
+  if (root === 'PurgeReleaseMessage') {
+    const icpn = text(node(node(msg['PurgedRelease'])['ReleaseId'])['ICPN']);
+    if (!icpn || !/^\d{12,14}$/.test(icpn)) {
+      throw new ErnError('A purge must name the release by its ICPN.');
+    }
+    const { senderId, messageId } = senderOf(msg);
+    return { kind: 'purge', purge: { icpn, senderId, messageId } };
+  }
+  return { kind: 'release', conversion: convert(msg, now) };
+}
+
+/** Converts one ERN 4.3 NewReleaseMessage. Throws ErnError on what it cannot import. */
+export function ernToManifest(xml: string, now = new Date()): ErnConversion {
+  const { root, msg } = parseRoot(xml);
+  if (root !== 'NewReleaseMessage') throw new ErnError('Not an ERN NewReleaseMessage.');
+  return convert(msg, now);
+}
+
+function convert(msg: Node, now: Date): ErnConversion {
+  const { senderName, senderId, messageId } = senderOf(msg);
 
   const parties = new Map<string, string>();
   for (const p of arr(node(msg['PartyList'])['Party'])) {
@@ -258,6 +305,13 @@ export function ernToManifest(xml: string, now = new Date()): ErnConversion {
   for (const g of arr(release['ResourceGroup'])) walk(g);
   if (tracks.length === 0) throw new ErnError('The Release lists none of the SoundRecordings.');
 
+  // The front cover: an Image resource of that type, with its file in the delivery.
+  const coverImage = arr(resources['Image']).find((im) => text(im['Type']) === 'FrontCoverImage');
+  const coverUri = coverImage
+    ? text(node(node(coverImage['TechnicalDetails'])['File'])['URI'])
+    : undefined;
+  const cover = coverUri ? deliveryPath(coverUri) : undefined;
+
   const icpn = text(node(release['ReleaseId'])['ICPN']);
   const validIcpn = icpn && /^\d{12,14}$/.test(icpn) ? icpn : null;
   const labelRef = text(release['ReleaseLabelReference']);
@@ -267,11 +321,17 @@ export function ernToManifest(xml: string, now = new Date()): ErnConversion {
   // Before the manifest is assembled, so the label is in its list.
   const label = labelRef ? labelKey(labelRef) : undefined;
 
-  // Deals of the main release become grants for its tracks. Deals with the same uses
-  // and end differ only in territory (often one deal per country): one grant each.
+  // Deals of the main release become grants for its tracks. Deals with the same uses,
+  // start and end differ only in territory (often one deal per country): one grant each.
+  // A deal that starts later becomes a grant from that moment (ADR-0016 checks it).
   const terms = new Map<
     string,
-    { uses: ('stream' | 'download')[]; end: Date | null; territories: Set<string> }
+    {
+      uses: ('stream' | 'download')[];
+      start: string | null;
+      end: Date | null;
+      territories: Set<string>;
+    }
   >();
   const skippedDeals: string[] = [];
   for (const rd of arr(node(msg['DealList'])['ReleaseDeal'])) {
@@ -292,10 +352,6 @@ export function ernToManifest(xml: string, now = new Date()): ErnConversion {
           ? new Date(`${endText}T23:59:59.999Z`)
           : new Date(endText)
         : null;
-      if (start && new Date(start) > now) {
-        skippedDeals.push(`${dealName}: starts ${start}; future deals need the update step`);
-        continue;
-      }
       if (end && end <= now) {
         skippedDeals.push(`${dealName}: ended ${endText ?? ''}`);
         continue;
@@ -320,8 +376,18 @@ export function ernToManifest(xml: string, now = new Date()): ErnConversion {
         continue;
       }
       const sorted = [...uses].sort();
-      const key = `${sorted.join(',')}|${end?.toISOString() ?? ''}`;
-      const same = terms.get(key) ?? { uses: sorted, end, territories: new Set<string>() };
+      const from = start ? new Date(start.length === 10 ? `${start}T00:00:00Z` : start) : null;
+      if (from && Number.isNaN(from.getTime())) {
+        throw new ErnError(`${dealName}: start is not a date: ${start ?? ''}`);
+      }
+      const startIso = from?.toISOString() ?? null;
+      const key = `${sorted.join(',')}|${startIso ?? ''}|${end?.toISOString() ?? ''}`;
+      const same = terms.get(key) ?? {
+        uses: sorted,
+        start: startIso,
+        end,
+        territories: new Set<string>(),
+      };
       for (const t of territories) same.territories.add(t);
       terms.set(key, same);
     }
@@ -335,6 +401,7 @@ export function ernToManifest(xml: string, now = new Date()): ErnConversion {
         territories: [...t.territories],
         uses: t.uses,
         contract_ref: `ddex:${senderId}:${messageId}:${t.uses.join('+')}`.slice(0, 200),
+        ...(t.start ? { valid_from: t.start } : {}),
         ...(t.end ? { valid_to: t.end.toISOString() } : {}),
       });
     }
@@ -355,6 +422,7 @@ export function ernToManifest(xml: string, now = new Date()): ErnConversion {
           ...(label ? { label } : {}),
           ...(date ? { date } : {}),
           ...(validIcpn ? { upc: validIcpn } : {}),
+          ...(cover ? { cover } : {}),
           artists: releaseArtists,
           tracks,
         },
@@ -364,6 +432,8 @@ export function ernToManifest(xml: string, now = new Date()): ErnConversion {
     },
     icpn: validIcpn,
     isrcs,
+    senderId,
+    messageId,
     skippedDeals,
   };
 }

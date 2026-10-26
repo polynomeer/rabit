@@ -108,3 +108,17 @@ Switching a feature off or rolling it out (ADR-0028). Flags are declared in `app
 3. Back to the code default: `{"override": null, "reason": "..."}`.
 4. Every change is in the audit log (`feature_flag.changed`). Flags never switch off authorization, rights, rate limits or audit logging.
 
+## catalog-deliveries
+DDEX ERN 4.3 deliveries (ADR-0030): `pnpm --filter @rabit/server catalog:ddex <message.xml> [--dry-run]`. Run `--dry-run` first: it shows the release, its ICPN, recordings, grants and the deals skipped with why.
+1. "Only ERN 4.3": ask the licensor for ERN 4.3.x (namespace `http://ddex.net/xml/ern/43x`).
+2. "File URI must be relative" / "leaves the delivery folder": the message names files outside its folder. Do not move files to make it pass; ask for a corrected delivery.
+3. "excluded territories are not supported yet": convert by hand into the countries covered (contract check), or ask for TerritoryCode lists.
+4. "changes the track list" or "not delivered by": an update an operator must apply. Compare with the release in the operator console and the contract.
+5. A takedown (deal with an end) expires the sender's grants at once; playback stops within the revocation window. To undo a mistaken takedown, the licensor sends the deal again without the end, which creates a new grant.
+
+## release-artwork
+Release covers (ADR-0031). A release whose cover failed keeps the stand-in; `release_artwork.failure` says why (not a single JPEG or PNG, smaller than 600 px, not square, resize failed).
+1. Ask the licensor for a corrected cover (DSPs usually ask for 3000 px square JPEG); a redelivery or a new manifest `cover` creates a new version.
+2. Jobs `catalog.process_artwork` that keep failing on storage are retried; dead ones are in the operator console (작업 큐).
+3. A cover that must disappear now: deliver a replacement (new version; old URLs stop at the origin, CDN copies expire only with their year-long cache, so also invalidate `/artwork/v1/*` for that token if it matters).
+

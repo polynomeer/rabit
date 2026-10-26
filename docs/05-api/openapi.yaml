@@ -1608,7 +1608,7 @@ paths:
       tags: [ops]
       operationId: opsAlphaMetrics
       description: >-
-        Alpha validation metrics (ADR-0031) over the people who signed up between `from` and `to`
+        Alpha validation metrics (ADR-0032) over the people who signed up between `from` and `to`
         (Korean calendar days, inclusive; operator-issuer accounts left out). Cohort aggregates only:
         a rate over fewer than `min_group` people or sessions is withheld. Week k of retention covers
         days 7(k−1)..7k−1 after each person's sign-up and counts only people whose week k is over.
@@ -1738,6 +1738,23 @@ paths:
           content: { application/json: { schema: { type: object, required: [axis, value, basis], properties: { axis: { type: string }, value: { type: string }, basis: { type: string, enum: [reviewed] } } } } }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+
+  /artwork/v1/{token}/{file}:
+    get:
+      tags: [media]
+      operationId: getArtwork
+      security: []
+      description: >-
+        A release cover (ADR-0031), from the URLs in a release's `artwork`. The token signs the
+        release and the cover version and does not expire, so responses are cached for good; only
+        the current version of a ready cover is served.
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+        - { name: file, in: path, required: true, schema: { type: string, enum: ['300.jpg', '600.jpg', '1200.jpg'] } }
+      responses:
+        '200': { description: 'The cover: a square JPEG of that edge in pixels, or smaller (never upscaled)' }
+        '403': { description: Token invalid }
+        '404': { description: 'Unknown size, or not the current cover' }
 
   /media/v1/{token}/{file}:
     get:
@@ -1990,7 +2007,7 @@ components:
               note: { oneOf: [ { type: string }, { type: 'null' } ] }
     CohortRate:
       type: object
-      description: '`count` of `of`, with `rate` = count / of to three decimals. Withheld (`count` and `rate` null) when `of` is under `min_group` (ADR-0031).'
+      description: '`count` of `of`, with `rate` = count / of to three decimals. Withheld (`count` and `rate` null) when `of` is under `min_group` (ADR-0032).'
       required: [count, of, rate, suppressed]
       properties:
         count: { type: [integer, 'null'], minimum: 0 }
@@ -2320,6 +2337,7 @@ components:
         artists: { type: array, items: { $ref: '#/components/schemas/ArtistRef' } }
         label: { oneOf: [ { $ref: '#/components/schemas/ArtistRef' }, { type: 'null' } ] }
         release_date: { type: [string, 'null'], format: date }
+        artwork: { oneOf: [ { $ref: '#/components/schemas/ReleaseArtwork' }, { type: 'null' } ] }
         tracks:
           type: array
           items:
@@ -2630,6 +2648,18 @@ components:
         title: { type: string }
         release_type: { type: string, enum: [album, single, ep, compilation] }
         release_date: { type: [string, 'null'], format: date }
+        artwork: { oneOf: [ { $ref: '#/components/schemas/ReleaseArtwork' }, { type: 'null' } ] }
+    ReleaseArtwork:
+      type: object
+      description: >-
+        Signed URLs of the release cover by edge in pixels (ADR-0031); null while there is no
+        processed cover, in which case clients draw their stand-in.
+      additionalProperties: false
+      required: ['300', '600', '1200']
+      properties:
+        '300': { type: string, format: uri }
+        '600': { type: string, format: uri }
+        '1200': { type: string, format: uri }
     Money:
       type: object
       required: [amount_minor, currency, tax_minor, tax_included]

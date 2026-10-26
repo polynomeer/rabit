@@ -4,7 +4,7 @@ import { koreanDay } from '../../platform/validation.js';
 
 /**
  * Starting a DIG session or a Blind Digging round counts as activity. A DIG session
- * is kept when it was saved or one of its trail steps was saved (H3, ADR-0031).
+ * is kept when it was saved or one of its trail steps was saved (H3, ADR-0032).
  */
 export const digValidationSection: ValidationSection = {
   name: 'dig',

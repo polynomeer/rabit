@@ -4,7 +4,7 @@ import { koreanDay } from '../../platform/validation.js';
 /**
  * Starting playback counts as activity. `own_audio_players` counts the people who
  * played their own audio (an upload or an Audio Log) at least once; which audio is
- * never read (H2, ADR-0031).
+ * never read (H2, ADR-0032).
  */
 export const playbackValidationSection: ValidationSection = {
   name: 'playback',

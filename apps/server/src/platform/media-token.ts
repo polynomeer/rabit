@@ -62,3 +62,36 @@ export class MediaTokenCodec {
     return createHmac('sha256', this.secret).update(`media:${body}`).digest('base64url');
   }
 }
+
+/**
+ * Artwork URL tokens (ADR-0031): a release and its artwork version, signed. They do
+ * not expire, so a CDN and browsers can cache a version forever; a new cover is a new
+ * version and the gateway serves only the current one. Unguessable, so covers cannot
+ * be listed by walking release ids. The "artwork:" prefix keeps them apart from media
+ * tokens signed with the same secret.
+ */
+export class ArtworkTokenCodec {
+  constructor(private readonly secret: string) {}
+
+  sign(releaseId: string, version: number): string {
+    const body = Buffer.from(`${releaseId}.${String(version)}`).toString('base64url');
+    return `a1.${body}.${this.mac(body)}`;
+  }
+
+  verify(token: string): { releaseId: string; version: number } | null {
+    const parts = token.split('.');
+    if (parts.length !== 3 || parts[0] !== 'a1') return null;
+    const [, body, sig] = parts as [string, string, string];
+    const expected = Buffer.from(this.mac(body));
+    const given = Buffer.from(sig);
+    if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
+    const m = /^([a-z]{3}_[0-9A-HJKMNP-TV-Z]{26})\.(\d{1,9})$/.exec(
+      Buffer.from(body, 'base64url').toString('utf8'),
+    );
+    return m ? { releaseId: m[1] as string, version: Number(m[2]) } : null;
+  }
+
+  private mac(body: string): string {
+    return createHmac('sha256', this.secret).update(`artwork:${body}`).digest('base64url');
+  }
+}

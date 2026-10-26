@@ -3,6 +3,7 @@ import type { AppContext } from '../../app/context.js';
 import { PermanentJobError, type JobHandler } from '../../platform/jobs/runner.js';
 import { BUCKETS } from '../../platform/storage/blob-store.js';
 import { getSourceUnchecked, markSourceFailed, processSource } from '../audio/index.js';
+import { processArtwork } from './artwork.js';
 import { setRecordingDuration } from './entities.js';
 import { expireGrants } from './rights.js';
 
@@ -42,6 +43,18 @@ export function catalogJobs(ctx: AppContext): JobHandler[] {
           p.audio_source_id,
           error instanceof PermanentJobError ? error.code : 'PROCESSING_FAILED',
         );
+      },
+    },
+    {
+      kind: 'catalog.process_artwork',
+      leaseMs: 5 * 60_000,
+      pool: 'media',
+      priority: 1,
+      async handle(job) {
+        const p = z
+          .object({ release_id: z.string(), version: z.number().int() })
+          .parse(job.job.payload);
+        await processArtwork(ctx, p.release_id, p.version);
       },
     },
     {

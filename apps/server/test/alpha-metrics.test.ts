@@ -5,7 +5,7 @@ import { fixtures } from './helpers/audio-fixtures.js';
 import { seedCatalog } from './helpers/catalog.js';
 import { createHarness, uploadReady, type Harness, type TestUser } from './helpers/harness.js';
 
-/** Alpha validation metrics (ADR-0031): cohort aggregates only, small groups withheld. */
+/** Alpha validation metrics (ADR-0032): cohort aggregates only, small groups withheld. */
 let h: Harness;
 let op: TestUser;
 let people: TestUser[];

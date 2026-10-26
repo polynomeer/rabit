@@ -1,4 +1,4 @@
-# ADR-0031: Alpha validation metrics from existing data (cohort aggregates only)
+# ADR-0032: Alpha validation metrics from existing data (cohort aggregates only)
 
 - Status: Accepted (owner decision 2026-10-24: product validation is a purpose of use, cohort aggregates only)
 - Date: 2026-10-24

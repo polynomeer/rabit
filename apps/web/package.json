@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p e2e/tsconfig.json",
-    "test": "node scripts/contrast.mjs && node scripts/bundle-budget.mjs",
+    "test": "node scripts/contrast.mjs && node scripts/bundle-budget.mjs && node --test scripts/landing.test.mjs",
     "budget": "node scripts/bundle-budget.mjs",
     "contrast": "node scripts/contrast.mjs",
     "icons": "node scripts/icons.mjs",

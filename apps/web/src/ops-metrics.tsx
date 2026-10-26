@@ -4,7 +4,7 @@ import type { paths } from './api-schema';
 import { formatDateTime, t, type MessageKey } from './i18n';
 
 /**
- * Alpha validation metrics in the operator console (ADR-0031): gate C over a sign-up
+ * Alpha validation metrics in the operator console (ADR-0032): gate C over a sign-up
  * cohort, as counts and rates only. The server withholds any rate over fewer than
  * `min_group` people; the console never asks for or shows a person.
  */
@@ -23,7 +23,7 @@ const TARGET = {
 } as const;
 
 const DAY = 86_400_000;
-// Cohorts are Korean calendar days (ADR-0031), so the defaults are too.
+// Cohorts are Korean calendar days (ADR-0032), so the defaults are too.
 const koreanDay = (ms: number) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(new Date(ms));
 

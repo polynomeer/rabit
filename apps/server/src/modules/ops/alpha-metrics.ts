@@ -8,7 +8,7 @@ import { parse } from '../../platform/http/validation.js';
 import { VALIDATION_TIME_ZONE, type ValidationSection } from '../../platform/validation.js';
 import { validationCohort, type CohortMember } from '../identity/index.js';
 
-/** A rate over fewer people (or sessions) than this is withheld (ADR-0031). */
+/** A rate over fewer people (or sessions) than this is withheld (ADR-0032). */
 export const MIN_GROUP = 5;
 /** Weekly retention is reported for the first eight weeks after sign-up. */
 export const RETENTION_WEEKS = 8;
@@ -75,7 +75,7 @@ const query = z
   });
 
 /**
- * Alpha validation metrics (ADR-0031): gate C read over a sign-up cohort, aggregates
+ * Alpha validation metrics (ADR-0032): gate C read over a sign-up cohort, aggregates
  * only. Operators see counts and rates, never a person; every view is audited.
  */
 export function alphaMetricsRoutes(sections: () => ValidationSection[]) {

@@ -767,7 +767,7 @@ export const ko = {
     '유효하거나 일시 중지된 권리가 남아 있으면 거부됩니다. 재생이 즉시 막히고 원본·파생 파일이 삭제됩니다. 메타데이터는 남습니다. 되돌릴 수 없습니다.',
   'ops.rights.removal.confirm': '이 곡의 음원 파일을 삭제할까요? 되돌릴 수 없습니다.',
   'ops.rights.removal.submit': '음원 삭제',
-  // ——— Ops: alpha validation metrics (ADR-0031) ———
+  // ——— Ops: alpha validation metrics (ADR-0032) ———
   'ops.metrics.lede':
     '가입 기간으로 묶은 코호트의 집계만 보여줍니다. 개인은 보이지 않고, 너무 작은 집단의 비율은 서버가 숨깁니다. 조회는 감사 기록에 남습니다.',
   'ops.metrics.from': '가입 시작일',
@@ -796,4 +796,59 @@ export const ko = {
   'ops.metrics.weekN': '{week}주차',
   'ops.metrics.note':
     '주차는 가입일로부터 7일 단위이며, 그 주가 끝난 사람만 대상에 넣습니다. 재생 출처(어느 플레이리스트에서 들었는지)는 저장하지 않으므로, 혼합 플레이리스트의 재생 여부는 측정하지 않습니다.',
+
+  // ——— Waitlist landing (draft, experiment E2; not deployed) ———
+  'landing.draftBanner':
+    '초안입니다. 배포 전 검토용이며, 입력한 내용은 어디에도 보내거나 저장하지 않습니다.',
+  'landing.cta': '초대 베타 대기자 등록',
+  'landing.a.title': '흩어진 내 음악을 한 곳에',
+  'landing.a.lede':
+    '직접 녹음한 연주, 간직해온 음원 파일, 모아온 음반까지. 하나의 라이브러리에서 듣고 쌓아가세요.',
+  'landing.a.point1': '내 녹음과 음원 파일을 올려 플레이리스트에 함께 담기',
+  'landing.a.point2': '가진 CD·LP를 컬렉션으로 기록',
+  'landing.a.point3': '연주 연습과 음성 메모를 곡과 연결해 Audio Log로 남기기',
+  'landing.b.title': '좋아하는 곡에서 시작해 끝까지 파고들기',
+  'landing.b.lede':
+    '이 곡을 만든 사람, 연주한 사람, 같은 레이블의 다른 앨범. 크레딧을 따라 음악을 탐험하세요.',
+  'landing.b.point1': '한 곡에서 연결된 음악으로 이어지는 Rabbit Hole',
+  'landing.b.point2': '프로듀서·작곡가·연주자를 따라가는 크레딧 디깅',
+  'landing.b.point3': '지나온 탐색 경로를 Trail로 저장',
+  'landing.c.title': '누가 만들었는지 아는 음악',
+  'landing.c.lede':
+    '누가 만들고 연주했는지, 왜 이 곡이 다음에 나오는지. 보이지 않는 알고리즘 대신 근거를 보여드립니다.',
+  'landing.c.point1': '크레딧과 출처를 곡마다 함께 표시',
+  'landing.c.point2': '자동 재생 곡마다 추천 이유 표시',
+  'landing.c.point3': '광고 없음, 내 기록은 언제든 내보내기',
+  'landing.points.heading': 'Rabit에서 할 수 있는 것',
+  'landing.principles.heading': '바뀌지 않는 원칙',
+  'landing.principles.noAds': '광고가 없습니다.',
+  'landing.principles.export': '내 기록과 원본은 언제든 내보낼 수 있습니다.',
+  'landing.principles.private': '내 녹음은 기본으로 나만 봅니다.',
+  'landing.status':
+    '지금은 초대 베타를 준비하고 있습니다. 스트리밍 카탈로그와 구매 기능은 아직 제공하지 않습니다.',
+  'landing.form.heading': '초대 베타 대기자 등록',
+  'landing.form.lede': '베타가 열리면 이메일로 초대를 보내드립니다.',
+  'landing.form.email': '이메일',
+  'landing.form.segments': '음악과 관련해 해당하는 것 (여러 개 선택)',
+  'landing.form.segment.digger': '크레딧이나 레이블을 따라가며 음악을 찾아 듣는다',
+  'landing.form.segment.collector': 'CD나 LP를 모은다',
+  'landing.form.segment.creator': '직접 곡을 만든다',
+  'landing.form.segment.recorder': '연주나 노래, 음성 메모를 녹음한다',
+  'landing.form.segment.none': '해당 없음',
+  'landing.form.services': '지금 쓰는 음악 서비스 (여러 개 선택)',
+  'landing.form.service.other': '기타',
+  'landing.form.service.none': '없음',
+  'landing.form.adult': '만 19세 이상입니다.',
+  'landing.form.consent':
+    '개인정보 수집·이용에 동의합니다. 수집 항목은 이메일과 위 응답이며, 베타 초대와 설문 발송에만 씁니다.',
+  'landing.form.consentDetail':
+    '보관 기간은 확정 전입니다(초안). 동의하지 않으면 등록할 수 없고, 등록한 뒤에도 언제든 삭제를 요청할 수 있습니다.',
+  'landing.form.submit': '등록하기',
+  'landing.form.error.email': '이메일 주소를 확인해 주세요.',
+  'landing.form.error.segments': '해당하는 것을 하나 이상 골라 주세요.',
+  'landing.form.error.services': '쓰는 서비스를 하나 이상 골라 주세요.',
+  'landing.form.error.adult': '만 19세 이상만 등록할 수 있습니다.',
+  'landing.form.error.consent': '개인정보 수집·이용에 동의해야 등록할 수 있습니다.',
+  'landing.form.notConnected':
+    '초안이라 아무 데도 보내지 않았습니다. 대기자 저장은 보관 위치와 기간이 정해진 뒤 연결합니다.',
 } as const;

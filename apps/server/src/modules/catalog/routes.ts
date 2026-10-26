@@ -21,6 +21,7 @@ import { errors } from '../../platform/errors.js';
 import { entitySummary, getRecording, getRelease } from './entities.js';
 import { removeCatalogAudio } from './removal.js';
 import { changeGrantStatus, createGrant, listGrants } from './rights.js';
+import { artworkUrls } from './artwork.js';
 
 export interface Playability {
   playable: boolean;
@@ -63,7 +64,8 @@ export const catalogRoutes =
         ...t,
         playability: playable[i],
       }));
-      return { ...rel, tracks };
+      const artwork = (await artworkUrls(ctx, [rel.release_id])).get(rel.release_id) ?? null;
+      return { ...rel, tracks, artwork };
     });
 
     app.get('/v1/entities/:entity_id', async (req) => {

@@ -313,12 +313,19 @@ run "media_segments_are_checked_at_the_edge" {
 
   assert {
     condition = alltrue([for b in aws_cloudfront_distribution.media.ordered_cache_behavior :
-    length(b.function_association) == 1 && b.target_origin_id == "media-edge"])
+      length(b.function_association) == 1 && b.target_origin_id == "media-edge"
+    if startswith(b.path_pattern, "/media/")])
     error_message = "Every cached media behaviour must run the edge token check (ADR-0008)."
   }
   assert {
-    condition     = toset([for b in aws_cloudfront_distribution.media.ordered_cache_behavior : b.path_pattern]) == toset(["/media/v1/*.m4s", "/media/v1/*init.mp4"])
-    error_message = "Only segments and init segments are cached; playlists always reach the origin."
+    condition     = toset([for b in aws_cloudfront_distribution.media.ordered_cache_behavior : b.path_pattern]) == toset(["/media/v1/*.m4s", "/media/v1/*init.mp4", "/artwork/v1/*"])
+    error_message = "Only segments, init segments and covers are cached; playlists always reach the origin."
+  }
+  assert {
+    condition = alltrue([for b in aws_cloudfront_distribution.media.ordered_cache_behavior :
+      b.target_origin_id == "media" && length(b.function_association) == 0
+    if b.path_pattern == "/artwork/v1/*"])
+    error_message = "Covers go to the media role, which checks their token and version (ADR-0031)."
   }
   assert {
     condition     = one([for b in aws_cloudfront_distribution.media.default_cache_behavior : b.cache_policy_id]) == data.aws_cloudfront_cache_policy.disabled.id

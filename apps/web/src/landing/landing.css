@@ -1,0 +1,129 @@
+/* Waitlist landing (draft, experiment E2). Uses the app's tokens from styles.css. */
+.landing-draft {
+  margin: 0;
+  padding: 10px 20px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  font-size: 0.875rem;
+  text-align: center;
+}
+main.landing {
+  max-width: 760px;
+  padding: 0 20px 96px;
+}
+.landing section {
+  padding: 40px 0;
+  border-bottom: 1px solid var(--line);
+}
+.landing section:last-child {
+  border-bottom: none;
+}
+.landing-hero {
+  position: relative;
+  padding-top: 64px;
+}
+.landing-hero::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: -120px;
+  width: 420px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow) 0%, transparent 68%);
+  pointer-events: none;
+}
+.landing-brand {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 24px;
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+.landing-hero h1 {
+  position: relative;
+  margin: 0 0 16px;
+  font-size: clamp(2rem, 6vw, 3rem);
+}
+.landing-lede {
+  position: relative;
+  margin: 0 0 28px;
+  font-size: 1.125rem;
+  color: var(--muted);
+}
+.landing-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: var(--purple);
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.landing-cta:hover {
+  outline: 2px solid var(--accent);
+}
+.landing-points,
+.landing-principles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.landing-points li {
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.landing-principles li::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--accent);
+}
+.landing-waitlist form {
+  display: grid;
+  gap: 14px;
+  max-width: 520px;
+}
+.landing-waitlist .field {
+  display: grid;
+  gap: 6px;
+  font-weight: 500;
+}
+.landing-waitlist fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.landing-waitlist legend {
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.landing-waitlist .check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.landing-services {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.landing-waitlist .warn {
+  margin: -6px 0 0;
+}
+.landing-notice {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+}

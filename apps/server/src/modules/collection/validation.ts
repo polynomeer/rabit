@@ -6,7 +6,7 @@ export const COLLECTOR_THRESHOLD = 20;
 
 /**
  * Adding a record counts as activity. `collectors` counts people with at least one
- * record, `collectors_20_plus` those with 20 or more (H5, ADR-0031).
+ * record, `collectors_20_plus` those with 20 or more (H5, ADR-0032).
  */
 export const collectionValidationSection: ValidationSection = {
   name: 'collection',
