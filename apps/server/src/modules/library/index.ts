@@ -10,6 +10,7 @@ import {
   type ExportSection,
 } from './export.js';
 import { attachUploadToLibrary } from './library.js';
+import { recordQualifiedPlay } from './rediscover.js';
 import { libraryRoutes } from './routes.js';
 import type { SupportSection } from '../../platform/support.js';
 
@@ -22,6 +23,7 @@ export { libraryValidationSection } from './validation.js';
 export const deleteAccountLibrary: AccountDataDeleter = async (ctx, account) => {
   await ctx.db.deleteFrom('playlist').where('owner_user_id', '=', account.userId).execute();
   await ctx.db.deleteFrom('library_item').where('user_id', '=', account.userId).execute();
+  await ctx.db.deleteFrom('library_play_summary').where('user_id', '=', account.userId).execute();
   const exports = await ctx.db
     .deleteFrom('export_request')
     .where('user_id', '=', account.userId)
@@ -77,6 +79,17 @@ export function libraryModule(deps: {
         },
       },
       {
+        // ADR-0035: one job per PlayQualified event (dedupe by event id); the upsert is atomic.
+        kind: 'library.record_play',
+        leaseMs: 60_000,
+        async handle({ job }) {
+          const p = z
+            .object({ user_id: z.string(), recording_id: z.string(), at: z.iso.datetime() })
+            .parse(job.payload);
+          await recordQualifiedPlay(ctx.db, p);
+        },
+      },
+      {
         kind: 'library.expire_exports',
         leaseMs: 5 * 60_000,
         async handle() {
@@ -88,6 +101,7 @@ export function libraryModule(deps: {
       AudioReady: ['library.attach_upload'],
       SourceDeleted: ['library.remove_source'],
       ExportRequested: ['library.build_export'],
+      PlayQualified: ['library.record_play'],
     },
     schedules: [{ kind: 'library.expire_exports', everyMs: 60 * 60_000 }],
   };

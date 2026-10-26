@@ -957,4 +957,22 @@ export const ko = {
   'dig.cutoff.date': '날짜',
   'dig.cutoff.apply': '적용',
   'dig.cutoff.clear': '기준일 해제',
+  'explore.rediscover': '잊고 있던 음악',
+  'rd.title': '잊고 있던 음악',
+  'rd.lede':
+    '저장해 두고 {days}일 넘게 듣지 않은 곡이에요. 저장한 때와 음악이 나온 때를 함께 보여 줘요.',
+  'rd.playAll': '재발견 목록 듣기',
+  'rd.privacy':
+    "Rabit에서 저장하고 들은 기록만 써요. 나에게만 보이고, 저장을 지우면 그 곡의 기록도 함께 지워져요. 기록이 없는 기간을 '안 들었다'로 짐작하지 않아요.",
+  'rd.clear': '감상 기록 지우기',
+  'rd.cleared': '감상 기록을 지웠어요. 저장한 곡을 다시 들으면 새로 쌓여요.',
+  'rd.window': '얼마나 오래',
+  'rd.windowDays': '{days}일 넘게',
+  'rd.empty': '{days}일 넘게 듣지 않은 저장 곡이 없어요.',
+  'rd.list': '재발견 후보',
+  'rd.released': '{date} 발매',
+  'rd.saved': '{date} 저장',
+  'rd.lastPlayed': '{days}일 전에 마지막으로 들음',
+  'rd.noHistory': '감상 기록 없음 · 저장 날짜 기준',
+  'rd.play': '{title} 재생',
 } as const;

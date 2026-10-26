@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../../app/context.js';
+import { errors } from '../../platform/errors.js';
 import { routeLimit } from '../../platform/http/app.js';
 import { withIdempotency } from '../../platform/http/idempotency.js';
 import { requirePrincipal } from '../../platform/http/principal.js';
@@ -15,6 +16,8 @@ import {
 import type { CatalogAccess } from '../playback/index.js';
 import { exportView, getExport, requestExport } from './export.js';
 import { addLibraryItem, listLibrary, removeLibraryItem } from './library.js';
+import { clearSummaries, rediscover } from './rediscover.js';
+import { isEnabled } from '../flags/index.js';
 import {
   addPlaylistItem,
   createPlaylist,
@@ -50,6 +53,30 @@ export const libraryRoutes =
         req.query,
       );
       return listLibrary(ctx, ca, p, q);
+    });
+
+    // Rediscover (EX-06, ADR-0035): the caller's own saves only; 404 while the flag is off.
+    const rediscoverOn = async (userId: string) => {
+      if (!(await isEnabled(ctx.db, 'exploration_rediscover', userId))) throw errors.notFound();
+    };
+    app.get('/v1/me/rediscover', routeLimit(240, '1 hour'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      await rediscoverOn(p.userId);
+      const q = parse(
+        z.object({
+          inactive_days: z.coerce.number().int().min(30).max(3650).default(180),
+          limit: z.coerce.number().int().min(1).max(200).default(50),
+        }),
+        req.query,
+      );
+      return rediscover(ctx, p, q);
+    });
+    /** Clears the last-played summary; new qualified plays of saved tracks start it again. */
+    app.delete('/v1/me/rediscover/history', async (req, reply) => {
+      const p = requirePrincipal(req.principal);
+      await rediscoverOn(p.userId);
+      await clearSummaries(ctx.db, p.userId);
+      return reply.status(204).send();
     });
 
     app.post('/v1/library', async (req, reply) => {

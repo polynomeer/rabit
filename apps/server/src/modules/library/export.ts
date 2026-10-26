@@ -170,6 +170,11 @@ export async function buildExport(
     .selectAll()
     .where('user_id', '=', e.user_id)
     .execute();
+  const plays = await ctx.db
+    .selectFrom('library_play_summary')
+    .selectAll()
+    .where('user_id', '=', e.user_id)
+    .execute();
   const playlists = await ctx.db
     .selectFrom('playlist')
     .selectAll()
@@ -232,6 +237,12 @@ export async function buildExport(
         origin: i.origin,
         note: i.note,
         saved_at: i.saved_at.toISOString(),
+      })),
+      // ADR-0035: the last qualified play per saved recording (no per-play rows exist).
+      play_summary: plays.map((p) => ({
+        recording_id: p.recording_id,
+        last_qualified_at: p.last_qualified_at.toISOString(),
+        qualified_plays: p.qualified_plays,
       })),
       playlists: playlists.map((p) => ({
         playlist_id: p.id,

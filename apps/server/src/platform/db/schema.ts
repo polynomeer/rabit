@@ -504,6 +504,14 @@ export interface LibraryItemTable {
   saved_at: CreatedAt;
 }
 
+/** ADR-0035: last qualified play of a saved recording, kept past the event purge. */
+export interface LibraryPlaySummaryTable {
+  user_id: string;
+  recording_id: string;
+  last_qualified_at: Timestamp;
+  qualified_plays: number;
+}
+
 export interface PlaylistTable {
   id: string;
   owner_user_id: string;
@@ -922,6 +930,7 @@ export interface Database {
   usage_statement_line: UsageStatementLineTable;
   usage_carryover: UsageCarryoverTable;
   app_user: AppUserTable;
+  library_play_summary: LibraryPlaySummaryTable;
   workspace: WorkspaceTable;
   membership: MembershipTable;
   job: JobTable;
