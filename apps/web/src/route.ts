@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
  * button works without a server-side router:
  *   #/home  #/studio  #/archive  #/playlists  #/search  #/search/<query>  #/account
  *   #/dig  #/dig/<entity id> (starts a session)  #/dig-session/<session id>
- *   #/recording/<id>  #/release/<id>  #/entity/<id>  #/now (Now Playing)
+ *   #/recording/<id>  #/release/<id>  #/entity/<id>  #/lineage/<recording id>  #/now (Now Playing)
  *   #/ops/<users|reports|jobs|rights|sales> (operators)
  */
 export const TABS = ['Home', 'Search', 'DIG', 'Archive', 'Studio', 'Playlists', 'Account'] as const;
@@ -24,7 +24,7 @@ export const SECONDARY_TABS = ['Playlists', 'Account'] as const satisfies readon
 
 export type Route =
   | { kind: 'tab'; tab: Tab; digStart: string | null; query: string }
-  | { kind: 'recording' | 'release' | 'entity' | 'dig-session'; id: string }
+  | { kind: 'recording' | 'release' | 'entity' | 'dig-session' | 'lineage'; id: string }
   | { kind: 'ops'; section: OpsSection }
   | { kind: 'now' };
 
@@ -39,7 +39,8 @@ export function parseHash(hash: string): Route {
     (first === 'recording' ||
       first === 'release' ||
       first === 'entity' ||
-      first === 'dig-session') &&
+      first === 'dig-session' ||
+      first === 'lineage') &&
     ID.test(second)
   )
     return { kind: first, id: second };
@@ -74,6 +75,8 @@ export function entityHref(id: string): string {
 }
 
 export const digSessionHref = (sessionId: string) => `#/dig-session/${sessionId}`;
+/** Original-song lineage around a recording. */
+export const lineageHref = (recordingId: string) => `#/lineage/${recordingId}`;
 
 /** Replaces the current history entry (no extra Back step), e.g. start → its session. */
 export function replaceRoute(href: string): void {
