@@ -56,7 +56,21 @@ HAVING min(r.release_date_latest) <= $cutoff_date
 
 `cutoff_date` is the calendar date of `cutoff_at` in the chosen time zone (default the account's display zone; a region's zone in E1).
 
-### 0028_dig_session_context (dig)
+### 0028_play_queue_time_machine (playback) — implemented
+
+```sql
+-- 0021's unnamed CHECK has Postgres's default name, play_queue_mode_check.
+ALTER TABLE play_queue
+  DROP CONSTRAINT play_queue_mode_check,
+  ADD CONSTRAINT play_queue_mode_check CHECK (mode IN ('queue','radio','time_machine')),
+  ADD COLUMN radio_context jsonb,  -- {"cutoff_at","time_zone","mode"}
+  ADD CONSTRAINT play_queue_time_machine_context
+    CHECK ((mode = 'time_machine') = (radio_context IS NOT NULL));
+```
+
+Down drops the constraints and column first, then turns Time Radio queues into `radio`.
+
+### 0029_dig_session_context (dig)
 
 ```sql
 ALTER TABLE dig_session ADD COLUMN context jsonb NULL;
@@ -64,15 +78,6 @@ ALTER TABLE dig_session ADD COLUMN context jsonb NULL;
 ```
 
 Validated by zod at the route; unknown keys refused. The trail keeps working unchanged; the context only filters candidates and is shown in history.
-
-### 0029_play_queue_time_machine (playback)
-
-```sql
--- Replace the unnamed CHECK from 0021 (look up its generated name in the migration).
-ALTER TABLE play_queue
-  ADD CONSTRAINT play_queue_mode_ck CHECK (mode IN ('queue','radio','time_machine')),
-  ADD COLUMN radio_context jsonb NULL;  -- same shape as dig_session.context; required when mode = 'time_machine'
-```
 
 ### 0030_library_play_summary (library)
 

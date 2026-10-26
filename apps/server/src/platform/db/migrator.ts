@@ -27,6 +27,7 @@ import * as m0024 from './migrations/0024_feature_flags.js';
 import * as m0025 from './migrations/0025_editorial_shelves.js';
 import * as m0026 from './migrations/0026_release_artwork.js';
 import * as m0027 from './migrations/0027_release_date_precision.js';
+import * as m0028 from './migrations/0028_play_queue_time_machine.js';
 
 // Migrations operate on the raw schema, independent of the current table types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,6 +65,7 @@ export const migrations: Record<string, Migration> = {
   '0025_editorial_shelves': m0025,
   '0026_release_artwork': m0026,
   '0027_release_date_precision': m0027,
+  '0028_play_queue_time_machine': m0028,
 };
 
 export function createMigrator(db: AnyDb): Migrator {

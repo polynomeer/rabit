@@ -195,12 +195,24 @@ export interface PlaybackSessionTable {
   quality_reported_at: Date | null;
 }
 
+export type QueueMode = 'queue' | 'radio' | 'time_machine';
+export interface TimeMachineContext {
+  /** The moment chosen, ISO with offset. */
+  cutoff_at: string;
+  /** IANA zone that turns `cutoff_at` into the cutoff date. */
+  time_zone: string;
+  /** `free_explore`: anything out by then; `hidden`: less played on Rabit now (EXP-026). */
+  mode: 'free_explore' | 'hidden';
+}
+
 export interface PlayQueueTable {
   user_id: string;
-  mode: Generated<'queue' | 'radio'>;
+  mode: Generated<QueueMode>;
   autoplay: Generated<boolean>;
   include_inferred: Generated<boolean>;
   current_item_id: string | null;
+  /** ADR-0034: the Time Radio cutoff and mode; set exactly when mode = 'time_machine'. */
+  radio_context: ColumnType<TimeMachineContext | null, string | null, string | null>;
   version: Generated<number>;
   updated_at: Generated<Date>;
 }

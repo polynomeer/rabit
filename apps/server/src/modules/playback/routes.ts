@@ -10,14 +10,18 @@ import { audit } from '../../platform/audit.js';
 import { requireOperator } from '../../platform/http/principal.js';
 import { recordListeningEvents } from './listening.js';
 import { qualityReport, recordQualityReport } from './quality.js';
+import { isTimeZone } from '../catalog/index.js';
+import { isEnabled } from '../flags/index.js';
 import {
   addToQueue,
+  advanceTimeMachine,
   clearQueue,
   keepItem,
   queueView,
   refreshSuggestions,
   removeItem,
   setCurrent,
+  startTimeMachine,
   updateSettings,
 } from './queue.js';
 import { listUsageStatements, usageCsv, usageStatementLines } from './usage.js';
@@ -173,6 +177,38 @@ export function playbackRoutes(deps: PlaybackDeps) {
         req.body,
       );
       return updateSettings(ctx, deps, p, body);
+    });
+
+    // Time Radio (ADR-0034): hidden (404) while exploration_time_machine is off.
+    const timeMachineOn = async (userId: string) => {
+      if (!(await isEnabled(ctx.db, 'exploration_time_machine', userId))) throw errors.notFound();
+    };
+    app.post('/v1/queue/time-machine', routeLimit(60, '1 minute'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      await timeMachineOn(p.userId);
+      const body = parse(
+        z.strictObject({
+          cutoff_at: z.iso
+            .datetime({ offset: true })
+            .refine((v) => Date.parse(v) >= Date.parse('1900-01-01T00:00:00Z'), {
+              message: 'must not be before 1900',
+            })
+            .refine((v) => Date.parse(v) <= Date.now(), { message: 'must not be in the future' }),
+          time_zone: z.string().max(64).refine(isTimeZone, { message: 'unknown time zone' }),
+          mode: z.enum(['free_explore', 'hidden']).default('free_explore'),
+        }),
+        req.body,
+      );
+      return startTimeMachine(ctx, deps, p, body);
+    });
+    app.post('/v1/queue/time-machine/advance', routeLimit(60, '1 minute'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      await timeMachineOn(p.userId);
+      const body = parse(
+        z.strictObject({ months: z.number().int().min(1).max(12).default(1) }),
+        req.body ?? {},
+      );
+      return advanceTimeMachine(ctx, deps, p, body.months);
     });
 
     // Monthly usage statements for rights holders (ADR-0025): operators only.

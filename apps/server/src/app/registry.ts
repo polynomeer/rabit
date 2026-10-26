@@ -39,6 +39,8 @@ import {
   digModule,
   digValidationSection,
   radioFor,
+  releasesBetween,
+  timeMachineFor,
   type DigDeps,
 } from '../modules/dig/index.js';
 import {
@@ -154,6 +156,9 @@ export function allModules(): Module[] {
       catalogAccess,
       resolveRecordingSource: recordingSource,
       radio: (ctx, principal, seed, opts) => radioFor(ctx, digDeps, principal, seed, opts),
+      timeMachine: (ctx, principal, context, opts) =>
+        timeMachineFor(ctx, digDeps, principal, context, opts),
+      releasesBetween,
     }),
     libraryModule({
       catalogAccess,

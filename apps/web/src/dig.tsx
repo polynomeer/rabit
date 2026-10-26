@@ -11,6 +11,7 @@ import { formatDate, t, tCode, type MessageKey } from './i18n';
 import { BlindDigPanel } from './blind';
 import { Icon, Mark } from './brand';
 import { CrateDigPanel } from './crate';
+import { ExplorePanel } from './explore';
 import { usePlayer } from './player';
 import { digSessionHref, entityHref, replaceRoute, tabHref } from './route';
 import { Status } from './views';
@@ -599,6 +600,7 @@ export function DigHome() {
       <div className="dig-modes">
         <BlindDigPanel />
         <CrateDigPanel />
+        <ExplorePanel />
       </div>
       <h3 className="eyebrow section-title">{t('dig.home.history')}</h3>
       <label>

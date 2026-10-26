@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { api, ApiError } from './api';
 import { formatDate, t, type MessageKey } from './i18n';
+import { TimeMachineBanner } from './explore';
+import { preciseDate } from './journey';
 import { EntryArt, usePlayer, type QueueEntry, type QueueReason } from './player';
 
 /**
@@ -23,6 +25,7 @@ const REASON_TEXT: Record<QueueReason['code'], MessageKey> = {
   member_project: 'queue.reason.member_project',
   same_label: 'queue.reason.same_label',
   same_decade: 'queue.reason.same_decade',
+  time_machine: 'queue.reason.time_machine',
 };
 
 const SAVE_TITLE: Record<'all' | 'chosen' | 'suggested', MessageKey> = {
@@ -32,6 +35,11 @@ const SAVE_TITLE: Record<'all' | 'chosen' | 'suggested', MessageKey> = {
 };
 
 export function reasonText(r: QueueReason): string {
+  if (r.code === 'time_machine')
+    return t('queue.reason.time_machine', {
+      name: r.name ?? '',
+      date: preciseDate(r.release_date ?? null, r.date_precision ?? null),
+    });
   const text = t(REASON_TEXT[r.code], { name: r.name ?? '' });
   return r.basis === 'ml_inferred' ? `${text} · ${t('queue.inferred')}` : text;
 }
@@ -173,6 +181,7 @@ export function QueuePanel() {
           </div>
         </details>
       </div>
+      <TimeMachineBanner />
       {msg ? (
         <p role="status" className="small">
           {msg}
@@ -236,7 +245,8 @@ export function QueuePanel() {
 
       <div className="queue-head">
         <h4 className="eyebrow">{t('queue.suggested')}</h4>
-        <label className="small queue-switch">
+        {/* Time Radio always suggests from its cutoff; the switch is for track-based autoplay. */}
+        <label className="small queue-switch" hidden={player.timeMachine !== null}>
           <input
             type="checkbox"
             checked={settings.autoplay}
@@ -247,14 +257,18 @@ export function QueuePanel() {
           {t('queue.autoplay')}
         </label>
       </div>
-      {!settings.autoplay ? (
+      {!settings.autoplay && !player.timeMachine ? (
         <p className="muted small">{t('queue.autoplayOff')}</p>
       ) : suggested.length === 0 ? (
-        <p className="muted small">{t('queue.suggestedEmpty')}</p>
+        <p className="muted small">
+          {player.timeMachine ? t('tm.suggestedEmpty') : t('queue.suggestedEmpty')}
+        </p>
       ) : (
         <>
           <p className="muted small">
-            {t('queue.suggestedHint', { title: current?.title ?? '' })}{' '}
+            {player.timeMachine
+              ? t('tm.suggestedHint')
+              : t('queue.suggestedHint', { title: current?.title ?? '' })}{' '}
             <button
               type="button"
               className="link small"

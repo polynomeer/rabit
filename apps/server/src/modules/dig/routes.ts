@@ -14,7 +14,8 @@ import {
 } from '../../platform/http/validation.js';
 import { ANY_ID_PATTERN } from '../../platform/ids.js';
 import { isEnabled, type FlagKey } from '../flags/index.js';
-import { isTimeZone } from '../catalog/index.js';
+import { cutoffDate, isTimeZone } from '../catalog/index.js';
+import { timeMachineCoverage } from './time-radio.js';
 import { playlistView } from '../library/index.js';
 import { AXIS_GROUP, type DigAxis } from './connections.js';
 import {
@@ -184,6 +185,20 @@ export const digRoutes =
         req.query,
       );
       return artistJourney(ctx, deps, params.data.artist_id, q);
+    });
+
+    /** What a Time Radio cutoff leaves to listen to (setup screen, ADR-0034). */
+    app.get('/v1/dig/time-machine/coverage', routeLimit(240, '1 hour'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      await requireFlag(ctx, 'exploration_time_machine', p.userId);
+      const q = parse(
+        z.object({
+          cutoff_at: z.iso.datetime({ offset: true }).transform((v) => new Date(v)),
+          time_zone: z.string().max(64).refine(isTimeZone, { message: 'unknown time zone' }),
+        }),
+        req.query,
+      );
+      return timeMachineCoverage(ctx, deps, p, cutoffDate(q.cutoff_at, q.time_zone));
     });
 
     /** Album compare (EX-03): two releases of one artist, catalog facts only. */

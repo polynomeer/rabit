@@ -2830,3 +2830,102 @@ form.inline input:not([type='checkbox']):not([type='radio']) {
   color: var(--muted);
   font-weight: 500;
 }
+
+/* Time Radio (ADR-0034): setup form beside what the date leaves, and the queue banner. */
+.time-setup-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+.time-setup-grid > form {
+  flex: 999 1 420px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.time-setup-grid > aside {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.tm-head h2 {
+  margin: 0 0 6px;
+}
+.tm-head p {
+  margin: 0;
+}
+.time-setup fieldset {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.time-setup legend {
+  font-weight: 700;
+  padding: 0 6px;
+}
+.tm-date {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tm-date input {
+  min-height: 44px;
+}
+.tm-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+.tm-mode > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tm-mode input {
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.tm-mode.disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.tm-counts {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  margin: 12px 0;
+}
+.tm-counts dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tm-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  margin: 8px 0 12px;
+  border-radius: 16px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+}
+.tm-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-left: auto;
+}
+.tm-banner p {
+  flex-basis: 100%;
+  margin: 0;
+}

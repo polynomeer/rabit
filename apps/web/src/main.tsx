@@ -5,6 +5,7 @@ import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from 
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
 import { CompareView, JourneyView } from './journey';
+import { TimeMachineSetup } from './explore';
 import { LineageView } from './lineage';
 import { PlayerProvider } from './player';
 import {
@@ -224,6 +225,7 @@ function App() {
       window.removeEventListener(SIGNED_OUT, onSignedOut);
     };
   }, []);
+  const [, setFeaturesRead] = useState(0);
   // The console entry is shown to operators only; the server checks the role on every call.
   useEffect(() => {
     if (!signedIn) {
@@ -231,7 +233,10 @@ function App() {
       clearFeatures();
       return;
     }
-    void loadFeatures();
+    // Flagged entries (e.g. exploration) appear once the flags have arrived.
+    void loadFeatures().then(() => {
+      setFeaturesRead((n) => n + 1);
+    });
     void get<{ is_operator: boolean }>('/v1/me').then(
       (me) => {
         setOperator(me.is_operator);
@@ -258,7 +263,10 @@ function App() {
   const tab =
     route.kind === 'tab'
       ? route.tab
-      : route.kind === 'dig-session' || route.kind === 'journey' || route.kind === 'compare'
+      : route.kind === 'dig-session' ||
+          route.kind === 'journey' ||
+          route.kind === 'compare' ||
+          route.kind === 'time-machine'
         ? 'DIG'
         : null;
   return (
@@ -309,6 +317,7 @@ function App() {
           {route.kind === 'entity' ? <EntityDetail id={route.id} /> : null}
           {route.kind === 'lineage' ? <LineageView id={route.id} /> : null}
           {route.kind === 'journey' ? <JourneyView artistId={route.id} /> : null}
+          {route.kind === 'time-machine' ? <TimeMachineSetup /> : null}
           {route.kind === 'compare' ? (
             <CompareView artistId={route.id} a={route.a} b={route.b} />
           ) : null}

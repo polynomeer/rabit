@@ -388,6 +388,64 @@ paths:
       responses:
         '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
         '401': { $ref: '#/components/responses/Error' }
+  /v1/queue/time-machine:
+    post:
+      tags: [playback]
+      operationId: startTimeMachine
+      description: >-
+        Starts Time Radio (ADR-0034) or changes its cutoff or mode. The queue switches to mode
+        `time_machine`; suggestions are replaced with catalog tracks out by the cutoff date in
+        `time_zone` (ADR-0033: the earliest release with the track, by its last possible day) that
+        the caller can play now. Chosen items and history stay. With nothing chosen waiting, the
+        first suggestion becomes current. There is no region: playback is decided as for every
+        start (EXP-027). 404 while `exploration_time_machine` is off for the caller.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [cutoff_at, time_zone]
+              properties:
+                cutoff_at: { type: string, format: date-time, description: 'With offset; from 1900 up to now' }
+                time_zone: { type: string, description: IANA time zone }
+                mode: { type: string, enum: [free_explore, hidden], default: free_explore }
+      responses:
+        '200': { description: Queue, content: { application/json: { schema: { $ref: '#/components/schemas/Queue' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/queue/time-machine/advance:
+    post:
+      tags: [playback]
+      operationId: advanceTimeMachine
+      description: >-
+        Moves the Time Radio cutoff forward by whole months (the same day, clamped to the month's
+        end) and replaces the suggestions. `new_since_previous` counts releases that came out in
+        between. 409 when Time Radio is not on.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                months: { type: integer, minimum: 1, maximum: 12, default: 1 }
+      responses:
+        '200':
+          description: Queue
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/Queue' }
+                  - type: object
+                    required: [new_since_previous]
+                    properties:
+                      new_since_previous: { type: integer, minimum: 0 }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /v1/queue/settings:
     patch:
       tags: [playback]
@@ -395,7 +453,8 @@ paths:
       description: >-
         `mode` 재생목록 (`queue`, default) or 자동추천 (`radio`); `autoplay` (default on) continues
         with suggestions after the chosen items; `include_inferred` lets ML-inferred relations
-        suggest tracks (off by default, as in DIG).
+        suggest tracks (off by default, as in DIG). Choosing a mode leaves Time Radio and clears its
+        cutoff; Time Radio itself starts with `POST /v1/queue/time-machine`.
       requestBody:
         required: true
         content:
@@ -952,6 +1011,36 @@ paths:
         excluded by a reviewed integrity decision are omitted.
       responses:
         '200': { description: Timeline, content: { application/json: { schema: { $ref: '#/components/schemas/LabelTimeline' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/dig/time-machine/coverage:
+    get:
+      tags: [dig]
+      operationId: getTimeMachineCoverage
+      description: >-
+        What a Time Radio cutoff leaves to listen to (setup screen): releases out by the cutoff
+        date, releases left out because their date is too coarse to tell (a year or month that
+        has not ended), undated releases, and releases out with a track the caller can play now
+        (counted among the newest 500 out; `playable_sampled` when there are more). 404 while
+        `exploration_time_machine` is off for the caller.
+      parameters:
+        - { name: cutoff_at, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: time_zone, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Coverage
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cutoff, releases_out, releases_uncertain, releases_undated, playable_releases, playable_sampled]
+                properties:
+                  cutoff: { type: string, format: date }
+                  releases_out: { type: integer }
+                  releases_uncertain: { type: integer }
+                  releases_undated: { type: integer }
+                  playable_releases: { type: integer }
+                  playable_sampled: { type: boolean }
+        '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
   /v1/dig/artists/{artist_id}/journey:
     parameters: [ { name: artist_id, in: path, required: true, schema: { $ref: '#/components/schemas/Id' } } ]
@@ -2662,9 +2751,20 @@ components:
         - { type: object, additionalProperties: false, required: [audio_source_id], properties: { audio_source_id: { $ref: '#/components/schemas/Id' } } }
     Queue:
       type: object
-      required: [mode, autoplay, include_inferred, current_item_id, version, items]
+      required: [mode, time_machine, autoplay, include_inferred, current_item_id, version, items]
       properties:
-        mode: { type: string, enum: [queue, radio] }
+        mode: { type: string, enum: [queue, radio, time_machine], description: 'Clients treat unknown modes like `queue`' }
+        time_machine:
+          description: Time Radio's cutoff and mode while `mode` is `time_machine` (ADR-0034), else null
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [cutoff_at, time_zone, cutoff, mode]
+              properties:
+                cutoff_at: { type: string, format: date-time }
+                time_zone: { type: string }
+                cutoff: { type: string, format: date, description: '`cutoff_at` as a calendar date in `time_zone`' }
+                mode: { type: string, enum: [free_explore, hidden], description: '`hidden`: less played on Rabit now (never a claim about the past)' }
         autoplay: { type: boolean }
         include_inferred: { type: boolean }
         current_item_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }
@@ -2684,9 +2784,12 @@ components:
                   - type: object
                     required: [code, name, basis]
                     properties:
-                      code: { type: string, enum: [samples, sampled_by, covers, covered_by, remixes, remix_of, same_producer, influences, influenced_by, same_artist, member_project, same_label, same_decade] }
+                      code: { type: string, enum: [samples, sampled_by, covers, covered_by, remixes, remix_of, same_producer, influences, influenced_by, same_artist, member_project, same_label, same_decade, time_machine], description: 'Clients show unknown codes generically' }
                       name: { type: [string, 'null'] }
                       basis: { type: string, enum: [verified_fact, declared, ml_inferred] }
+                      release_date: { type: string, format: date, description: '`time_machine` only: the earliest release with the track, at `date_precision`' }
+                      date_precision: { type: string, enum: [day, month, year] }
+                      cutoff: { type: string, format: date }
               state: { type: string, enum: [played, current, upcoming] }
               played_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
               recording_id: { oneOf: [ { $ref: '#/components/schemas/Id' }, { type: 'null' } ] }

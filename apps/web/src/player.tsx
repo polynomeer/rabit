@@ -43,6 +43,8 @@ export interface QueueEntry {
 export type ServerQueue = Schemas['Queue'];
 export type QueueReason = NonNullable<ServerQueue['items'][number]['reason']>;
 export type QueueSettings = Pick<ServerQueue, 'mode' | 'autoplay' | 'include_inferred'>;
+/** Time Radio's cutoff while the queue is in that mode (ADR-0034). */
+export type TimeMachine = NonNullable<ServerQueue['time_machine']>;
 type QueueRef = { recording_id: string } | { audio_source_id: string };
 
 const refOf = (e: QueueEntry): QueueRef =>
@@ -127,6 +129,15 @@ interface PlayerApi {
   refreshSuggestions(): Promise<void>;
   settings: QueueSettings;
   updateSettings(patch: Partial<QueueSettings>): Promise<void>;
+  timeMachine: TimeMachine | null;
+  /** Starts Time Radio (or changes its cutoff) and plays its current track. */
+  startTimeMachine(body: {
+    cutoff_at: string;
+    time_zone: string;
+    mode: TimeMachine['mode'];
+  }): Promise<void>;
+  /** Moves the cutoff on by months; resolves to the number of releases out in between. */
+  advanceTimeMachine(months: number): Promise<number>;
   jump: (index: number) => void;
   toggle: () => void;
   next: () => void;
@@ -230,6 +241,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const preparing = useRef(-1);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [index, setIndex] = useState(-1);
+  const [timeMachine, setTimeMachine] = useState<TimeMachine | null>(null);
   const [settings, setSettings] = useState<QueueSettings>({
     mode: 'queue',
     autoplay: true,
@@ -403,6 +415,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setQueue(entries);
     setIndex(at);
     setSettings({ mode: q.mode, autoplay: q.autoplay, include_inferred: q.include_inferred });
+    setTimeMachine(q.time_machine);
     return at;
   }, []);
 
@@ -667,6 +680,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setSettings(before);
         throw e;
       }
+    },
+    timeMachine,
+    async startTimeMachine(body) {
+      const r = await queueCall('POST', '/v1/queue/time-machine', body);
+      const now = r.entries[r.at];
+      if (now) await start(now);
+    },
+    async advanceTimeMachine(months) {
+      const { data } = await api<ServerQueue & { new_since_previous: number }>(
+        'POST',
+        '/v1/queue/time-machine/advance',
+        { months },
+      );
+      fromServer(data);
+      return data.new_since_previous;
     },
     jump,
     toggle,

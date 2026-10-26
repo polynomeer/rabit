@@ -399,6 +399,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/queue/time-machine': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Starts Time Radio (ADR-0034) or changes its cutoff or mode. The queue switches to mode `time_machine`; suggestions are replaced with catalog tracks out by the cutoff date in `time_zone` (ADR-0033: the earliest release with the track, by its last possible day) that the caller can play now. Chosen items and history stay. With nothing chosen waiting, the first suggestion becomes current. There is no region: playback is decided as for every start (EXP-027). 404 while `exploration_time_machine` is off for the caller. */
+    post: operations['startTimeMachine'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/queue/time-machine/advance': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Moves the Time Radio cutoff forward by whole months (the same day, clamped to the month's end) and replaces the suggestions. `new_since_previous` counts releases that came out in between. 409 when Time Radio is not on. */
+    post: operations['advanceTimeMachine'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/queue/settings': {
     parameters: {
       query?: never;
@@ -412,7 +446,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    /** @description `mode` 재생목록 (`queue`, default) or 자동추천 (`radio`); `autoplay` (default on) continues with suggestions after the chosen items; `include_inferred` lets ML-inferred relations suggest tracks (off by default, as in DIG). */
+    /** @description `mode` 재생목록 (`queue`, default) or 자동추천 (`radio`); `autoplay` (default on) continues with suggestions after the chosen items; `include_inferred` lets ML-inferred relations suggest tracks (off by default, as in DIG). Choosing a mode leaves Time Radio and clears its cutoff; Time Radio itself starts with `POST /v1/queue/time-machine`. */
     patch: operations['updateQueueSettings'];
     trace?: never;
   };
@@ -1003,6 +1037,23 @@ export interface paths {
     };
     /** @description Label Digging, basic (DIG-011): the label's releases grouped by release year (undated last) and each artist's span on the label. Up to 1000 releases (`truncated` when more). Entities excluded by a reviewed integrity decision are omitted. */
     get: operations['getLabelTimeline'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/dig/time-machine/coverage': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description What a Time Radio cutoff leaves to listen to (setup screen): releases out by the cutoff date, releases left out because their date is too coarse to tell (a year or month that has not ended), undated releases, and releases out with a track the caller can play now (counted among the newest 500 out; `playable_sampled` when there are more). 404 while `exploration_time_machine` is off for the caller. */
+    get: operations['getTimeMachineCoverage'];
     put?: never;
     post?: never;
     delete?: never;
@@ -2579,8 +2630,27 @@ export interface components {
           audio_source_id: components['schemas']['Id'];
         };
     Queue: {
-      /** @enum {string} */
-      mode: 'queue' | 'radio';
+      /**
+       * @description Clients treat unknown modes like `queue`
+       * @enum {string}
+       */
+      mode: 'queue' | 'radio' | 'time_machine';
+      /** @description Time Radio's cutoff and mode while `mode` is `time_machine` (ADR-0034), else null */
+      time_machine: null | {
+        /** Format: date-time */
+        cutoff_at: string;
+        time_zone: string;
+        /**
+         * Format: date
+         * @description `cutoff_at` as a calendar date in `time_zone`
+         */
+        cutoff: string;
+        /**
+         * @description `hidden`: less played on Rabit now (never a claim about the past)
+         * @enum {string}
+         */
+        mode: 'free_explore' | 'hidden';
+      };
       autoplay: boolean;
       include_inferred: boolean;
       current_item_id: components['schemas']['Id'] | null;
@@ -2591,7 +2661,10 @@ export interface components {
         origin: 'user' | 'autoplay';
         /** @description Why autoplay suggested it (null for the listener's choices) */
         reason: null | {
-          /** @enum {string} */
+          /**
+           * @description Clients show unknown codes generically
+           * @enum {string}
+           */
           code:
             | 'samples'
             | 'sampled_by'
@@ -2605,10 +2678,20 @@ export interface components {
             | 'same_artist'
             | 'member_project'
             | 'same_label'
-            | 'same_decade';
+            | 'same_decade'
+            | 'time_machine';
           name: string | null;
           /** @enum {string} */
           basis: 'verified_fact' | 'declared' | 'ml_inferred';
+          /**
+           * Format: date
+           * @description `time_machine` only: the earliest release with the track, at `date_precision`
+           */
+          release_date?: string;
+          /** @enum {string} */
+          date_precision?: 'day' | 'month' | 'year';
+          /** Format: date */
+          cutoff?: string;
         };
         /** @enum {string} */
         state: 'played' | 'current' | 'upcoming';
@@ -4024,6 +4107,77 @@ export interface operations {
       401: components['responses']['Error'];
     };
   };
+  startTimeMachine: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /**
+           * Format: date-time
+           * @description With offset; from 1900 up to now
+           */
+          cutoff_at: string;
+          /** @description IANA time zone */
+          time_zone: string;
+          /**
+           * @default free_explore
+           * @enum {string}
+           */
+          mode?: 'free_explore' | 'hidden';
+        };
+      };
+    };
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'];
+        };
+      };
+      400: components['responses']['Error'];
+      404: components['responses']['Error'];
+    };
+  };
+  advanceTimeMachine: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** @default 1 */
+          months?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Queue'] & {
+            new_since_previous: number;
+          };
+        };
+      };
+      400: components['responses']['Error'];
+      404: components['responses']['Error'];
+      409: components['responses']['Error'];
+    };
+  };
   updateQueueSettings: {
     parameters: {
       query?: never;
@@ -5235,6 +5389,39 @@ export interface operations {
           'application/json': components['schemas']['LabelTimeline'];
         };
       };
+      404: components['responses']['Error'];
+    };
+  };
+  getTimeMachineCoverage: {
+    parameters: {
+      query: {
+        cutoff_at: string;
+        time_zone: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Coverage */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** Format: date */
+            cutoff: string;
+            releases_out: number;
+            releases_uncertain: number;
+            releases_undated: number;
+            playable_releases: number;
+            playable_sampled: boolean;
+          };
+        };
+      };
+      400: components['responses']['Error'];
       404: components['responses']['Error'];
     };
   };
