@@ -23,8 +23,8 @@
   },
   "dependencies": {
     "@apple/app-store-server-library": "3.1.0",
-    "@aws-sdk/client-s3": "^3.1152.0",
-    "@aws-sdk/s3-request-presigner": "^3.1152.0",
+    "@aws-sdk/client-s3": "^3.1156.0",
+    "@aws-sdk/s3-request-presigner": "^3.1156.0",
     "@fastify/cors": "^11.3.1",
     "@fastify/rate-limit": "^11.2.1",
     "fast-xml-parser": "5.11.2",
@@ -38,7 +38,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@aws-sdk/client-kms": "^3.1152.0",
+    "@aws-sdk/client-kms": "^3.1156.0",
     "@types/autocannon": "^7.12.7",
     "@types/node": "^24.19.1",
     "@types/pg": "^8.23.1",
