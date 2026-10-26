@@ -13,6 +13,8 @@ import {
   parse,
 } from '../../platform/http/validation.js';
 import { ANY_ID_PATTERN } from '../../platform/ids.js';
+import { isEnabled, type FlagKey } from '../flags/index.js';
+import { isTimeZone } from '../catalog/index.js';
 import { playlistView } from '../library/index.js';
 import { AXIS_GROUP, type DigAxis } from './connections.js';
 import {
@@ -30,6 +32,7 @@ import {
   type DigDeps,
 } from './service.js';
 import { labelTimeline } from './labels.js';
+import { artistJourney, compareReleases } from './journey.js';
 import { lineageOf } from './lineage.js';
 import { digCrate, newReleases } from './crates.js';
 import { allShelves, deleteShelf, liveShelves, saveShelf, shelfInput } from './editorial.js';
@@ -38,6 +41,12 @@ import { decideBlindItem, getBlindDig, startBlindDig } from './blind.js';
 const axis = z.enum(Object.keys(AXIS_GROUP) as [DigAxis, ...DigAxis[]]);
 const entityParams = z.object({ entity_id: z.string().regex(ANY_ID_PATTERN) });
 const sessionParams = z.object({ dig_session_id: idOf('digSession') });
+const artistParams = z.object({ artist_id: idOf('artist') });
+
+/** Exploration routes stay hidden (404) while their flag is off for the caller (ADR-0028). */
+async function requireFlag(ctx: AppContext, key: FlagKey, userId: string) {
+  if (!(await isEnabled(ctx.db, key, userId))) throw errors.notFound();
+}
 
 export const digRoutes =
   (deps: DigDeps) =>
@@ -152,6 +161,42 @@ export const digRoutes =
       const p = z.object({ label_id: idOf('label') }).safeParse(req.params);
       if (!p.success) throw errors.notFound();
       return labelTimeline(ctx.db, deps, p.data.label_id);
+    });
+
+    /** Artist Journey (EX-02): releases and dated relations in date order; `cutoff_at` = historical view. */
+    app.get('/v1/dig/artists/:artist_id/journey', routeLimit(600, '1 hour'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      await requireFlag(ctx, 'exploration_journey', p.userId);
+      const params = artistParams.safeParse(req.params);
+      if (!params.success) throw errors.notFound();
+      const q = parse(
+        z.object({
+          cutoff_at: z.iso
+            .datetime({ offset: true })
+            .transform((v) => new Date(v))
+            .optional(),
+          time_zone: z
+            .string()
+            .max(64)
+            .refine(isTimeZone, { message: 'unknown time zone' })
+            .default('Asia/Seoul'),
+        }),
+        req.query,
+      );
+      return artistJourney(ctx, deps, params.data.artist_id, q);
+    });
+
+    /** Album compare (EX-03): two releases of one artist, catalog facts only. */
+    app.get('/v1/dig/artists/:artist_id/compare', routeLimit(600, '1 hour'), async (req) => {
+      const p = requirePrincipal(req.principal);
+      await requireFlag(ctx, 'exploration_compare', p.userId);
+      const params = artistParams.safeParse(req.params);
+      if (!params.success) throw errors.notFound();
+      const q = parse(
+        z.object({ release_a: idOf('release'), release_b: idOf('release') }),
+        req.query,
+      );
+      return compareReleases(ctx, deps, params.data.artist_id, q.release_a, q.release_b);
     });
 
     const blindParams = z.object({ blind_dig_id: idOf('blindDig') });

@@ -5,6 +5,7 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+import { clearFlagCache } from '../src/modules/flags/index.js';
 import { PLAYABILITY_REASONS } from '../src/modules/playback/index.js';
 import { registeredRoutes } from '../src/platform/http/app.js';
 import { fixtures } from './helpers/audio-fixtures.js';
@@ -119,6 +120,29 @@ describe('OpenAPI contract (ADR-0010)', () => {
       `/v1/dig/entities/${ids['r1']}/connections?axis=credits`,
       '/v1/dig/entities/{entity_id}/connections',
     );
+    for (const key of ['exploration_journey', 'exploration_compare']) {
+      await h.api.inject({
+        method: 'PUT',
+        url: `/v1/ops/features/${key}`,
+        headers: ops.op.headers,
+        payload: { override: { enabled: true, rollout_percent: 100 }, reason: 'contract' },
+      });
+    }
+    clearFlagCache();
+    await get(`/v1/dig/artists/${ids['band']}/journey`, '/v1/dig/artists/{artist_id}/journey');
+    await get(
+      `/v1/dig/artists/${ids['band']}/journey?cutoff_at=2025-12-31T00:00:00Z`,
+      '/v1/dig/artists/{artist_id}/journey',
+    );
+    await get(
+      `/v1/dig/artists/${ids['band']}/compare?release_a=${ids['album']}&release_b=${ids['single']}`,
+      '/v1/dig/artists/{artist_id}/compare',
+    );
+    await h.ctx.db
+      .deleteFrom('feature_flag')
+      .where('key', 'in', ['exploration_journey', 'exploration_compare'])
+      .execute();
+    clearFlagCache();
 
     const play = await h.api.inject({
       method: 'POST',
