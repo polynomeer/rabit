@@ -1,5 +1,5 @@
 import { sql } from 'kysely';
-import type { Db } from '../../platform/db/db.js';
+import type { DbOrTx } from '../../platform/db/db.js';
 import type { ReleaseDatePrecision } from '../../platform/db/schema.js';
 
 /**
@@ -50,7 +50,7 @@ export function datePrecise(
  * day of their earliest release.
  */
 export async function recordingsOutBy(
-  db: Db,
+  db: DbOrTx,
   recordingIds: readonly string[],
   cutoff: string,
 ): Promise<Map<string, string>> {
@@ -65,4 +65,20 @@ export async function recordingsOutBy(
     .select(['rt.recording_id', sql<string>`min(r.release_date_latest)::text`.as('first_latest')])
     .execute();
   return new Map(rows.map((r) => [r.recording_id, r.first_latest]));
+}
+
+/** Of `releaseIds`, those out by `cutoff` (their last possible day on or before it). */
+export async function releasesOutBy(
+  db: DbOrTx,
+  releaseIds: readonly string[],
+  cutoff: string,
+): Promise<Set<string>> {
+  if (!releaseIds.length) return new Set();
+  const rows = await db
+    .selectFrom('release')
+    .select('id')
+    .where('id', 'in', releaseIds)
+    .where('release_date_latest', '<=', cutoff)
+    .execute();
+  return new Set(rows.map((r) => r.id));
 }

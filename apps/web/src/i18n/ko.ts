@@ -950,4 +950,11 @@ export const ko = {
   'tm.change': '조건 바꾸기',
   'tm.stop': '타임머신 끄기',
   'tm.advanced': '그사이 새로 나온 앨범 {count}장이 후보에 들어왔어요.',
+  'dig.cutoff.title': '기준일까지만 DIG',
+  'dig.cutoff.hint':
+    '고른 날짜까지 나온 곡과 앨범만 따라가요. 사람, 아티스트, 레이블은 그대로 보여요.',
+  'dig.cutoff.on': '{date}까지 나온 것만 보고 있어요. 그 뒤에 나온 곡은 이 세션에 더할 수 없어요.',
+  'dig.cutoff.date': '날짜',
+  'dig.cutoff.apply': '적용',
+  'dig.cutoff.clear': '기준일 해제',
 } as const;

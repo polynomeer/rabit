@@ -595,6 +595,14 @@ export interface DigSessionTable {
   current_seq: Generated<number>;
   started_at: CreatedAt;
   ended_at: Date | null;
+  /** EX-05: the cutoff this session digs under; NULL = none. */
+  context: ColumnType<DigSessionContext | null, string | null, string | null>;
+}
+
+/** A historical view: only what was out by the end of `cutoff_at`'s day in `time_zone`. */
+export interface DigSessionContext {
+  cutoff_at: string;
+  time_zone: string;
 }
 
 export interface DigTrailNodeTable {
