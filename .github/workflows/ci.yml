@@ -38,28 +38,23 @@ jobs:
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:9000/healthz && break; sleep 1; done
           curl -sf http://127.0.0.1:9000/healthz
           docker exec s3 sh /init/create-buckets.sh localhost:9333
-      # The Ubuntu mirror is often slow (it once held this step for 20 minutes). The
-      # ffmpeg packages are cached between runs: with a warm cache they install without
-      # the network; when the image has moved on, apt downloads what changed. A silent
-      # connection is dropped after 30 s and retried. Filling the cache from a slow mirror can
-      # take long once, hence the generous step and job limits.
-      - name: Cache ffmpeg packages
-        uses: actions/cache@v6
-        with:
-          path: .apt-cache
-          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
+      # ffmpeg comes from a static build in a container image pinned by digest, not from
+      # the Ubuntu mirror (which timed apt out after 10-20 minutes, with or without a
+      # package cache). Docker Hub is the registry the runner already pulls the services
+      # from. 6.1.1 is the version Ubuntu 24.04 ships, which the audio tests were built on.
       - name: Install ffmpeg
-        timeout-minutes: 18
+        timeout-minutes: 5
+        env:
+          FFMPEG_IMAGE: mwader/static-ffmpeg:6.1.1@sha256:a44cd22b260c527f54e99517186a209b805d0a2319e0886d356e840f62a72132
         run: |
-          mkdir -p .apt-cache/archives/partial
-          if ls .apt-cache/archives/*.deb >/dev/null 2>&1 &&
-            sudo dpkg -i .apt-cache/archives/*.deb >/dev/null 2>&1 && command -v ffmpeg >/dev/null; then
-            echo "ffmpeg from the package cache"
-          else
-            apt="sudo apt-get -o Dir::Cache::Archives=$PWD/.apt-cache/archives -o Acquire::Retries=5 -o Acquire::http::Timeout=30"
-            $apt update && $apt install -y --no-install-recommends ffmpeg
-          fi
-          sudo chown -R "$(id -u)" .apt-cache
+          for i in 1 2 3; do docker pull -q "$FFMPEG_IMAGE" && break; sleep 10; done
+          mkdir -p "$RUNNER_TEMP/ffmpeg"
+          docker create --name ffmpeg-bin "$FFMPEG_IMAGE"
+          docker cp ffmpeg-bin:/ffmpeg "$RUNNER_TEMP/ffmpeg/ffmpeg"
+          docker cp ffmpeg-bin:/ffprobe "$RUNNER_TEMP/ffmpeg/ffprobe"
+          docker rm ffmpeg-bin
+          echo "$RUNNER_TEMP/ffmpeg" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/ffmpeg/ffmpeg" -hide_banner -version | head -1
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -109,28 +104,23 @@ jobs:
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:9000/healthz && break; sleep 1; done
           curl -sf http://127.0.0.1:9000/healthz
           docker exec s3 sh /init/create-buckets.sh localhost:9333
-      # The Ubuntu mirror is often slow (it once held this step for 20 minutes). The
-      # ffmpeg packages are cached between runs: with a warm cache they install without
-      # the network; when the image has moved on, apt downloads what changed. A silent
-      # connection is dropped after 30 s and retried. Filling the cache from a slow mirror can
-      # take long once, hence the generous step and job limits.
-      - name: Cache ffmpeg packages
-        uses: actions/cache@v6
-        with:
-          path: .apt-cache
-          key: apt-ffmpeg-${{ runner.os }}-${{ runner.arch }}-v1
+      # ffmpeg comes from a static build in a container image pinned by digest, not from
+      # the Ubuntu mirror (which timed apt out after 10-20 minutes, with or without a
+      # package cache). Docker Hub is the registry the runner already pulls the services
+      # from. 6.1.1 is the version Ubuntu 24.04 ships, which the audio tests were built on.
       - name: Install ffmpeg
-        timeout-minutes: 18
+        timeout-minutes: 5
+        env:
+          FFMPEG_IMAGE: mwader/static-ffmpeg:6.1.1@sha256:a44cd22b260c527f54e99517186a209b805d0a2319e0886d356e840f62a72132
         run: |
-          mkdir -p .apt-cache/archives/partial
-          if ls .apt-cache/archives/*.deb >/dev/null 2>&1 &&
-            sudo dpkg -i .apt-cache/archives/*.deb >/dev/null 2>&1 && command -v ffmpeg >/dev/null; then
-            echo "ffmpeg from the package cache"
-          else
-            apt="sudo apt-get -o Dir::Cache::Archives=$PWD/.apt-cache/archives -o Acquire::Retries=5 -o Acquire::http::Timeout=30"
-            $apt update && $apt install -y --no-install-recommends ffmpeg
-          fi
-          sudo chown -R "$(id -u)" .apt-cache
+          for i in 1 2 3; do docker pull -q "$FFMPEG_IMAGE" && break; sleep 10; done
+          mkdir -p "$RUNNER_TEMP/ffmpeg"
+          docker create --name ffmpeg-bin "$FFMPEG_IMAGE"
+          docker cp ffmpeg-bin:/ffmpeg "$RUNNER_TEMP/ffmpeg/ffmpeg"
+          docker cp ffmpeg-bin:/ffprobe "$RUNNER_TEMP/ffmpeg/ffprobe"
+          docker rm ffmpeg-bin
+          echo "$RUNNER_TEMP/ffmpeg" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/ffmpeg/ffmpeg" -hide_banner -version | head -1
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
