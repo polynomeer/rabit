@@ -1,6 +1,6 @@
 # ADR-0034: Time Radio through the account play queue
 
-- Status: Proposed
+- Status: Accepted (owner decision 2026-10-26: "권장안대로" — follow the recommendations in 12-plan-review §4)
 - Date: 2026-10-26
 - Deciders: product owner, engineering
 - Related: ADR-0026 (play queue and autoplay), ADR-0033, [13-technical-design](../exploration_expansion/13-technical-design.md) §3–4, EXP-021, EXP-027
@@ -13,7 +13,7 @@ Time Radio plays a stream of candidates released before a cutoff. Rabit already 
 2. A separate time-radio session with its own queue: duplicates history, conflicts with "one queue per account".
 3. Client-side list: loses server-side cutoff enforcement and rights re-checks.
 
-## Decision (proposed)
+## Decision
 - `play_queue.mode` gains `time_machine`; `radio_context` holds cutoff, time zone, mode and view.
 - Starting or moving the cutoff replaces **suggested** items only; chosen items and history stay.
 - Each suggestion carries the reason `time_machine` with the cutoff date and precision.

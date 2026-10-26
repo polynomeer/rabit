@@ -1,6 +1,6 @@
 # ADR-0033: Release date precision and time-cutoff eligibility
 
-- Status: Proposed
+- Status: Accepted (owner decision 2026-10-26: "권장안대로" — follow the recommendations in 12-plan-review §4)
 - Date: 2026-10-26
 - Deciders: product owner, engineering
 - Related: [exploration expansion](../exploration_expansion/13-technical-design.md) §2–3, ADR-PROP-EX01 in [10-decisions-risks](../exploration_expansion/10-decisions-risks.md), ADR-0030 (DDEX ingest), Q-EXP-01
@@ -13,7 +13,7 @@ Time Radio and Artist Journey must never show music released after a chosen mome
 2. Separate `historical_release_date` table with ranges, markets and sources (05-data-model): complete, but needs market data we do not have; deferred to E1 (D01).
 3. Single date + unknown flag: simple but false precision.
 
-## Decision (proposed)
+## Decision
 - Option 1 now; option 2 later only for market-specific dates.
 - A recording is released by a cutoff when its **earliest** release containing it is eligible.
 - Unknown precision or no date → excluded from cutoff queries and listed as undated.
@@ -27,3 +27,7 @@ Time Radio and Artist Journey must never show music released after a chosen mome
 
 ## Revisit trigger
 Market-specific dates (D01), or a source that provides original-release dates per recording.
+
+## Implementation notes
+- Migration `0027_release_date_precision` (2026-10-26). `date_trunc` is not immutable for `date` (it goes through `timestamptz`), so the generated column builds month and year ends with immutable date arithmetic (`release_date - (day - 1) + interval '1 month - 1 day'`, `make_date(year, 12, 31)`).
+- Helpers in `catalog/dates.ts`: `cutoffDate(at, timeZone)`, `recordingsOutBy(db, recordingIds, cutoff)`, `datePrecise(date, precision)`.
