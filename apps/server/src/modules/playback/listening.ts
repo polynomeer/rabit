@@ -4,8 +4,9 @@ import type { PopularityTier } from '../../platform/db/schema.js';
 import type { Principal } from '../../platform/http/principal.js';
 import { newId } from '../../platform/ids.js';
 import { deleteInBatches } from '../../platform/jobs/queue.js';
+import { emit } from '../../platform/jobs/outbox.js';
 import { metrics } from '../../platform/metrics.js';
-import { closedThrough } from './usage.js';
+import { closedThrough, QUALIFYING_MS } from './usage.js';
 
 export interface ListeningEventInput {
   event_id: string;
@@ -33,6 +34,10 @@ const SESSION_GRACE_MS = 60_000;
  *   and concurrent requests (review #2).
  * Duplicates (same session + event id) are ignored; out-of-order events are
  * accepted by sequence. Client-side counts are never trusted alone.
+ *
+ * When a catalog session's accepted time first reaches the stream rule (30 s, or
+ * half a shorter track; as for usage statements), `PlayQualified` is emitted once
+ * for that session, in the same transaction (ADR-0035). It carries IDs only.
  */
 export async function recordListeningEvents(
   db: Db,
@@ -86,6 +91,7 @@ export async function recordListeningEvents(
         .where('accepted', '=', true)
         .executeTakeFirstOrThrow();
       let budget = s.db_now.getTime() - s.issued_at.getTime() + PLAYED_TOLERANCE_MS - used.ms;
+      let playedNow = 0;
 
       for (const e of list) {
         let reason: string | null = null;
@@ -119,8 +125,33 @@ export async function recordListeningEvents(
         } else {
           accepted++;
           budget -= e.played_ms;
+          playedNow += e.played_ms;
           metrics.listeningEvents.inc({ outcome: 'accepted' });
         }
+      }
+      const threshold =
+        s.duration_ms === null || s.duration_ms >= QUALIFYING_MS
+          ? QUALIFYING_MS
+          : Math.ceil(s.duration_ms / 2);
+      // The session lock makes "first crossing" exact: earlier batches saw less.
+      if (
+        s.origin === 'catalog' &&
+        s.recording_id &&
+        used.ms < threshold &&
+        used.ms + playedNow >= threshold
+      ) {
+        await emit(tx, {
+          type: 'PlayQualified',
+          schemaVersion: 1,
+          subjectId: s.id,
+          privacyScope: 'private',
+          payload: {
+            user_id: s.user_id,
+            recording_id: s.recording_id,
+            session_id: s.id,
+            at: s.db_now.toISOString(),
+          },
+        });
       }
     });
   }

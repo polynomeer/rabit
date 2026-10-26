@@ -7,6 +7,7 @@ import { getOwnSource } from '../audio/index.js';
 import { recordingExists, releaseExists } from '../catalog/index.js';
 import type { CatalogAccess } from '../playback/index.js';
 import { resolveRefs, type RefType, type ResolvedRef } from './resolve.js';
+import { pruneSummaries } from './rediscover.js';
 
 /** A reference must be visible to the caller before it can be saved (T05). */
 export async function assertRefAccessible(
@@ -149,6 +150,8 @@ export async function removeLibraryItem(
     .where('user_id', '=', principal.userId)
     .executeTakeFirst();
   if (Number(res.numDeletedRows) === 0) throw errors.notFound();
+  // The last-played summary goes with the save (ADR-0035).
+  await pruneSummaries(db, principal.userId);
 }
 
 /** AudioReady: the uploader's own audio appears in their Archive (Remember). */

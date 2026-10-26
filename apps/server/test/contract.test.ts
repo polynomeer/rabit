@@ -120,7 +120,12 @@ describe('OpenAPI contract (ADR-0010)', () => {
       `/v1/dig/entities/${ids['r1']}/connections?axis=credits`,
       '/v1/dig/entities/{entity_id}/connections',
     );
-    for (const key of ['exploration_journey', 'exploration_compare', 'exploration_time_machine']) {
+    for (const key of [
+      'exploration_journey',
+      'exploration_compare',
+      'exploration_time_machine',
+      'exploration_rediscover',
+    ]) {
       await h.api.inject({
         method: 'PUT',
         url: `/v1/ops/features/${key}`,
@@ -156,6 +161,7 @@ describe('OpenAPI contract (ADR-0010)', () => {
       payload: { months: 1 },
     });
     validate('post', '/v1/queue/time-machine/advance', adv.statusCode, adv.json());
+    await get('/v1/me/rediscover', '/v1/me/rediscover');
     await h.ctx.db
       .deleteFrom('feature_flag')
       .where('key', 'in', [

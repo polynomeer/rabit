@@ -51,6 +51,54 @@ paths:
         '200': { description: Dependencies reachable, content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } } }
         '503': { description: Not ready, content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } } }
 
+  /v1/me/rediscover:
+    get:
+      tags: [library]
+      operationId: getRediscover
+      description: >-
+        Rediscover (EX-06, ADR-0035): the caller's saved recordings not played for `inactive_days`,
+        longest quiet first. A play counts when it meets the stream rule (30 s, or half a shorter
+        track), once per session; the last one is kept in a per-recording summary that outlives
+        the 90-day listening-event purge and goes with the save. `history: none` means no play was
+        recorded since saving (never "not listened"). 404 while `exploration_rediscover` is off.
+      parameters:
+        - { name: inactive_days, in: query, schema: { type: integer, minimum: 30, maximum: 3650, default: 180 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        '200':
+          description: Candidates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [inactive_days, items]
+                properties:
+                  inactive_days: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [library_item_id, recording, saved_at, note, history, last_qualified_at, qualified_plays, release_date, date_precision]
+                      properties:
+                        library_item_id: { $ref: '#/components/schemas/Id' }
+                        recording: { $ref: '#/components/schemas/EntitySummary' }
+                        saved_at: { $ref: '#/components/schemas/Timestamp' }
+                        note: { type: [string, 'null'] }
+                        history: { type: string, enum: [played, none] }
+                        last_qualified_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
+                        qualified_plays: { type: integer, minimum: 0 }
+                        release_date: { type: [string, 'null'], format: date, description: Earliest release with the track, at `date_precision` }
+                        date_precision: { type: [string, 'null'], enum: [day, month, year, null] }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/me/rediscover/history:
+    delete:
+      tags: [library]
+      operationId: clearRediscoverHistory
+      description: Clears the caller's last-played summary; later qualified plays of saved tracks start it again.
+      responses:
+        '204': { description: Cleared }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/me:
     get:
       tags: [account]
