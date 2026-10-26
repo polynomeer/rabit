@@ -105,6 +105,23 @@
 | SC-05 | 연주 스타일 프리셋에 실존 연주자·밴드 이름이나 특정 녹음 모방을 허용하는가(퍼블리시티권·오인 위험)? | STU-012 | 제품·법무 | open |
 | SC-06 | 단계와 범위: OMR 정확도·교정 비용 스파이크(폰 촬영 인쇄 악보 기준) 결과로 P2 편입 여부를 정한다. 손글씨 악보·다성부 피아노·자동 편곡을 범위에 넣는가? | STU-010, STU-011, STU-013 | 제품·기술 | open — 스파이크 완료: [OMR spike](../08-audio-ai/score-to-audio-omr-spike.md) (인쇄 악보 폰 촬영 기준 100음당 교정 중앙값 1.4–5회, 리듬·셋잇단 오류가 주된 교정 대상). 편입 여부는 제품 결정 |
 
+## 4.3 음악 탐험 확장 제안에서 나온 질문 (2026-10-26)
+
+제안 패키지 [exploration_expansion](../exploration_expansion/00-INDEX.md)의 D01–D10. 권장안은 [12-plan-review §4](../exploration_expansion/12-plan-review.md)에 있고, 여기서는 결정하지 않습니다.
+
+| ID | 질문 | 막는 것 | 상태 |
+|---|---|---|---|
+| Q-EXP-01 | 타임라인의 '과거'는 세계 최초 발매일인가, 선택한 시장의 발매일인가? | EXP-002, ADR-0033 | open (권장: E0는 세계 최초) |
+| Q-EXP-02 | 해설이 당시에 알려졌음을 무엇으로 확인하나? | EXP-007 | open (권장: 당시 보기에는 날짜 있는 카탈로그 사실만) |
+| Q-EXP-03 | 공식 역사 차트 라이선스 범위·비용은? | EXP-009 | open (법무 게이트) |
+| Q-EXP-04 | 지도 정밀도와 '활동 지역'의 근거 수준은? | EXP-008 | open (권장: 도시 단위) — Q10과 연결 |
+| Q-EXP-05 | 큐레이션 컬렉션 분모를 누가 버전 관리하나? | EXP-010, ADR-0036 | open (권장: 운영 콘솔) |
+| Q-EXP-06 | XP 부여 시점·하루 상한·취소 규칙은? | EXP-011, ADR-0036 | open (권장: 스트림 인정 기준 재사용) |
+| Q-EXP-07 | 개인 타임라인 동의·보존 기간은? | EXP-014/015, ADR-0035 | open (권장: Rabit 자체 저장·재생만, 저장과 함께 삭제) |
+| Q-EXP-08 | 프리뷰·커버·메타데이터 상업 이용 권리는 충분한가? | 전체 | open |
+| Q-EXP-09 | 먼저 낼 클라이언트는? | 출시 순서 | open (권장: 웹 먼저) |
+| Q-EXP-10 | Time Machine·Artist Journey는 DIG 하위인가, Atlas 모드인가? | IA | open (권장: DIG 안의 '탐험') |
+
 ## 5. Playbook §9: 사람이 결정해야 하는 항목 (재확인)
 
 상업 음원 라이선스 조건, 로열티 정산 규칙, CD Digital Upgrade entitlement, UGC 법적 정책, 사용자 콘텐츠 보존·삭제 법적 기간, 결제 환불·소유권 정책, Human Verified 인증 기준, 정확한 위치 저장 정책, 데이터 국외 이전, breaking public API, 비가역 destructive migration, 비용을 크게 늘리는 managed infra, Accepted ADR 번복. 위 Q·CNF 중 해당 항목은 Claude가 임의 결정하지 않습니다.

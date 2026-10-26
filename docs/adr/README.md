@@ -45,6 +45,10 @@
 | [0030](ADR-0030-ddex-ern-ingest.md) | Catalog deliveries as DDEX ERN 4.3 | Accepted (new releases) / Proposed (updates, takedowns) | CQ-CAT-2, CAT-001 |
 | [0031](ADR-0031-release-artwork.md) | Release artwork | Accepted (pipeline, signed versioned URLs) / Proposed (public covers) | CQ-CAT-4 |
 | [0032](ADR-0032-alpha-validation-metrics.md) | Alpha validation metrics from existing data (cohort aggregates only) | Accepted | NFR-PRV-007, gate C |
+| [0033](ADR-0033-release-date-precision.md) | Release date precision and time-cutoff eligibility | Proposed | EXP-002, Q-EXP-01 |
+| [0034](ADR-0034-time-radio-queue.md) | Time Radio through the account play queue | Proposed | EXP-021, EXP-027 |
+| [0035](ADR-0035-last-played-summary.md) | Last-played summary for rediscovery | Proposed | EXP-015, EXP-023 |
+| [0036](ADR-0036-exploration-progress.md) | Exploration progress: bounded collections, opt-in quests, award ledger | Proposed (E1) | EXP-010, EXP-011 |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 
