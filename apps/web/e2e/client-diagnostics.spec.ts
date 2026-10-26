@@ -54,7 +54,9 @@ test('nothing is reported while the kill switch is off', async ({ page }) => {
     // The override clears the API's flag cache, so the next read sees it off.
     const flags = page.waitForResponse((r) => r.url().endsWith('/v1/features'));
     await signIn(page, subject);
-    expect(await (await flags).json()).toEqual({ features: { client_diagnostics: false } });
+    expect(await (await flags).json()).toMatchObject({
+      features: { client_diagnostics: false },
+    });
     await page.evaluate(() => {
       setTimeout(() => {
         throw new TypeError('should not be reported');

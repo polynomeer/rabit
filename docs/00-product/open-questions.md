@@ -111,16 +111,16 @@
 
 | ID | 질문 | 막는 것 | 상태 |
 |---|---|---|---|
-| Q-EXP-01 | 타임라인의 '과거'는 세계 최초 발매일인가, 선택한 시장의 발매일인가? | EXP-002, ADR-0033 | open (권장: E0는 세계 최초) |
-| Q-EXP-02 | 해설이 당시에 알려졌음을 무엇으로 확인하나? | EXP-007 | open (권장: 당시 보기에는 날짜 있는 카탈로그 사실만) |
+| Q-EXP-01 | 타임라인의 '과거'는 세계 최초 발매일인가, 선택한 시장의 발매일인가? | EXP-002, ADR-0033 | decided — **E0는 세계 최초 발매일** (2026-10-26, 소유자 결정 "권장안대로", [12-plan-review §4](../exploration_expansion/12-plan-review.md)), [ADR-0033](../adr/ADR-0033-release-date-precision.md) |
+| Q-EXP-02 | 해설이 당시에 알려졌음을 무엇으로 확인하나? | EXP-007 | decided — **당시 보기에는 날짜 있는 카탈로그 사실만** (2026-10-26, 소유자 결정 "권장안대로", [12-plan-review §4](../exploration_expansion/12-plan-review.md)) |
 | Q-EXP-03 | 공식 역사 차트 라이선스 범위·비용은? | EXP-009 | open (법무 게이트) |
-| Q-EXP-04 | 지도 정밀도와 '활동 지역'의 근거 수준은? | EXP-008 | open (권장: 도시 단위) — Q10과 연결 |
-| Q-EXP-05 | 큐레이션 컬렉션 분모를 누가 버전 관리하나? | EXP-010, ADR-0036 | open (권장: 운영 콘솔) |
-| Q-EXP-06 | XP 부여 시점·하루 상한·취소 규칙은? | EXP-011, ADR-0036 | open (권장: 스트림 인정 기준 재사용) |
-| Q-EXP-07 | 개인 타임라인 동의·보존 기간은? | EXP-014/015, ADR-0035 | open (권장: Rabit 자체 저장·재생만, 저장과 함께 삭제) |
+| Q-EXP-04 | 지도 정밀도와 '활동 지역'의 근거 수준은? | EXP-008 | open (권장 수용, E1 착수 시 재확인: 도시 단위) — Q10과 연결 |
+| Q-EXP-05 | 큐레이션 컬렉션 분모를 누가 버전 관리하나? | EXP-010, ADR-0036 | open (권장 수용, E1 착수 시 재확인: 운영 콘솔) |
+| Q-EXP-06 | XP 부여 시점·하루 상한·취소 규칙은? | EXP-011, ADR-0036 | open (권장 수용, E1 착수 시 재확인: 스트림 인정 기준 재사용) |
+| Q-EXP-07 | 개인 타임라인 동의·보존 기간은? | EXP-014/015, ADR-0035 | decided — **Rabit 자체 저장·재생만, 저장 항목·계정과 함께 삭제, 외부 기록 가져오기 없음** (2026-10-26, 소유자 결정 "권장안대로", [12-plan-review §4](../exploration_expansion/12-plan-review.md)), [ADR-0035](../adr/ADR-0035-last-played-summary.md) |
 | Q-EXP-08 | 프리뷰·커버·메타데이터 상업 이용 권리는 충분한가? | 전체 | open |
-| Q-EXP-09 | 먼저 낼 클라이언트는? | 출시 순서 | open (권장: 웹 먼저) |
-| Q-EXP-10 | Time Machine·Artist Journey는 DIG 하위인가, Atlas 모드인가? | IA | open (권장: DIG 안의 '탐험') |
+| Q-EXP-09 | 먼저 낼 클라이언트는? | 출시 순서 | decided — **웹 먼저, iOS는 기능별 한 PR 뒤** (2026-10-26, 소유자 결정 "권장안대로", [12-plan-review §4](../exploration_expansion/12-plan-review.md)) |
+| Q-EXP-10 | Time Machine·Artist Journey는 DIG 하위인가, Atlas 모드인가? | IA | decided — **DIG 안의 '탐험'** (2026-10-26, 소유자 결정 "권장안대로", [12-plan-review §4](../exploration_expansion/12-plan-review.md)) |
 
 ## 5. Playbook §9: 사람이 결정해야 하는 항목 (재확인)
 

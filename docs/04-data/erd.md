@@ -94,7 +94,8 @@ recording(id PK FK music_entity, title, isrc text NULL UNIQUE, duration_ms bigin
           catalog_audio_source_id FK audio_source NULL UNIQUE)
 recording_artist(recording_id FK, artist_id FK music_entity, ord int, PK(recording_id, artist_id))
 release(id PK FK music_entity, title, release_type CHECK(album|single|ep|compilation), label_id FK music_entity NULL,
-        release_date date NULL, upc text NULL UNIQUE)
+        release_date date NULL, release_date_precision text NULL,
+        release_date_latest date GENERATED, upc text NULL UNIQUE)  -- ADR-0033
 release_artist(release_id FK, artist_id FK, ord int, PK(release_id, artist_id))
 release_track(release_id FK, disc_no int DEFAULT 1, position int, recording_id FK, PK(release_id, disc_no, position))
   INDEX(recording_id)

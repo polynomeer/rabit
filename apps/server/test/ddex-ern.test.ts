@@ -33,6 +33,7 @@ interface Opts {
   title?: string;
   trackTitle?: string;
   coverUri?: string;
+  releaseDate?: string;
 }
 
 function message(o: Opts = {}) {
@@ -91,7 +92,7 @@ function message(o: Opts = {}) {
       <DisplayTitleText>${o.title ?? '항구의 노래'}</DisplayTitleText>
       <DisplayArtist SequenceNumber="1"><ArtistPartyReference>PArtist</ArtistPartyReference><DisplayArtistRole>MainArtist</DisplayArtistRole></DisplayArtist>
       <ReleaseLabelReference>PLabel</ReleaseLabelReference>
-      <OriginalReleaseDate>2026-03-01</OriginalReleaseDate>
+      ${o.releaseDate ?? '<OriginalReleaseDate>2026-03-01</OriginalReleaseDate>'}
       <ResourceGroup>
         <SequenceNumber>1</SequenceNumber>
         <ResourceGroupContentItem><SequenceNumber>2</SequenceNumber><ReleaseResourceReference>A2</ReleaseResourceReference></ResourceGroupContentItem>
@@ -121,6 +122,7 @@ describe('ERN 4.3 conversion', () => {
       type: 'album',
       label: 'l-plabel',
       date: '2026-03-01',
+      date_precision: 'day',
       upc: '8800000000017',
       artists: ['a-partist'],
       // By SequenceNumber, not document order.
@@ -138,6 +140,28 @@ describe('ERN 4.3 conversion', () => {
     });
     expect(c.icpn).toBe('8800000000017');
     expect(c.skippedDeals).toEqual([]);
+  });
+
+  it('keeps the precision of partial release dates (ADR-0033)', () => {
+    const release = (releaseDate: string) =>
+      ernToManifest(message({ releaseDate }), NOW).manifest.releases?.[0];
+    expect(release('<OriginalReleaseDate>1983</OriginalReleaseDate>')).toMatchObject({
+      date: '1983-01-01',
+      date_precision: 'year',
+    });
+    expect(release('<OriginalReleaseDate>1983-06</OriginalReleaseDate>')).toMatchObject({
+      date: '1983-06-01',
+      date_precision: 'month',
+    });
+    // The original date wins over a reissue date.
+    expect(
+      release(
+        '<ReleaseDate>2010-05-05</ReleaseDate><OriginalReleaseDate>1983</OriginalReleaseDate>',
+      ),
+    ).toMatchObject({ date: '1983-01-01', date_precision: 'year' });
+    const undated = release('');
+    expect(undated?.date).toBeUndefined();
+    expect(undated?.date_precision).toBeUndefined();
   });
 
   it('turns deal periods into grant ends, and skips deals it cannot honour yet', () => {

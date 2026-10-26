@@ -31,12 +31,13 @@ ALTER TABLE release
   ADD COLUMN release_date_latest date GENERATED ALWAYS AS (
     CASE release_date_precision
       WHEN 'day'   THEN release_date
-      WHEN 'month' THEN (date_trunc('month', release_date) + interval '1 month - 1 day')::date
-      WHEN 'year'  THEN (date_trunc('year',  release_date) + interval '1 year - 1 day')::date
+      -- date_trunc is not immutable for date; use immutable date arithmetic.
+      WHEN 'month' THEN ((release_date - (EXTRACT(day FROM release_date)::int - 1)) + interval '1 month - 1 day')::date
+      WHEN 'year'  THEN make_date(EXTRACT(year FROM release_date)::int, 12, 31)
     END) STORED,
   ADD CONSTRAINT release_precision_needs_date
     CHECK (release_date_precision IS NULL OR release_date IS NOT NULL);
-CREATE INDEX release_latest_idx ON release (release_date_latest) WHERE release_date_latest IS NOT NULL;
+CREATE INDEX release_date_latest_idx ON release (release_date_latest) WHERE release_date_latest IS NOT NULL;
 ```
 
 - Backfill: `day` only where the ingest source carried a full date (DDEX `ReleaseDate`/`OriginalReleaseDate`, manifest `release_date` with day); otherwise NULL (excluded from cutoff queries). A dry-run report lists counts per source before the write.

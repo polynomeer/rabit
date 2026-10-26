@@ -1,6 +1,6 @@
 # ADR-0035: Last-played summary for rediscovery
 
-- Status: Proposed
+- Status: Accepted (owner decision 2026-10-26: "권장안대로" — follow the recommendations in 12-plan-review §4)
 - Date: 2026-10-26
 - Deciders: product owner, engineering
 - Related: [13-technical-design](../exploration_expansion/13-technical-design.md) §2–3, EXP-015, EXP-023, ADR-0032, Q-EXP-07, privacy
@@ -13,7 +13,7 @@ Rediscovery needs "saved and not played for 180 days". Listening events are purg
 2. Keep listening events for 365 days: more personal data for one feature.
 3. Use only `saved_at`: cannot tell a song played last week from one never played.
 
-## Decision (proposed)
+## Decision
 - Table `library_play_summary(user_id, recording_id, last_qualified_at, qualified_plays)`, owned by `library`, rows only for saved recordings.
 - "Qualified" is the stream rule already used for usage statements (≥30 s or half the track, once per session).
 - No per-play rows, no client time, no location.

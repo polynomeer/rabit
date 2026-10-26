@@ -14,12 +14,37 @@ export interface FlagDefinition {
   client: boolean;
 }
 
-export type FlagKey = 'client_diagnostics';
+export type FlagKey =
+  | 'client_diagnostics'
+  | 'exploration_time_machine'
+  | 'exploration_journey'
+  | 'exploration_compare'
+  | 'exploration_rediscover';
 
 export const FLAGS: Record<FlagKey, FlagDefinition> = {
   client_diagnostics: {
     description: 'Clients send error, crash and web vitals reports (ADR-0027). Kill switch.',
     default: true,
+    client: true,
+  },
+  exploration_time_machine: {
+    description: 'Time Radio: listen from a cutoff date through the queue (ADR-0034).',
+    default: false,
+    client: true,
+  },
+  exploration_journey: {
+    description: "Artist Journey: an artist's releases and credits in date order (EX-02).",
+    default: false,
+    client: true,
+  },
+  exploration_compare: {
+    description: 'Album compare: two releases of one artist side by side (EX-03).',
+    default: false,
+    client: true,
+  },
+  exploration_rediscover: {
+    description: 'Rediscover: saved items not played for a long time (ADR-0035).',
+    default: false,
     client: true,
   },
 };
