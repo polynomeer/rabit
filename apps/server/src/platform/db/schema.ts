@@ -372,12 +372,18 @@ export interface RecordingArtistTable {
   ord: number;
 }
 
+export type ReleaseDatePrecision = 'day' | 'month' | 'year';
+
 export interface ReleaseTable {
   id: string;
   title: string;
   release_type: 'album' | 'single' | 'ep' | 'compilation';
   label_id: string | null;
   release_date: ColumnType<string | null, string | null, string | null>;
+  /** ADR-0033: how precise `release_date` is; NULL when unknown. */
+  release_date_precision: ReleaseDatePrecision | null;
+  /** Last day the release could have come out (generated from date and precision). */
+  release_date_latest: ColumnType<string | null, never, never>;
   upc: string | null;
 }
 

@@ -136,16 +136,26 @@ async function updateRelease(ctx: AppContext, releaseId: string, c: ErnConversio
     const changed = new Set<string>();
     const current = await tx
       .selectFrom('release')
-      .select(['title', 'release_date'])
+      .select(['title', 'release_date', 'release_date_precision'])
       .where('id', '=', releaseId)
       .executeTakeFirstOrThrow();
     if (
       current.title !== release.title ||
-      (release.date && current.release_date !== release.date)
+      (release.date &&
+        (current.release_date !== release.date ||
+          current.release_date_precision !== (release.date_precision ?? 'day')))
     ) {
       await tx
         .updateTable('release')
-        .set({ title: release.title, ...(release.date ? { release_date: release.date } : {}) })
+        .set({
+          title: release.title,
+          ...(release.date
+            ? {
+                release_date: release.date,
+                release_date_precision: release.date_precision ?? 'day',
+              }
+            : {}),
+        })
         .where('id', '=', releaseId)
         .execute();
       await tx

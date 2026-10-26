@@ -127,6 +127,21 @@ function releaseType(n: Node): 'album' | 'single' | 'ep' | 'compilation' {
   return 'album';
 }
 
+/**
+ * A release date with its precision (ADR-0033): `2019-03-09`, `2019-03` or `2019`.
+ * Partial dates become the first day of their month or year, marked as such.
+ */
+function releaseDateOf(
+  v: unknown,
+): { date: string; precision: 'day' | 'month' | 'year' } | undefined {
+  const t = text(v);
+  if (!t) return undefined;
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return { date: t.slice(0, 10), precision: 'day' };
+  if (/^\d{4}-\d{2}$/.test(t)) return { date: `${t}-01`, precision: 'month' };
+  if (/^\d{4}$/.test(t)) return { date: `${t}-01-01`, precision: 'year' };
+  return undefined;
+}
+
 /** A date, or the date part of a date-time; partial dates (a year) are dropped. */
 function dateOf(v: unknown): string | undefined {
   const t = text(v);
@@ -315,7 +330,8 @@ function convert(msg: Node, now: Date): ErnConversion {
   const icpn = text(node(release['ReleaseId'])['ICPN']);
   const validIcpn = icpn && /^\d{12,14}$/.test(icpn) ? icpn : null;
   const labelRef = text(release['ReleaseLabelReference']);
-  const date = dateOf(release['OriginalReleaseDate']) ?? dateOf(release['ReleaseDate']);
+  const released =
+    releaseDateOf(release['OriginalReleaseDate']) ?? releaseDateOf(release['ReleaseDate']);
   const releaseArtists = mainArtists(release);
   if (releaseArtists.length === 0) throw new ErnError('The Release has no display artist.');
   // Before the manifest is assembled, so the label is in its list.
@@ -420,7 +436,7 @@ function convert(msg: Node, now: Date): ErnConversion {
           title: releaseTitle.slice(0, 300),
           type: releaseType(release),
           ...(label ? { label } : {}),
-          ...(date ? { date } : {}),
+          ...(released ? { date: released.date, date_precision: released.precision } : {}),
           ...(validIcpn ? { upc: validIcpn } : {}),
           ...(cover ? { cover } : {}),
           artists: releaseArtists,

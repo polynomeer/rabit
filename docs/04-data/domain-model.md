@@ -87,7 +87,7 @@ created ──finalize(verified size+hash)──▶ quarantined ──worker cla
 **MusicEntity registry** — `id, entity_type (artist|person|label|release|recording), display_name, sort_name, created_at`. Every catalog node used by DIG has a registry row, so relations have referential integrity (AP-05, resolves CNF-12). Scene/place/work types are reserved (P2).
 
 **Recording** — `id (=entity id), title, isrc?, duration_ms, primary_artist_ids[], catalog_audio_source_id?`
-**Release** — `id, title, release_type (album|single|ep|compilation), label_id?, release_date?, upc?`
+**Release** — `id, title, release_type (album|single|ep|compilation), label_id?, release_date?, release_date_precision? (day|month|year), upc?` — `release_date_latest` (generated) is the last day the release could have come out; time cutoffs use it ([ADR-0033](../adr/ADR-0033-release-date-precision.md))
 **ReleaseTrack** — `(release_id, disc_no, position) unique → recording_id`. MVP uses one edition per release; Edition is reserved.
 
 **Credit** — `id, subject_entity_id (recording|release), contributor_entity_id (person|artist), role, instrument?, creation_method, basis, verification_state, source, evidence_ref?`

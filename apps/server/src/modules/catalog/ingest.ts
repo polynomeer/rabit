@@ -57,6 +57,8 @@ export const manifestSchema = z.strictObject({
         type: z.enum(['album', 'single', 'ep', 'compilation']),
         label: key.optional(),
         date: z.iso.date().optional(),
+        /** How precise `date` is (ADR-0033); a full date is a day unless said otherwise. */
+        date_precision: z.enum(['day', 'month', 'year']).optional(),
         upc: z
           .string()
           .regex(/^\d{12,14}$/)
@@ -311,6 +313,7 @@ export async function ingestCatalog(
           release_type: rel.type,
           label_id: rel.label ? need(rel.label) : null,
           release_date: rel.date ?? null,
+          release_date_precision: rel.date ? (rel.date_precision ?? 'day') : null,
           upc: rel.upc ?? null,
         })
         .execute();
