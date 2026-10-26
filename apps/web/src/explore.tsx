@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ApiError, get } from './api';
+import { api, ApiError, get, type EntitySummary } from './api';
 import { featureOn } from './features';
 import { formatDate, t } from './i18n';
 import { preciseDate } from './journey';
 import { usePlayer, type TimeMachine } from './player';
-import { navigate, nowPlayingHref, timeMachineHref } from './route';
+import { entityHref, navigate, nowPlayingHref, rediscoverHref, timeMachineHref } from './route';
 
 /**
  * Exploration inside DIG (D10): Time Radio (ADR-0034) plays music that was out by a
@@ -30,14 +30,25 @@ function endOfDay(date: string): string {
 
 /** DIG home: the way into exploration, shown while one of its flags is on. */
 export function ExplorePanel() {
-  if (!featureOn('exploration_time_machine', false)) return null;
+  const time = featureOn('exploration_time_machine', false);
+  const again = featureOn('exploration_rediscover', false);
+  if (!time && !again) return null;
   return (
     <section aria-labelledby="explore-h" className="card explore-card">
       <h3 id="explore-h">{t('explore.title')}</h3>
       <p className="small muted">{t('explore.hint')}</p>
-      <a className="button" href={timeMachineHref}>
-        {t('explore.timeMachine')}
-      </a>
+      <div className="actions">
+        {time ? (
+          <a className="button" href={timeMachineHref}>
+            {t('explore.timeMachine')}
+          </a>
+        ) : null}
+        {again ? (
+          <a className="button" href={rediscoverHref}>
+            {t('explore.rediscover')}
+          </a>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -256,5 +267,171 @@ export function TimeMachineBanner() {
         </p>
       ) : null}
     </div>
+  );
+}
+
+interface RediscoverItem {
+  library_item_id: string;
+  recording: EntitySummary;
+  saved_at: string;
+  note: string | null;
+  history: 'played' | 'none';
+  last_qualified_at: string | null;
+  qualified_plays: number;
+  release_date: string | null;
+  date_precision: 'day' | 'month' | 'year' | null;
+}
+
+const WINDOWS = [90, 180, 365] as const;
+const daysAgo = (iso: string) => Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
+
+/**
+ * Rediscover (EX-06, ADR-0035): saved tracks not played for a while, with when they
+ * were saved and when they came out. Only Rabit's own saves and qualified plays are
+ * used; with no recorded play the page says so instead of guessing.
+ */
+export function RediscoverView() {
+  const player = usePlayer();
+  const [days, setDays] = useState<(typeof WINDOWS)[number]>(180);
+  const [items, setItems] = useState<RediscoverItem[] | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    let stale = false;
+    setItems(null);
+    get<{ items: RediscoverItem[] }>(`/v1/me/rediscover?inactive_days=${String(days)}`).then(
+      (r) => {
+        if (!stale) setItems(r.items);
+      },
+      (e: unknown) => {
+        if (!stale) setMsg(e instanceof ApiError ? e.message : String(e));
+      },
+    );
+    return () => {
+      stale = true;
+    };
+  }, [days, tick]);
+
+  if (!featureOn('exploration_rediscover', false))
+    return <p role="status">{t('details.notFound')}</p>;
+
+  const entries = (items ?? []).map((i) => ({
+    key: i.library_item_id,
+    title: i.recording.name,
+    subtitle: i.recording.subtitle,
+    recording_id: i.recording.entity_id,
+    cover_id: i.recording.primary_release_id ?? i.recording.entity_id,
+  }));
+
+  return (
+    <section aria-labelledby="rd-h" className="rediscover">
+      <button
+        type="button"
+        className="link"
+        onClick={() => {
+          history.back();
+        }}
+      >
+        {t('details.back')}
+      </button>
+      <div className="rd-head">
+        <div>
+          <h2 id="rd-h">{t('rd.title')}</h2>
+          <p className="muted">{t('rd.lede', { days })}</p>
+        </div>
+        <button
+          type="button"
+          className="button primary"
+          disabled={entries.length === 0}
+          onClick={() => {
+            player.play(entries, 0);
+          }}
+        >
+          {t('rd.playAll')}
+        </button>
+      </div>
+      <div role="note" className="card rd-note">
+        <span className="small">{t('rd.privacy')}</span>
+        <button
+          type="button"
+          className="link small"
+          onClick={() => {
+            setMsg(null);
+            api('DELETE', '/v1/me/rediscover/history').then(
+              () => {
+                setMsg(t('rd.cleared'));
+                setTick((n) => n + 1);
+              },
+              (e: unknown) => {
+                setMsg(e instanceof ApiError ? e.message : String(e));
+              },
+            );
+          }}
+        >
+          {t('rd.clear')}
+        </button>
+      </div>
+      <fieldset className="chips">
+        <legend>{t('rd.window')}</legend>
+        {WINDOWS.map((w) => (
+          <button
+            key={w}
+            type="button"
+            aria-pressed={w === days}
+            onClick={() => {
+              setDays(w);
+            }}
+          >
+            {t('rd.windowDays', { days: w })}
+          </button>
+        ))}
+      </fieldset>
+      {msg ? (
+        <p role="status" className="small">
+          {msg}
+        </p>
+      ) : null}
+      {items === null ? (
+        <p role="status">{t('common.loading')}</p>
+      ) : items.length === 0 ? (
+        <p className="muted">{t('rd.empty', { days })}</p>
+      ) : (
+        <ul className="list rd-list" aria-label={t('rd.list')}>
+          {items.map((i, at) => (
+            <li key={i.library_item_id}>
+              <div className="rd-main">
+                <a href={entityHref(i.recording.entity_id)}>
+                  <strong>{i.recording.name}</strong>
+                </a>
+                <span className="small muted">
+                  {i.recording.subtitle ? `${i.recording.subtitle} · ` : ''}
+                  {t('rd.released', { date: preciseDate(i.release_date, i.date_precision) })}
+                </span>
+                <span className="small">
+                  {t('rd.saved', { date: formatDate(i.saved_at) })} ·{' '}
+                  <span className="muted">
+                    {i.last_qualified_at
+                      ? t('rd.lastPlayed', { days: daysAgo(i.last_qualified_at) })
+                      : t('rd.noHistory')}
+                  </span>
+                </span>
+                {i.note ? <span className="small rd-memo">{i.note}</span> : null}
+              </div>
+              <button
+                type="button"
+                className="round quiet"
+                aria-label={t('rd.play', { title: i.recording.name })}
+                onClick={() => {
+                  player.play(entries, at);
+                }}
+              >
+                ▶
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

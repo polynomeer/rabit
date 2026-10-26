@@ -5,7 +5,7 @@ import { completeSignIn, oidcEnabled, operatorSignInEnabled, startSignIn } from 
 import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
 import { CompareView, JourneyView } from './journey';
-import { TimeMachineSetup } from './explore';
+import { RediscoverView, TimeMachineSetup } from './explore';
 import { LineageView } from './lineage';
 import { PlayerProvider } from './player';
 import {
@@ -266,7 +266,8 @@ function App() {
       : route.kind === 'dig-session' ||
           route.kind === 'journey' ||
           route.kind === 'compare' ||
-          route.kind === 'time-machine'
+          route.kind === 'time-machine' ||
+          route.kind === 'rediscover'
         ? 'DIG'
         : null;
   return (
@@ -318,6 +319,7 @@ function App() {
           {route.kind === 'lineage' ? <LineageView id={route.id} /> : null}
           {route.kind === 'journey' ? <JourneyView artistId={route.id} /> : null}
           {route.kind === 'time-machine' ? <TimeMachineSetup /> : null}
+          {route.kind === 'rediscover' ? <RediscoverView /> : null}
           {route.kind === 'compare' ? (
             <CompareView artistId={route.id} a={route.a} b={route.b} />
           ) : null}

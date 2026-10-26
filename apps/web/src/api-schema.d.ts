@@ -36,6 +36,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/me/rediscover': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Rediscover (EX-06, ADR-0035): the caller's saved recordings not played for `inactive_days`, longest quiet first. A play counts when it meets the stream rule (30 s, or half a shorter track), once per session; the last one is kept in a per-recording summary that outlives the 90-day listening-event purge and goes with the save. `history: none` means no play was recorded since saving (never "not listened"). 404 while `exploration_rediscover` is off. */
+    get: operations['getRediscover'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/me/rediscover/history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Clears the caller's last-played summary; later qualified plays of saved tracks start it again. */
+    delete: operations['clearRediscoverHistory'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/me': {
     parameters: {
       query?: never;
@@ -3415,6 +3449,69 @@ export interface operations {
           'application/json': components['schemas']['Health'];
         };
       };
+    };
+  };
+  getRediscover: {
+    parameters: {
+      query?: {
+        inactive_days?: number;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Candidates */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            inactive_days: number;
+            items: {
+              library_item_id: components['schemas']['Id'];
+              recording: components['schemas']['EntitySummary'];
+              saved_at: components['schemas']['Timestamp'];
+              note: string | null;
+              /** @enum {string} */
+              history: 'played' | 'none';
+              last_qualified_at: components['schemas']['Timestamp'] | null;
+              qualified_plays: number;
+              /**
+               * Format: date
+               * @description Earliest release with the track
+               */
+              release_date: string | null;
+              /** @enum {string|null} */
+              date_precision: 'day' | 'month' | 'year' | null;
+            }[];
+          };
+        };
+      };
+      400: components['responses']['Error'];
+      404: components['responses']['Error'];
+    };
+  };
+  clearRediscoverHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Cleared */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      404: components['responses']['Error'];
     };
   };
   getMe: {
