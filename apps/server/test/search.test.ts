@@ -142,6 +142,9 @@ describe('private search (SRC-002/003, T05)', () => {
       privateId,
     );
 
+    // Its own random part: sharing `tag` with the title above lets fuzzy matching (word
+    // similarity) find that upload too, for about 3% of random tags.
+    const logTag = ulid().slice(-8).toLowerCase();
     const log = await uploadReady(h, alice, fixtures.wav(), { intent: 'audio_log' });
     await h.api.inject({
       method: 'POST',
@@ -150,20 +153,21 @@ describe('private search (SRC-002/003, T05)', () => {
       payload: {
         audio_source_id: log,
         title: 'Voice memo',
-        note: `bridge idea quokka${tag}`,
+        note: `bridge idea quokka${logTag}`,
         recorded_at: new Date().toISOString(),
         recorded_tz: 'UTC',
-        tags: [`tag${tag}`],
+        tags: [`tag${logTag}`],
       },
     });
     await h.worker.drain();
-    // Fixture names share a random tag, so fuzzy catalog hits may also appear; only own results are compared.
     const mine = async (q: string) =>
       (await search(alice, q, '&scope=mine')).items.map((i) => i.id);
-    expect(await mine(`quokka${tag}`)).toEqual([log]);
-    expect(await mine(`tag${tag}`)).toEqual([log]);
-    expect((await search(bob, `quokka${tag}`)).items.filter((i) => i.scope === 'mine')).toEqual([]);
-    expect((await search(bob, `quokka${tag}`)).items.map((i) => i.id)).not.toContain(log);
+    expect(await mine(`quokka${logTag}`)).toEqual([log]);
+    expect(await mine(`tag${logTag}`)).toEqual([log]);
+    expect((await search(bob, `quokka${logTag}`)).items.filter((i) => i.scope === 'mine')).toEqual(
+      [],
+    );
+    expect((await search(bob, `quokka${logTag}`)).items.map((i) => i.id)).not.toContain(log);
   });
 
   it("never returns another user's private audio, even for an exact title", async () => {
