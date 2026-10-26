@@ -87,7 +87,7 @@ paths:
                         history: { type: string, enum: [played, none] }
                         last_qualified_at: { oneOf: [ { $ref: '#/components/schemas/Timestamp' }, { type: 'null' } ] }
                         qualified_plays: { type: integer, minimum: 0 }
-                        release_date: { type: [string, 'null'], format: date, description: Earliest release with the track, at `date_precision` }
+                        release_date: { type: [string, 'null'], format: date, description: 'Earliest release with the track, at `date_precision`' }
                         date_precision: { type: [string, 'null'], enum: [day, month, year, null] }
         '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }

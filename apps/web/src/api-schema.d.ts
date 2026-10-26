@@ -3482,7 +3482,7 @@ export interface operations {
               qualified_plays: number;
               /**
                * Format: date
-               * @description Earliest release with the track
+               * @description Earliest release with the track, at `date_precision`
                */
               release_date: string | null;
               /** @enum {string|null} */
