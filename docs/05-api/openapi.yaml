@@ -1622,6 +1622,74 @@ paths:
                         last_seen_at: { type: string, format: date-time }
         '403': { $ref: '#/components/responses/Error' }
 
+  /v1/ops/metrics/alpha:
+    get:
+      tags: [ops]
+      operationId: opsAlphaMetrics
+      description: >-
+        Alpha validation metrics (ADR-0032) over the people who signed up between `from` and `to`
+        (Korean calendar days, inclusive; operator-issuer accounts left out). Cohort aggregates only:
+        a rate over fewer than `min_group` people or sessions is withheld. Week k of retention covers
+        days 7(k−1)..7k−1 after each person's sign-up and counts only people whose week k is over.
+        Every view is audited (`ops.alpha_metrics_viewed`).
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date }, description: 'On or after `from`; at most 366 days later' }
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [cohort, time_zone, min_group, generated_at, retention, mixed_library, digging, collection]
+                properties:
+                  cohort:
+                    type: object
+                    additionalProperties: false
+                    required: [from, to, people]
+                    properties:
+                      from: { type: string, format: date }
+                      to: { type: string, format: date }
+                      people: { type: integer, minimum: 0 }
+                  time_zone: { type: string, enum: [Asia/Seoul] }
+                  min_group: { type: integer }
+                  generated_at: { type: string, format: date-time }
+                  retention:
+                    type: array
+                    description: Weeks 1 to 8; `of` is the people whose week is over.
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/CohortRate'
+                        - type: object
+                          required: [week]
+                          properties:
+                            week: { type: integer, minimum: 1, maximum: 8 }
+                  mixed_library:
+                    type: object
+                    additionalProperties: false
+                    required: [playlist_mixers, own_audio_players]
+                    properties:
+                      playlist_mixers: { $ref: '#/components/schemas/CohortRate', description: People with a playlist holding both a catalog recording and their own audio (H2) }
+                      own_audio_players: { $ref: '#/components/schemas/CohortRate', description: People who played their own audio at least once (H2) }
+                  digging:
+                    type: object
+                    additionalProperties: false
+                    required: [diggers, kept_sessions]
+                    properties:
+                      diggers: { $ref: '#/components/schemas/CohortRate', description: People who started a DIG session or a Blind Digging round (H3) }
+                      kept_sessions: { $ref: '#/components/schemas/CohortRate', description: 'DIG sessions saved, or with a saved trail step, of all DIG sessions (H3)' }
+                  collection:
+                    type: object
+                    additionalProperties: false
+                    required: [collectors, collectors_20_plus]
+                    properties:
+                      collectors: { $ref: '#/components/schemas/CohortRate', description: People with at least one record (H5) }
+                      collectors_20_plus: { $ref: '#/components/schemas/CohortRate', description: People with 20 or more records (H5) }
+        '400': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+
   /v1/ops/reports:
     get:
       tags: [ops]
@@ -1956,6 +2024,15 @@ components:
               release_id: { type: string }
               title: { type: string }
               note: { oneOf: [ { type: string }, { type: 'null' } ] }
+    CohortRate:
+      type: object
+      description: '`count` of `of`, with `rate` = count / of to three decimals. Withheld (`count` and `rate` null) when `of` is under `min_group` (ADR-0032).'
+      required: [count, of, rate, suppressed]
+      properties:
+        count: { type: [integer, 'null'], minimum: 0 }
+        of: { type: integer, minimum: 0 }
+        rate: { type: [number, 'null'], minimum: 0, maximum: 1 }
+        suppressed: { type: boolean }
     FeatureFlag:
       type: object
       additionalProperties: false

@@ -7,6 +7,7 @@ import type { DigDeps } from './service.js';
 export type { DigDeps } from './service.js';
 export { connectionsFor, axesFor, type DigAxis } from './connections.js';
 export { radioFor, type RadioPick, type RadioReason } from './radio.js';
+export { digValidationSection } from './validation.js';
 
 export const deleteAccountDig: AccountDataDeleter = async (ctx, account) => {
   await ctx.db.deleteFrom('dig_session').where('user_id', '=', account.userId).execute();

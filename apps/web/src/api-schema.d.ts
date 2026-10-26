@@ -1672,6 +1672,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/ops/metrics/alpha': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Alpha validation metrics (ADR-0032) over the people who signed up between `from` and `to` (Korean calendar days, inclusive; operator-issuer accounts left out). Cohort aggregates only: a rate over fewer than `min_group` people or sessions is withheld. Week k of retention covers days 7(k−1)..7k−1 after each person's sign-up and counts only people whose week k is over. Every view is audited (`ops.alpha_metrics_viewed`). */
+    get: operations['opsAlphaMetrics'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/ops/reports': {
     parameters: {
       query?: never;
@@ -1986,6 +2003,13 @@ export interface components {
         title: string;
         note: string | null;
       }[];
+    };
+    /** @description `count` of `of`, with `rate` = count / of to three decimals. Withheld (`count` and `rate` null) when `of` is under `min_group` (ADR-0032). */
+    CohortRate: {
+      count: number | null;
+      of: number;
+      rate: number | null;
+      suppressed: boolean;
     };
     FeatureFlag: {
       key: string;
@@ -6275,6 +6299,67 @@ export interface operations {
           };
         };
       };
+      403: components['responses']['Error'];
+    };
+  };
+  opsAlphaMetrics: {
+    parameters: {
+      query: {
+        from: string;
+        /** @description On or after `from`; at most 366 days later */
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Metrics */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cohort: {
+              /** Format: date */
+              from: string;
+              /** Format: date */
+              to: string;
+              people: number;
+            };
+            /** @enum {string} */
+            time_zone: 'Asia/Seoul';
+            min_group: number;
+            /** Format: date-time */
+            generated_at: string;
+            /** @description Weeks 1 to 8; `of` is the people whose week is over. */
+            retention: (components['schemas']['CohortRate'] & {
+              week: number;
+            })[];
+            mixed_library: {
+              /** @description People with a playlist holding both a catalog recording and their own audio (H2) */
+              playlist_mixers: components['schemas']['CohortRate'];
+              /** @description People who played their own audio at least once (H2) */
+              own_audio_players: components['schemas']['CohortRate'];
+            };
+            digging: {
+              /** @description People who started a DIG session or a Blind Digging round (H3) */
+              diggers: components['schemas']['CohortRate'];
+              /** @description DIG sessions saved, or with a saved trail step, of all DIG sessions (H3) */
+              kept_sessions: components['schemas']['CohortRate'];
+            };
+            collection: {
+              /** @description People with at least one record (H5) */
+              collectors: components['schemas']['CohortRate'];
+              /** @description People with 20 or more records (H5) */
+              collectors_20_plus: components['schemas']['CohortRate'];
+            };
+          };
+        };
+      };
+      400: components['responses']['Error'];
       403: components['responses']['Error'];
     };
   };

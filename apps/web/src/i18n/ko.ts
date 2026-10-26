@@ -635,6 +635,7 @@ export const ko = {
   'ops.section.rights': '카탈로그 권리',
   'ops.section.sales': '판매',
   'ops.section.editorial': '편집 선반',
+  'ops.section.metrics': '알파 지표',
   'ops.editorial.heading': '홈 편집 선반',
   'ops.editorial.hint':
     '고른 앨범은 듣는 사람의 지역에서 들을 수 있는 것만 보여요. 공개 전에는 아무에게도 보이지 않아요.',
@@ -766,6 +767,35 @@ export const ko = {
     '유효하거나 일시 중지된 권리가 남아 있으면 거부됩니다. 재생이 즉시 막히고 원본·파생 파일이 삭제됩니다. 메타데이터는 남습니다. 되돌릴 수 없습니다.',
   'ops.rights.removal.confirm': '이 곡의 음원 파일을 삭제할까요? 되돌릴 수 없습니다.',
   'ops.rights.removal.submit': '음원 삭제',
+  // ——— Ops: alpha validation metrics (ADR-0032) ———
+  'ops.metrics.lede':
+    '가입 기간으로 묶은 코호트의 집계만 보여줍니다. 개인은 보이지 않고, 너무 작은 집단의 비율은 서버가 숨깁니다. 조회는 감사 기록에 남습니다.',
+  'ops.metrics.from': '가입 시작일',
+  'ops.metrics.to': '가입 종료일',
+  'ops.metrics.cohort': '코호트 {people}명 · 최소 집단 {min}명 · {at} 기준 (한국 시간)',
+  'ops.metrics.gateCaption': '게이트 C 지표',
+  'ops.metrics.metric': '지표',
+  'ops.metrics.hypothesis': '가설',
+  'ops.metrics.value': '값',
+  'ops.metrics.target': '제안 기준',
+  'ops.metrics.week4': '4주차 주간 리텐션',
+  'ops.metrics.playlistMixers': '카탈로그와 내 오디오를 섞은 플레이리스트가 있는 사람',
+  'ops.metrics.ownAudioPlayers': '내 오디오를 한 번 이상 재생한 사람',
+  'ops.metrics.diggers': '디깅을 한 번 이상 한 사람',
+  'ops.metrics.keptSessions': '무언가를 저장하고 끝난 DIG 세션',
+  'ops.metrics.collectors': '음반을 1장 이상 등록한 사람',
+  'ops.metrics.collectors20': '음반을 20장 이상 등록한 사람',
+  'ops.metrics.rate': '{count} / {of} ({percent})',
+  'ops.metrics.suppressed': '표시 안 함 (대상 {of}, 너무 적음)',
+  'ops.metrics.met': '충족 (기준 {target})',
+  'ops.metrics.notMet': '미달 (기준 {target})',
+  'ops.metrics.notYet': '판단 보류',
+  'ops.metrics.retention': '주차별 리텐션',
+  'ops.metrics.retentionCaption': '가입 후 주차별 활동 비율',
+  'ops.metrics.week': '주차',
+  'ops.metrics.weekN': '{week}주차',
+  'ops.metrics.note':
+    '주차는 가입일로부터 7일 단위이며, 그 주가 끝난 사람만 대상에 넣습니다. 재생 출처(어느 플레이리스트에서 들었는지)는 저장하지 않으므로, 혼합 플레이리스트의 재생 여부는 측정하지 않습니다.',
 
   // ——— Waitlist landing (draft, experiment E2; not deployed) ———
   'landing.draftBanner':

@@ -10,8 +10,10 @@ import { idOf, limitSchema, parse } from '../../platform/http/validation.js';
 import type { Id } from '../../platform/ids.js';
 import { deleteInBatches, requeueJob } from '../../platform/jobs/queue.js';
 import type { SupportSection } from '../../platform/support.js';
+import type { ValidationSection } from '../../platform/validation.js';
 import { resetSourceForRetry } from '../audio/index.js';
 import { getUser, workspaceIdsOf } from '../identity/index.js';
+import { alphaMetricsRoutes } from './alpha-metrics.js';
 
 type JobRow = {
   id: string;
@@ -53,6 +55,7 @@ const cols = [
 const routes =
   (deps: OpsDeps) =>
   (app: FastifyInstance, ctx: AppContext): void => {
+    alphaMetricsRoutes(deps.validationSections)(app, ctx);
     /**
      * Support summary (R18): a user's account state for support without database
      * access. Counts, states and ids only — private content stays out (OPS-007,
@@ -146,6 +149,8 @@ const routes =
 export interface OpsDeps {
   /** Sections of the support summary, one per module that owns user data. */
   supportSections: () => SupportSection[];
+  /** Parts of the alpha validation metrics (ADR-0032), one per module whose data they read. */
+  validationSections: () => ValidationSection[];
 }
 
 export function opsModule(deps: OpsDeps): Module {
