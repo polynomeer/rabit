@@ -26,3 +26,8 @@ Time Radio plays a stream of candidates released before a cutoff. Rabit already 
 
 ## Revisit trigger
 Shared or collaborative radios, or offline playback.
+
+## Implementation notes
+- Migration `0028_play_queue_time_machine` (2026-10-26): mode `time_machine`, `radio_context {cutoff_at, time_zone, mode}` required exactly in that mode.
+- Candidates: `dig/time-radio.ts` (five years up to the cutoff first, ≤2 per artist, playable now, integrity exclusions). Each batch is re-checked against the cutoff; drops are counted in `rabit_time_machine_cutoff_violations_total`.
+- Moving the cutoff keeps the current track; starting plays the first suggestion when nothing chosen waits.

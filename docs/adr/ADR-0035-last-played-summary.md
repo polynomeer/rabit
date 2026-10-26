@@ -26,3 +26,8 @@ Rediscovery needs "saved and not played for 180 days". Listening events are purg
 
 ## Revisit trigger
 A personal listening-history feature, or a change to the event retention period.
+
+## Implementation notes
+- Migration `0030_library_play_summary` (2026-10-26). Playback emits `PlayQualified` (IDs only) in the listening-event transaction when a catalog session first reaches the stream rule; `library.record_play` upserts only for saved recordings (job dedupe per event).
+- Removing a saved recording prunes its row; account deletion and `DELETE /v1/me/rediscover/history` clear them; the export carries `play_summary`.
+- Not yet built: a per-account on/off switch for keeping the summary (D07 mentions a visible on/off); clearing is available.
