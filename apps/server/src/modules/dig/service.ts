@@ -37,10 +37,23 @@ export interface DigDeps {
   licenseCountry(db: DbOrTx, userId: string): Promise<string | null>;
 }
 
-export async function getAxes(db: DbOrTx, entityId: string) {
+/**
+ * Axes with their connection counts. Under a cutoff (EX-05) the counts leave out what
+ * the connections list leaves out: recordings and releases not out by then.
+ */
+export async function getAxes(db: DbOrTx, entityId: string, cutoff?: string) {
   const entity = (await entitySummaries(db, [entityId])).get(entityId);
   if (!entity) throw errors.notFound();
-  return { entity, axes: await axesFor(db, entityId) };
+  const axes = await axesFor(db, entityId);
+  if (!cutoff) return { entity, axes };
+  const counted = [];
+  for (const a of axes) {
+    const ids = (await connectionsFor(db, entityId, a.axis)).map((c) => c.entityId);
+    const later = await afterCutoff(db, await entitySummaries(db, ids), ids, cutoff);
+    const count = ids.filter((id) => !later.has(id)).length;
+    if (count > 0) counted.push({ ...a, count });
+  }
+  return { entity, axes: counted };
 }
 
 /**

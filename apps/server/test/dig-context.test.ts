@@ -59,6 +59,30 @@ describe('DIG under a cutoff (EX-05)', () => {
     expect(await connections(r1, 'releases', '1907-04-20T12:00:00+09:00')).toEqual([]);
   });
 
+  it('counts axes under the same cutoff', async () => {
+    const axes = async (cutoff?: string) => {
+      const q = cutoff
+        ? `?${new URLSearchParams({ cutoff_at: cutoff, time_zone: 'Asia/Seoul' }).toString()}`
+        : '';
+      const r = await h.api.inject({
+        url: `/v1/dig/entities/${cat.ids['r1']!}/axes${q}`,
+        headers: u.headers,
+      });
+      expect(r.statusCode, r.body).toBe(200);
+      return Object.fromEntries(
+        r.json<{ axes: { axis: string; count: number }[] }>().axes.map((a) => [a.axis, a.count]),
+      );
+    };
+    const all = await axes();
+    expect(all['sampled_by']).toBe(1);
+    expect(all['artists']).toBeGreaterThanOrEqual(1);
+    const mid = await axes(CUTOFF);
+    // r3 is only known to be from 1907: the axis has nothing left by mid-June.
+    expect(mid['sampled_by']).toBeUndefined();
+    expect(mid['artists']).toBe(all['artists']);
+    expect((await axes('1907-12-31T23:00:00+09:00'))['sampled_by']).toBe(1);
+  });
+
   it('keeps the context on the session and refuses later steps', async () => {
     const start = await h.api.inject({
       method: 'POST',

@@ -56,7 +56,23 @@ export const digRoutes =
       requirePrincipal(req.principal);
       const p = entityParams.safeParse(req.params);
       if (!p.success) throw errors.notFound();
-      return getAxes(ctx.db, p.data.entity_id);
+      // EX-05: counts under the same cutoff as the connections.
+      const q = parse(
+        z.object({
+          cutoff_at: z.iso.datetime({ offset: true }).optional(),
+          time_zone: z
+            .string()
+            .max(64)
+            .refine(isTimeZone, { message: 'unknown time zone' })
+            .default('Asia/Seoul'),
+        }),
+        req.query,
+      );
+      return getAxes(
+        ctx.db,
+        p.data.entity_id,
+        q.cutoff_at ? cutoffDate(new Date(q.cutoff_at), q.time_zone) : undefined,
+      );
     });
 
     app.get('/v1/dig/entities/:entity_id/connections', async (req) => {

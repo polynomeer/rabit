@@ -199,8 +199,17 @@ public struct DigService: Sendable {
     try await api.get("/v1/dig-sessions/\(id.rawValue)")
   }
 
-  public func axes(of entity: EntityID) async throws -> DigAxes {
-    try await api.get("/v1/dig/entities/\(entity.rawValue)/axes")
+  /// Axes with counts; under a session cutoff (EX-05) the counts follow it.
+  public func axes(of entity: EntityID, context: DigSession.Context? = nil) async throws -> DigAxes {
+    let path = "/v1/dig/entities/\(entity.rawValue)/axes"
+    guard let context else { return try await api.get(path) }
+    return try await api.get(
+      CatalogService.path(
+        path,
+        [
+          URLQueryItem(name: "cutoff_at", value: context.cutoffAt),
+          URLQueryItem(name: "time_zone", value: context.timeZone),
+        ]))
   }
 
   public func connections(

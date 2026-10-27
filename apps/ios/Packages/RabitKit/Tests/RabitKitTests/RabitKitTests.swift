@@ -794,7 +794,7 @@ let timeMachineQueue = #"{"mode":"time_machine","time_machine":{"cutoff_at":"198
 
 @Test func digSessionCutoffIsStoredAndPassedToConnections() async throws {
   let session = #"{"dig_session_id":"dig_1","state":"active","title":null,"saved":false,"current_seq":0,"empty_state":null,"context":{"cutoff_at":"1982-01-01T14:59:59Z","time_zone":"Asia/Seoul","cutoff":"1982-01-01"},"trail":[]}"#
-  let t = StubTransport([(200, session), (200, #"{"items":[],"next_cursor":null}"#), (200, session.replacingOccurrences(of: #""context":{"cutoff_at":"1982-01-01T14:59:59Z","time_zone":"Asia/Seoul","cutoff":"1982-01-01"}"#, with: #""context":null"#))])
+  let t = StubTransport([(200, session), (200, #"{"items":[],"next_cursor":null}"#), (200, #"{"entity":{"entity_id":"art_1","entity_type":"artist","name":"A","subtitle":null},"axes":[]}"#), (200, session.replacingOccurrences(of: #""context":{"cutoff_at":"1982-01-01T14:59:59Z","time_zone":"Asia/Seoul","cutoff":"1982-01-01"}"#, with: #""context":null"#))])
   let dig = DigService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
   let cutoff = ISO8601DateFormatter().date(from: "1982-01-01T14:59:59Z")!
   let s = try await dig.setCutoff(cutoff, timeZone: TimeZone(identifier: "Asia/Seoul")!, session: DigSessionID("dig_1"))
@@ -804,8 +804,10 @@ let timeMachineQueue = #"{"mode":"time_machine","time_machine":{"cutoff_at":"198
   #expect(s.context?.cutoff == "1982-01-01")
   _ = try await dig.connections(of: EntityID("art_1"), axis: DigAxis(rawValue: "tracks"), context: s.context)
   #expect(t.requests[1].url?.query?.contains("cutoff_at=1982-01-01T14:59:59Z&time_zone=Asia/Seoul") == true)
+  _ = try await dig.axes(of: EntityID("art_1"), context: s.context)
+  #expect(t.requests[2].url?.absoluteString == "http://localhost:8080/v1/dig/entities/art_1/axes?cutoff_at=1982-01-01T14:59:59Z&time_zone=Asia/Seoul")
   let cleared = try await dig.setCutoff(nil, session: DigSessionID("dig_1"))
-  #expect(String(data: t.requests[2].httpBody!, encoding: .utf8) == #"{"context":null}"#)
+  #expect(String(data: t.requests[3].httpBody!, encoding: .utf8) == #"{"context":null}"#)
   #expect(cleared.context == nil)
 }
 

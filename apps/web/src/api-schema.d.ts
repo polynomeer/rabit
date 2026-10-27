@@ -5377,7 +5377,11 @@ export interface operations {
   };
   getDigAxes: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description EX-05: count only what the connections list keeps under this cutoff */
+        cutoff_at?: string;
+        time_zone?: string;
+      };
       header?: never;
       path: {
         entity_id: components['parameters']['EntityId'];
@@ -5395,6 +5399,7 @@ export interface operations {
           'application/json': components['schemas']['DigAxes'];
         };
       };
+      400: components['responses']['Error'];
       404: components['responses']['Error'];
     };
   };

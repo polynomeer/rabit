@@ -221,23 +221,28 @@ export function DigSessionView({ id }: { id: string }) {
     };
   }, [id]);
 
+  const cutoffAt = session?.context?.cutoff_at ?? null;
+  const cutoffZone = session?.context?.time_zone ?? null;
   useEffect(() => {
     if (!nodeEntity) return;
     let stale = false;
-    void get<{ axes: typeof axes }>(`/v1/dig/entities/${nodeEntity}/axes`).then((r) => {
+    // EX-05: counts under the session's cutoff, like the connections.
+    const q =
+      cutoffAt && cutoffZone
+        ? `?${new URLSearchParams({ cutoff_at: cutoffAt, time_zone: cutoffZone }).toString()}`
+        : '';
+    void get<{ axes: typeof axes }>(`/v1/dig/entities/${nodeEntity}/axes${q}`).then((r) => {
       if (stale) return;
       setAxes(r.axes);
-      setAxis(r.axes[0]?.axis ?? null);
+      // A changed cutoff keeps the chosen axis while it still has connections.
+      setAxis((now) => (r.axes.some((a) => a.axis === now) ? now : (r.axes[0]?.axis ?? null)));
     });
     return () => {
       stale = true;
     };
     // Keyed by the point, not the session object: renaming the session or saving a
     // point must not reset the chosen axis; a new point starts on its first axis.
-  }, [nodeKey, nodeEntity]);
-
-  const cutoffAt = session?.context?.cutoff_at ?? null;
-  const cutoffZone = session?.context?.time_zone ?? null;
+  }, [nodeKey, nodeEntity, cutoffAt, cutoffZone]);
   useEffect(() => {
     if (!nodeEntity || !axis) {
       setConns([]);

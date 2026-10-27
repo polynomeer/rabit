@@ -976,8 +976,12 @@ paths:
     get:
       tags: [dig]
       operationId: getDigAxes
+      parameters:
+        - { name: cutoff_at, in: query, schema: { type: string, format: date-time }, description: 'EX-05: count only what the connections list keeps under this cutoff' }
+        - { name: time_zone, in: query, schema: { type: string, default: Asia/Seoul } }
       responses:
         '200': { description: Available exploration axes with counts, content: { application/json: { schema: { $ref: '#/components/schemas/DigAxes' } } } }
+        '400': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
   /v1/dig/crate:
     get:
