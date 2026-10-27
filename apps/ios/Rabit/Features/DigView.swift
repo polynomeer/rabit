@@ -210,7 +210,7 @@ struct DigSessionView: View {
     guard let id = session?.digSessionId else { return }
     Task {
       await change { try await model.dig.setCutoff(cutoff, session: id) }
-      await loadConnections()
+      await loadAxes()
     }
   }
 
@@ -359,7 +359,7 @@ struct DigSessionView: View {
 
   private func loadAxes() async {
     guard let entity = session?.current?.entity.entityId else { return }
-    axes = (try? await model.dig.axes(of: entity).axes) ?? []
+    axes = (try? await model.dig.axes(of: entity, context: session?.context).axes) ?? []
     if !axes.contains(where: { $0.axis == axis && $0.count > 0 }) {
       axis = axes.first(where: { $0.count > 0 })?.axis
     }
