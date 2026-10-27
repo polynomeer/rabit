@@ -13,6 +13,8 @@ nonisolated enum DigRoute: Hashable {
   /// Artist Journey (EX-02) and two of the artist's releases side by side (EX-03).
   case journey(EntityID)
   case compare(EntityID, ReleaseID, ReleaseID)
+  /// Time Radio setup (ADR-0034).
+  case timeMachine
 }
 
 extension View {
@@ -27,6 +29,7 @@ extension View {
         case .label(let label): LabelTimelineView(label: label)
         case .journey(let artist): JourneyView(artist: artist)
         case .compare(let artist, let a, let b): CompareView(artist: artist, a: a, b: b)
+        case .timeMachine: TimeMachineSetupView()
         }
       }
   }

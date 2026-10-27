@@ -762,3 +762,32 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   #expect(c.releases.map(\.releaseId.rawValue) == ["rel_1", "rel_2"])
   #expect(c.shared.producers.first?.name == "Jun")
 }
+
+let timeMachineQueue = #"{"mode":"time_machine","time_machine":{"cutoff_at":"1986-06-15T14:59:59.000Z","time_zone":"Asia/Seoul","cutoff":"1986-06-15","mode":"free_explore"},"autoplay":true,"include_inferred":false,"current_item_id":"pqi_1","version":4,"items":[{"item_id":"pqi_1","origin":"autoplay","reason":{"code":"time_machine","name":"Hana Seo","basis":"declared","release_date":"1984-01-01","date_precision":"year","cutoff":"1986-06-15"},"state":"current","played_at":null,"recording_id":"rec_1","audio_source_id":null,"kind":"track","title":"Telephone Line","subtitle":"Hana Seo","cover_id":"rel_1","playable":true,"unplayable_reason":null}]"#
+
+@Test func timeMachineStartsWithACutoffAndNoRegion() async throws {
+  let t = StubTransport([(200, timeMachineQueue + "}"), (200, timeMachineQueue + #","new_since_previous":2}"#)])
+  let q = QueueService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let cutoff = ISO8601DateFormatter().date(from: "1986-06-15T14:59:59Z")!
+  let started = try await q.startTimeMachine(cutoff: cutoff, timeZone: TimeZone(identifier: "Asia/Seoul")!, mode: .hidden)
+  #expect(t.requests[0].url?.path == "/v1/queue/time-machine")
+  let body = try JSONSerialization.jsonObject(with: t.requests[0].httpBody!) as! [String: String]
+  #expect(body == ["cutoff_at": "1986-06-15T14:59:59Z", "time_zone": "Asia/Seoul", "mode": "hidden"])
+  #expect(started.mode == .timeMachine)
+  #expect(started.timeMachine?.cutoff == "1986-06-15")
+  let reason = started.items[0].reason
+  #expect(reason?.code == .timeMachine)
+  #expect(ExploreText.date(reason?.releaseDate, reason?.datePrecision) == "1984년 (연도만 알려짐)")
+
+  let advanced = try await q.advanceTimeMachine(months: 1)
+  #expect(t.requests[1].url?.path == "/v1/queue/time-machine/advance")
+  #expect(advanced.newSincePrevious == 2)
+  #expect(advanced.queue.currentItemId == "pqi_1")
+}
+
+@Test func queuesFromOlderServersHaveNoTimeMachine() throws {
+  let json = #"{"mode":"radio","autoplay":true,"include_inferred":false,"current_item_id":null,"version":1,"items":[]}"#
+  let q = try APIClient.decoder.decode(PlayQueue.self, from: Data(json.utf8))
+  #expect(q.mode == .radio)
+  #expect(q.timeMachine == nil)
+}

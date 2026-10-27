@@ -5,10 +5,28 @@ import Foundation
 /// Web and iOS read and change the same queue.
 public struct PlayQueue: Decodable, Hashable, Sendable {
   /// `queue`: next comes what the listener picked, then suggestions; `radio`: playing a
-  /// track replaces what was coming with suggestions from it.
-  public enum Mode: String, OpenEnum, Encodable, Hashable, Sendable { case queue, radio, unknown }
+  /// track replaces what was coming with suggestions from it; `timeMachine`: Time Radio
+  /// (ADR-0034), suggestions from music out by a cutoff. Unknown modes behave like `queue`.
+  public enum Mode: String, OpenEnum, Encodable, Hashable, Sendable {
+    case queue, radio, timeMachine = "time_machine", unknown
+  }
+
+  /// Time Radio's cutoff while `mode` is `timeMachine` (ADR-0034).
+  public struct TimeMachine: Decodable, Hashable, Sendable {
+    /// `freeExplore`: anything out by then; `hidden`: less played on Rabit now (not a claim about the past).
+    public enum Mode: String, OpenEnum, Encodable, Hashable, Sendable {
+      case freeExplore = "free_explore", hidden, unknown
+    }
+    public let cutoffAt: String
+    public let timeZone: String
+    /// The cutoff as a calendar date (YYYY-MM-DD) in `timeZone`.
+    public let cutoff: String
+    public let mode: Mode
+  }
 
   public let mode: Mode
+  /// Absent from servers before Time Radio.
+  public let timeMachine: TimeMachine?
   public let autoplay: Bool
   public let includeInferred: Bool
   public let currentItemId: String?
@@ -52,11 +70,16 @@ public struct PlayQueue: Decodable, Hashable, Sendable {
       case remixOf = "remix_of", sameProducer = "same_producer", influences
       case influencedBy = "influenced_by", sameArtist = "same_artist"
       case memberProject = "member_project", sameLabel = "same_label", sameDecade = "same_decade"
+      case timeMachine = "time_machine"
       case unknown
     }
     public let code: Code
     public let name: String?
     public let basis: Evidence.Basis
+    /// `timeMachine` only: the earliest release with the track, at its precision.
+    public let releaseDate: String?
+    public let datePrecision: DatePrecision?
+    public let cutoff: String?
   }
 
   /// Index of the current item, if any.
@@ -127,5 +150,34 @@ public struct QueueService: Sendable {
 
   public func updateSettings(_ patch: SettingsPatch) async throws -> PlayQueue {
     try await api.send("PATCH", "/v1/queue/settings", body: patch)
+  }
+
+  /// Starts Time Radio, or changes its cutoff or mode (ADR-0034). `cutoff` is a moment;
+  /// the server takes its calendar date in `timeZone`. Never sends a region (EXP-027).
+  public func startTimeMachine(
+    cutoff: Date, timeZone: TimeZone = .current, mode: PlayQueue.TimeMachine.Mode = .freeExplore
+  ) async throws -> PlayQueue {
+    struct Body: Encodable { let cutoffAt: String; let timeZone: String; let mode: PlayQueue.TimeMachine.Mode }
+    return try await api.post(
+      "/v1/queue/time-machine",
+      body: Body(cutoffAt: ExploreText.iso(cutoff), timeZone: timeZone.identifier, mode: mode))
+  }
+
+  /// Moves the cutoff on by months; the current track keeps playing.
+  public func advanceTimeMachine(months: Int = 1) async throws -> TimeMachineAdvance {
+    struct Body: Encodable { let months: Int }
+    return try await api.post("/v1/queue/time-machine/advance", body: Body(months: months))
+  }
+}
+
+/// The queue after moving the Time Radio cutoff, and how many releases came out in between.
+public struct TimeMachineAdvance: Decodable, Sendable {
+  public let queue: PlayQueue
+  public let newSincePrevious: Int
+
+  private enum Keys: String, CodingKey { case newSincePrevious }
+  public init(from decoder: Decoder) throws {
+    queue = try PlayQueue(from: decoder)
+    newSincePrevious = try decoder.container(keyedBy: Keys.self).decode(Int.self, forKey: .newSincePrevious)
   }
 }

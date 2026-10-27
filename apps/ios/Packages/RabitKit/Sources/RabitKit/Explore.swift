@@ -136,6 +136,17 @@ public struct ReleaseComparison: Codable, Hashable, Sendable {
   public let shared: Shared
 }
 
+/// Releases a cutoff leaves (ADR-0034): out, too coarse to tell, undated, and playable now
+/// for the caller (counted among the newest 500 out when `playableSampled`).
+public struct TimeMachineCoverage: Codable, Hashable, Sendable {
+  public let cutoff: String
+  public let releasesOut: Int
+  public let releasesUncertain: Int
+  public let releasesUndated: Int
+  public let playableReleases: Int
+  public let playableSampled: Bool
+}
+
 /// Exploration calls (docs/exploration_expansion/13-technical-design.md). Each one is
 /// behind a feature flag; while it is off the server answers 404.
 public struct ExploreService: Sendable {
@@ -153,6 +164,19 @@ public struct ExploreService: Sendable {
       query.append(URLQueryItem(name: "time_zone", value: timeZone.identifier))
     }
     return try await api.get(CatalogService.path("/v1/dig/artists/\(artist.rawValue)/journey", query))
+  }
+
+  /// What a Time Radio cutoff leaves to listen to (setup screen).
+  public func timeMachineCoverage(cutoff: Date, timeZone: TimeZone = .current) async throws
+    -> TimeMachineCoverage
+  {
+    try await api.get(
+      CatalogService.path(
+        "/v1/dig/time-machine/coverage",
+        [
+          URLQueryItem(name: "cutoff_at", value: ExploreText.iso(cutoff)),
+          URLQueryItem(name: "time_zone", value: timeZone.identifier),
+        ]))
   }
 
   public func compare(artist: EntityID, _ a: ReleaseID, _ b: ReleaseID) async throws -> ReleaseComparison {
