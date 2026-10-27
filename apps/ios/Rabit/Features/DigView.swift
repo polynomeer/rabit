@@ -146,6 +146,14 @@ struct DigSessionView: View {
         }
       }
       Spacer(minLength: 0)
+      if node.entity.entityType == "artist" && model.isOn("exploration_journey") {
+        NavigationLink(value: DigRoute.journey(node.entity.entityId)) {
+          Image(systemName: "clock.arrow.circlepath").frame(width: 28, height: 28)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .accessibilityLabel("\(node.entity.name)의 여정")
+      }
       if node.entity.entityType == "label" {
         NavigationLink(value: DigRoute.label(node.entity.entityId)) {
           Image(systemName: "calendar").frame(width: 28, height: 28)
@@ -262,7 +270,7 @@ struct DigSessionView: View {
       switch route {
       case .start(let entity): session = try await model.dig.start(from: entity)
       case .session(let id): session = try await model.dig.session(id)
-      case .blind, .crate, .label: return  // routed to their own screens
+      case .blind, .crate, .label, .journey, .compare: return  // routed to their own screens
       }
       await loadAxes()
     } catch {
