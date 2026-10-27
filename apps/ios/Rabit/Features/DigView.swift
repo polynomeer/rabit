@@ -270,7 +270,7 @@ struct DigSessionView: View {
       switch route {
       case .start(let entity): session = try await model.dig.start(from: entity)
       case .session(let id): session = try await model.dig.session(id)
-      case .blind, .crate, .label: return  // routed to their own screens
+      case .blind, .crate, .label, .journey, .compare: return  // routed to their own screens
       }
       await loadAxes()
     } catch {
