@@ -15,6 +15,8 @@ nonisolated enum DigRoute: Hashable {
   case compare(EntityID, ReleaseID, ReleaseID)
   /// Time Radio setup (ADR-0034).
   case timeMachine
+  /// Rediscover (EX-06): saved tracks not played for a while.
+  case rediscover
 }
 
 extension View {
@@ -30,6 +32,7 @@ extension View {
         case .journey(let artist): JourneyView(artist: artist)
         case .compare(let artist, let a, let b): CompareView(artist: artist, a: a, b: b)
         case .timeMachine: TimeMachineSetupView()
+        case .rediscover: RediscoverView()
         }
       }
   }

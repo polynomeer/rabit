@@ -32,7 +32,7 @@ struct DigHomeView: View {
             }
           }
         }
-        if model.isOn("exploration_time_machine") {
+        if model.isOn("exploration_time_machine") || model.isOn("exploration_rediscover") {
           Section("탐험") {
             NavigationLink(value: DigRoute.timeMachine) {
               Label {
@@ -42,6 +42,19 @@ struct DigHomeView: View {
                 }
               } icon: {
                 Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+              }
+            }
+            .disabled(!model.isOn("exploration_time_machine"))
+            if model.isOn("exploration_rediscover") {
+              NavigationLink(value: DigRoute.rediscover) {
+                Label {
+                  VStack(alignment: .leading, spacing: 2) {
+                    Text("잊고 있던 음악").font(.body.weight(.semibold))
+                    Text("저장해 두고 오래 듣지 않은 곡").font(.footnote).foregroundStyle(Palette.muted)
+                  }
+                } icon: {
+                  Image(systemName: "arrow.counterclockwise.heart")
+                }
               }
             }
           }
@@ -111,6 +124,8 @@ struct DigSessionView: View {
   @State private var message: String?
   @State private var notice: String?
   @State private var blindFrom: EntityID?
+  @State private var pickingCutoff = false
+  @State private var cutoffDate = Calendar.current.date(byAdding: .year, value: -20, to: .now) ?? .now
   var body: some View {
     ScrollView {
       if let session {
@@ -120,6 +135,7 @@ struct DigSessionView: View {
           if let empty = session.emptyState {
             Label(empty.message, systemImage: "info.circle").foregroundStyle(Palette.muted)
           }
+          if model.isOn("exploration_time_machine") { cutoffRow(session) }
           if !axes.isEmpty { axisPicker }
           connectionList
           if let message {
@@ -141,6 +157,7 @@ struct DigSessionView: View {
     .navigationBarTitleDisplayMode(.inline)
     .toolbar { toolbar }
     .navigationDestination(item: $blindFrom) { BlindDigView(start: $0) }
+    .sheet(isPresented: $pickingCutoff) { cutoffSheet }
     .disabled(busy)
     .task { await open() }
     .onChange(of: popularity) { Task { await loadConnections() } }
@@ -148,6 +165,54 @@ struct DigSessionView: View {
   }
 
   // MARK: Parts
+
+  /// EX-05: dig only through what was out by a date; stored on the session.
+  private func cutoffRow(_ session: DigSession) -> some View {
+    HStack(spacing: 10) {
+      Image(systemName: "clock.arrow.circlepath").foregroundStyle(Palette.accent)
+      if let c = session.context {
+        Text("\(ExploreText.date(c.cutoff, .day))까지 나온 것만").font(.footnote.weight(.semibold))
+        Spacer(minLength: 0)
+        Button("해제") { setCutoff(nil) }.font(.footnote).disabled(!session.isActive)
+      } else {
+        Text("기준일 없이 모두 보는 중").font(.footnote).foregroundStyle(Palette.muted)
+        Spacer(minLength: 0)
+        Button("기준일까지만") { pickingCutoff = true }.font(.footnote).disabled(!session.isActive)
+      }
+    }
+    .padding(12)
+    .background(Palette.surface, in: .rect(cornerRadius: 14))
+  }
+
+  private var cutoffSheet: some View {
+    NavigationStack {
+      Form {
+        DatePicker("기준일", selection: $cutoffDate, in: ...Date.now, displayedComponents: .date)
+        Text("고른 날짜까지 나온 곡과 앨범만 따라가요. 사람, 아티스트, 레이블은 그대로 보여요. 그 뒤에 나온 곡은 이 세션에 더할 수 없어요.")
+          .font(.footnote).foregroundStyle(Palette.muted)
+      }
+      .navigationTitle("기준일까지만 DIG")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) { Button("취소") { pickingCutoff = false } }
+        ToolbarItem(placement: .confirmationAction) {
+          Button("적용") {
+            pickingCutoff = false
+            setCutoff(ExploreText.endOfDay(cutoffDate))
+          }
+        }
+      }
+    }
+    .presentationDetents([.medium])
+  }
+
+  private func setCutoff(_ cutoff: Date?) {
+    guard let id = session?.digSessionId else { return }
+    Task {
+      await change { try await model.dig.setCutoff(cutoff, session: id) }
+      await loadConnections()
+    }
+  }
 
   private func header(_ node: DigSession.Node, session: DigSession) -> some View {
     HStack(spacing: 14) {
@@ -284,7 +349,7 @@ struct DigSessionView: View {
       switch route {
       case .start(let entity): session = try await model.dig.start(from: entity)
       case .session(let id): session = try await model.dig.session(id)
-      case .blind, .crate, .label, .journey, .compare, .timeMachine: return  // routed to their own screens
+      case .blind, .crate, .label, .journey, .compare, .timeMachine, .rediscover: return  // own screens
       }
       await loadAxes()
     } catch {
@@ -309,7 +374,8 @@ struct DigSessionView: View {
     connections = nil
     do {
       connections = try await model.dig.connections(
-        of: entity, axis: axis, popularity: popularity, includeInferred: includeInferred)
+        of: entity, axis: axis, popularity: popularity, includeInferred: includeInferred,
+        context: session?.context)
     } catch is CancellationError {
     } catch {
       connections = []

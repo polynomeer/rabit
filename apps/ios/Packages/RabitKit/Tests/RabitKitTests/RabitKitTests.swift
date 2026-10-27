@@ -791,3 +791,34 @@ let timeMachineQueue = #"{"mode":"time_machine","time_machine":{"cutoff_at":"198
   #expect(q.mode == .radio)
   #expect(q.timeMachine == nil)
 }
+
+@Test func digSessionCutoffIsStoredAndPassedToConnections() async throws {
+  let session = #"{"dig_session_id":"dig_1","state":"active","title":null,"saved":false,"current_seq":0,"empty_state":null,"context":{"cutoff_at":"1982-01-01T14:59:59Z","time_zone":"Asia/Seoul","cutoff":"1982-01-01"},"trail":[]}"#
+  let t = StubTransport([(200, session), (200, #"{"items":[],"next_cursor":null}"#), (200, session.replacingOccurrences(of: #""context":{"cutoff_at":"1982-01-01T14:59:59Z","time_zone":"Asia/Seoul","cutoff":"1982-01-01"}"#, with: #""context":null"#))])
+  let dig = DigService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let cutoff = ISO8601DateFormatter().date(from: "1982-01-01T14:59:59Z")!
+  let s = try await dig.setCutoff(cutoff, timeZone: TimeZone(identifier: "Asia/Seoul")!, session: DigSessionID("dig_1"))
+  #expect(t.requests[0].httpMethod == "PATCH")
+  let body = try JSONSerialization.jsonObject(with: t.requests[0].httpBody!) as! [String: [String: String]]
+  #expect(body == ["context": ["cutoff_at": "1982-01-01T14:59:59Z", "time_zone": "Asia/Seoul"]])
+  #expect(s.context?.cutoff == "1982-01-01")
+  _ = try await dig.connections(of: EntityID("art_1"), axis: DigAxis(rawValue: "tracks"), context: s.context)
+  #expect(t.requests[1].url?.query?.contains("cutoff_at=1982-01-01T14:59:59Z&time_zone=Asia/Seoul") == true)
+  let cleared = try await dig.setCutoff(nil, session: DigSessionID("dig_1"))
+  #expect(String(data: t.requests[2].httpBody!, encoding: .utf8) == #"{"context":null}"#)
+  #expect(cleared.context == nil)
+}
+
+@Test func rediscoverSaysWhenThereIsNoHistory() async throws {
+  let json = #"{"inactive_days":180,"items":[{"library_item_id":"lib_1","recording":{"entity_id":"rec_1","entity_type":"recording","name":"Coastline","subtitle":"The Breakers","primary_release_id":"rel_1"},"saved_at":"2025-01-08T00:00:00.000Z","note":null,"history":"none","last_qualified_at":null,"qualified_plays":0,"release_date":"1976-01-01","date_precision":"year"}]}"#
+  let t = StubTransport([(200, json), (204, "")])
+  let explore = ExploreService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let r = try await explore.rediscover(inactiveDays: 365)
+  #expect(t.requests[0].url?.absoluteString == "http://localhost:8080/v1/me/rediscover?inactive_days=365")
+  #expect(r.items.first?.history == "none")
+  #expect(r.items.first?.lastQualifiedAt == nil)
+  #expect(ExploreText.date(r.items.first?.releaseDate, r.items.first?.datePrecision) == "1976년 (연도만 알려짐)")
+  try await explore.clearRediscoverHistory()
+  #expect(t.requests[1].httpMethod == "DELETE")
+  #expect(t.requests[1].url?.path == "/v1/me/rediscover/history")
+}
