@@ -718,3 +718,47 @@ let emptyPlaylist = #"{"playlist_id":"pls_1","title":"새벽","description":null
   let r = try await CatalogService(api: api).release(ReleaseID("rel_01HZZZZZZZZZZZZZZZZZZZZZZZ"))
   #expect(r.artwork?["600"]?.lastPathComponent == "600.jpg")
 }
+
+@Test func journeyDecodesReleasesEventsAndPrecision() async throws {
+  let release = #"{"release_id":"rel_1","title":"Salt","release_type":"ep","release_date":"2014-01-01","date_precision":"year","role":"main","label":null,"tracks":1,"duration_ms":null,"artwork":null,"evidence":{"basis":"declared","verification_state":"self_declared","source":"catalog","confidence":null}}"#
+  let event = #"{"relation_id":"rel_x","relation_type":"signed_to","direction":"outgoing","other":{"entity_id":"lab_1","entity_type":"label","name":"Lowlight","subtitle":null},"valid_from":"2012-08-01","valid_to":null,"evidence":{"basis":"verified_fact","verification_state":"distributor_verified","source":"ddex","confidence":null}}"#
+  let json = #"{"artist":{"entity_id":"art_1","entity_type":"artist","name":"Mira","subtitle":null},"view":"historical","cutoff":"2014-06-15","timeline":[{"kind":"event","event":"# + event + #"},{"kind":"release","release":"# + release + #"},{"kind":"chart","chart":{}}],"undated":[],"coverage":{"releases":4,"dated":3,"undated":1,"after_cutoff":1,"undated_events":0},"truncated":false}"#
+  let t = StubTransport([(200, json)])
+  let explore = ExploreService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let cutoff = ISO8601DateFormatter().date(from: "2014-06-15T14:59:59Z")!
+  let j = try await explore.journey(of: EntityID("art_1"), cutoff: cutoff, timeZone: TimeZone(identifier: "Asia/Seoul")!)
+  #expect(t.requests[0].url?.path == "/v1/dig/artists/art_1/journey")
+  #expect(t.requests[0].url?.query == "cutoff_at=2014-06-15T14:59:59Z&time_zone=Asia/Seoul")
+  #expect(j.timeline.count == 3)
+  #expect(j.timeline[2] == .other)
+  guard case .event(let e) = j.timeline[0], case .release(let r) = j.timeline[1] else {
+    Issue.record("unexpected items")
+    return
+  }
+  #expect(ExploreText.event(e, artist: "Mira") == "Lowlight와(과) 계약")
+  #expect(ExploreText.date(r.releaseDate, r.datePrecision) == "2014년 (연도만 알려짐)")
+  #expect(j.timeline[1].year == "2014")
+  #expect(j.coverage.afterCutoff == 1)
+}
+
+@Test func datesNeverShowMorePrecisionThanStored() {
+  #expect(ExploreText.date("2011-03-09", .day) == "2011. 3. 9.")
+  #expect(ExploreText.date("2021-06-01", .month) == "2021년 6월 (월까지 알려짐)")
+  #expect(ExploreText.date("2021-06-01", nil) == "발매일 미확인")
+  #expect(ExploreText.date(nil, .day) == "발매일 미확인")
+  #expect(ExploreText.length(185_000) == "3분")
+  #expect(ExploreText.length(nil) == "길이 미상")
+}
+
+@Test func compareAsksForBothReleases() async throws {
+  let side = { (id: String) in
+    #"{"release_id":"\#(id)","title":"T","release_type":"album","release_date":"2011-03-09","date_precision":"day","label":null,"tracks":2,"duration_ms":300000,"producers":[{"entity":{"entity_id":"per_1","entity_type":"person","name":"Jun","subtitle":null},"evidence":{"basis":"declared","verification_state":"self_declared","source":"catalog","confidence":null}}],"guests":[]}"#
+  }
+  let json = #"{"artist":{"entity_id":"art_1","entity_type":"artist","name":"Mira","subtitle":null},"releases":["# + side("rel_1") + "," + side("rel_2") + #"],"shared":{"producers":[{"entity_id":"per_1","entity_type":"person","name":"Jun","subtitle":null}],"guests":[],"label":null}}"#
+  let t = StubTransport([(200, json)])
+  let explore = ExploreService(api: APIClient(baseURL: base, tokens: InMemoryTokenStore("tok"), transport: t))
+  let c = try await explore.compare(artist: EntityID("art_1"), ReleaseID("rel_1"), ReleaseID("rel_2"))
+  #expect(t.requests[0].url?.absoluteString == "http://localhost:8080/v1/dig/artists/art_1/compare?release_a=rel_1&release_b=rel_2")
+  #expect(c.releases.map(\.releaseId.rawValue) == ["rel_1", "rel_2"])
+  #expect(c.shared.producers.first?.name == "Jun")
+}

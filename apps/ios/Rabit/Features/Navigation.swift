@@ -10,6 +10,9 @@ nonisolated enum DigRoute: Hashable {
   case crate
   /// Label Digging: a label's releases by year and its artists' spans.
   case label(EntityID)
+  /// Artist Journey (EX-02) and two of the artist's releases side by side (EX-03).
+  case journey(EntityID)
+  case compare(EntityID, ReleaseID, ReleaseID)
 }
 
 extension View {
@@ -22,6 +25,8 @@ extension View {
         case .blind(let entity): BlindDigView(start: entity)
         case .crate: CrateDigView()
         case .label(let label): LabelTimelineView(label: label)
+        case .journey(let artist): JourneyView(artist: artist)
+        case .compare(let artist, let a, let b): CompareView(artist: artist, a: a, b: b)
         }
       }
   }

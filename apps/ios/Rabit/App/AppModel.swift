@@ -12,6 +12,7 @@ final class AppModel {
   let config: AppConfig
   let catalog: CatalogService
   let dig: DigService
+  let explore: ExploreService
   let uploads: UploadService
   let collection: CollectionService
   let account: AccountService
@@ -41,6 +42,7 @@ final class AppModel {
     self.api = api
     catalog = CatalogService(api: api)
     dig = DigService(api: api)
+    explore = ExploreService(api: api)
     uploads = UploadService(api: api)
     collection = CollectionService(api: api)
     account = AccountService(api: api)
@@ -92,6 +94,9 @@ final class AppModel {
     // Kill switch for client reports (ADR-0027); on unless the server says otherwise.
     diagnostics.enabled = signedIn && (features["client_diagnostics"] ?? true)
   }
+
+  /// A flag that is off unless the server turns it on (exploration, ADR-0028).
+  func isOn(_ key: String) -> Bool { features[key] ?? false }
 
   func signOut() {
     diagnostics.enabled = false
