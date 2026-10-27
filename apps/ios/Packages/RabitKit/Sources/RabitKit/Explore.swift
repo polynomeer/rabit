@@ -147,6 +147,25 @@ public struct TimeMachineCoverage: Codable, Hashable, Sendable {
   public let playableSampled: Bool
 }
 
+/// Rediscover (EX-06, ADR-0035): saved recordings quiet for a while.
+public struct Rediscover: Codable, Hashable, Sendable {
+  public struct Item: Codable, Hashable, Sendable, Identifiable {
+    public let libraryItemId: String
+    public let recording: EntitySummary
+    public let savedAt: String
+    public let note: String?
+    /// `played`: the last qualified play is known; `none`: no play recorded since saving.
+    public let history: String
+    public let lastQualifiedAt: String?
+    public let qualifiedPlays: Int
+    public let releaseDate: String?
+    public let datePrecision: DatePrecision?
+    public var id: String { libraryItemId }
+  }
+  public let inactiveDays: Int
+  public let items: [Item]
+}
+
 /// Exploration calls (docs/exploration_expansion/13-technical-design.md). Each one is
 /// behind a feature flag; while it is off the server answers 404.
 public struct ExploreService: Sendable {
@@ -177,6 +196,18 @@ public struct ExploreService: Sendable {
           URLQueryItem(name: "cutoff_at", value: ExploreText.iso(cutoff)),
           URLQueryItem(name: "time_zone", value: timeZone.identifier),
         ]))
+  }
+
+  /// Saved recordings not played for `inactiveDays` (30–3650), longest quiet first.
+  public func rediscover(inactiveDays: Int = 180) async throws -> Rediscover {
+    try await api.get(
+      CatalogService.path(
+        "/v1/me/rediscover", [URLQueryItem(name: "inactive_days", value: String(inactiveDays))]))
+  }
+
+  /// Clears the last-played summary; later qualified plays of saved tracks start it again.
+  public func clearRediscoverHistory() async throws {
+    let _: Empty = try await api.send("DELETE", "/v1/me/rediscover/history", body: Optional<Empty>.none)
   }
 
   public func compare(artist: EntityID, _ a: ReleaseID, _ b: ReleaseID) async throws -> ReleaseComparison {

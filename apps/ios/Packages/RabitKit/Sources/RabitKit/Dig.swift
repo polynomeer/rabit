@@ -83,7 +83,17 @@ public struct DigSession: Codable, Hashable, Sendable {
   public let saved: Bool
   public let currentSeq: Int
   public let emptyState: EmptyState?
+  /// EX-05: the cutoff this session digs under; nil when none (or from older servers).
+  public let context: Context?
   public let trail: [Node]
+
+  /// Only what was out by the end of `cutoff` in `timeZone` (ADR-0033).
+  public struct Context: Codable, Hashable, Sendable {
+    public let cutoffAt: String
+    public let timeZone: String
+    /// The calendar date (YYYY-MM-DD).
+    public let cutoff: String
+  }
 
   public var current: Node? { trail.first { $0.seq == currentSeq } }
   public var isActive: Bool { state == "active" }
@@ -195,18 +205,40 @@ public struct DigService: Sendable {
 
   public func connections(
     of entity: EntityID, axis: DigAxis, popularity: PopularityFilter = .any, includeInferred: Bool = true,
-    limit: Int = 50
+    limit: Int = 50, context: DigSession.Context? = nil
   ) async throws -> [DigConnection] {
+    var query = [
+      URLQueryItem(name: "axis", value: axis.rawValue),
+      URLQueryItem(name: "popularity", value: popularity.rawValue),
+      URLQueryItem(name: "include_inferred", value: includeInferred ? "true" : "false"),
+      URLQueryItem(name: "limit", value: String(limit)),
+    ]
+    // EX-05: leaves out recordings and releases that were not out by the cutoff.
+    if let context {
+      query.append(URLQueryItem(name: "cutoff_at", value: context.cutoffAt))
+      query.append(URLQueryItem(name: "time_zone", value: context.timeZone))
+    }
     let page: Page<DigConnection> = try await api.get(
-      CatalogService.path(
-        "/v1/dig/entities/\(entity.rawValue)/connections",
-        [
-          URLQueryItem(name: "axis", value: axis.rawValue),
-          URLQueryItem(name: "popularity", value: popularity.rawValue),
-          URLQueryItem(name: "include_inferred", value: includeInferred ? "true" : "false"),
-          URLQueryItem(name: "limit", value: String(limit)),
-        ]))
+      CatalogService.path("/v1/dig/entities/\(entity.rawValue)/connections", query))
     return page.items
+  }
+
+  /// Digs under a cutoff (the end of that day in `timeZone`), or freely again with nil.
+  /// The server also refuses later steps while it is set.
+  public func setCutoff(_ cutoff: Date?, timeZone: TimeZone = .current, session: DigSessionID) async throws
+    -> DigSession
+  {
+    struct Context: Encodable { let cutoffAt: String; let timeZone: String }
+    struct Body: Encodable {
+      let context: Context?
+      func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(context, forKey: .context)  // null clears it
+      }
+      enum CodingKeys: String, CodingKey { case context }
+    }
+    let context = cutoff.map { Context(cutoffAt: ExploreText.iso($0), timeZone: timeZone.identifier) }
+    return try await api.send("PATCH", "/v1/dig-sessions/\(session.rawValue)", body: Body(context: context))
   }
 
   /// Follows a connection from the session cursor.
