@@ -214,7 +214,9 @@ struct CompareView: View {
     .task { await load() }
   }
 
-  private func fact(_ title: String, _ c: ReleaseComparison, _ value: (ReleaseComparison.Side) -> String)
+  private func fact(
+    _ title: String, _ c: ReleaseComparison, _ value: @escaping (ReleaseComparison.Side) -> String
+  )
     -> some View
   {
     Section(title) {
