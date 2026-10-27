@@ -20,6 +20,8 @@ final class PlayerController {
   private(set) var queue: [QueueEntry] = []
   private(set) var index = -1
   private(set) var settings = Settings()
+  /// Time Radio's cutoff while the queue is in that mode (ADR-0034).
+  private(set) var timeMachine: PlayQueue.TimeMachine?
   private(set) var isPlaying = false
   private(set) var position: Double = 0
   private(set) var duration: Double = 0
@@ -223,6 +225,22 @@ final class PlayerController {
     apply(try await queueService.refreshSuggestions())
   }
 
+  /// Starts Time Radio from a cutoff and plays its current track (ADR-0034).
+  func startTimeMachine(cutoff: Date, mode: PlayQueue.TimeMachine.Mode) async throws {
+    startTask?.cancel()
+    let q = try await queueService.startTimeMachine(cutoff: cutoff, mode: mode)
+    local = false
+    apply(q)
+    startTask = Task { await begin(at: index) }
+  }
+
+  /// Moves the cutoff on; the track playing keeps playing. Returns releases out in between.
+  func advanceTimeMachine(months: Int = 1) async throws -> Int {
+    let r = try await queueService.advanceTimeMachine(months: months)
+    apply(r.queue)
+    return r.newSincePrevious
+  }
+
   /// Shown at once; the server's answer (with new suggestions) follows.
   func updateSettings(_ patch: QueueService.SettingsPatch) async throws {
     let before = settings
@@ -240,6 +258,7 @@ final class PlayerController {
   /// Mirrors the server queue. While a Blind Digging list plays only the settings follow.
   private func apply(_ q: PlayQueue) {
     settings = Settings(mode: q.mode, autoplay: q.autoplay, includeInferred: q.includeInferred)
+    timeMachine = q.mode == .timeMachine ? q.timeMachine : nil
     guard !local else { return }
     queue = q.items.compactMap(QueueEntry.init(queued:))
     index = queue.firstIndex { $0.itemId != nil && $0.itemId == q.currentItemId } ?? -1

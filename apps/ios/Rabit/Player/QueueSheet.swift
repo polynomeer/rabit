@@ -89,17 +89,41 @@ struct QueueSheet: View {
           }
         }
       }
+      if let tm = player.timeMachine {
+        Section {
+          Button("다음 달로", systemImage: "forward") {
+            act {
+              let fresh = try await player.advanceTimeMachine()
+              message = "그사이 새로 나온 앨범 \(fresh)장이 후보에 들어왔어요."
+            }
+          }
+          Button("타임머신 끄기", systemImage: "xmark.circle") {
+            act { try await player.updateSettings(.init(mode: .queue)) }
+          }
+        } header: {
+          Text("\(ExploreText.date(tm.cutoff, .day))까지 나온 음악")
+        } footer: {
+          Text(tm.mode == .hidden ? "지금 덜 들리는 곡" : "자유 탐색")
+        }
+      }
       Section {
-        Toggle(
-          "추천 이어 재생",
-          isOn: Binding(
-            get: { player.settings.autoplay },
-            set: { on in act { try await player.updateSettings(.init(autoplay: on)) } }))
-        if !player.settings.autoplay {
+        // Time Radio always suggests from its cutoff; the switch is for track-based autoplay.
+        if player.timeMachine == nil {
+          Toggle(
+            "추천 이어 재생",
+            isOn: Binding(
+              get: { player.settings.autoplay },
+              set: { on in act { try await player.updateSettings(.init(autoplay: on)) } }))
+        }
+        if !player.settings.autoplay && player.timeMachine == nil {
           Text("추천 이어 재생이 꺼져 있어요. 고른 곡이 끝나면 재생이 멈춰요.")
             .font(.footnote).foregroundStyle(Palette.muted)
         } else if suggested.isEmpty {
-          Text("지금 곡과 이어지는 곡을 찾지 못했어요.").font(.footnote).foregroundStyle(Palette.muted)
+          Text(
+            player.timeMachine == nil
+              ? "지금 곡과 이어지는 곡을 찾지 못했어요." : "기준일까지 나온 곡 중 지금 들을 수 있는 곡을 더 찾지 못했어요."
+          )
+          .font(.footnote).foregroundStyle(Palette.muted)
         } else {
           ForEach(suggested) { row in line(row) }
           Button("다른 추천", systemImage: "arrow.clockwise") { act { try await player.refreshSuggestions() } }
@@ -107,7 +131,9 @@ struct QueueSheet: View {
       } header: {
         Text("자동추천")
       } footer: {
-        if player.settings.autoplay, !suggested.isEmpty, let title = player.current?.title {
+        if player.timeMachine != nil, !suggested.isEmpty {
+          Text("기준일까지 나온 것으로 확인된 곡 중에서 골랐어요.")
+        } else if player.settings.autoplay, !suggested.isEmpty, let title = player.current?.title {
           Text("「\(title)」에서 이어지는 곡이에요. 곡이 바뀌면 추천도 바뀌어요.")
         }
       }
@@ -153,9 +179,9 @@ struct QueueSheet: View {
     Task {
       busy = true
       defer { busy = false }
+      message = nil
       do {
         try await op()
-        message = nil
       } catch {
         message = "바꾸지 못했어요. \(PlayerController.describe(error))"
       }
@@ -193,6 +219,7 @@ extension PlayQueue.Reason {
       case .memberProject: "멤버의 다른 활동 · \(name)"
       case .sameLabel: "같은 레이블 · \(name)"
       case .sameDecade: "같은 시대 · \(name)년대"
+      case .timeMachine: "\(name) · \(ExploreText.date(releaseDate, datePrecision)) 발매 · 기준일 전에 나온 곡"
       case .unknown: "이어지는 곡"
       }
     return basis == .verifiedFact || basis == .declared ? base : "\(base) · 추정"

@@ -32,6 +32,20 @@ struct DigHomeView: View {
             }
           }
         }
+        if model.isOn("exploration_time_machine") {
+          Section("탐험") {
+            NavigationLink(value: DigRoute.timeMachine) {
+              Label {
+                VStack(alignment: .leading, spacing: 2) {
+                  Text("타임머신").font(.body.weight(.semibold))
+                  Text("고른 날짜까지 나온 음악만 듣기").font(.footnote).foregroundStyle(Palette.muted)
+                }
+              } icon: {
+                Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+              }
+            }
+          }
+        }
         Section("이전 탐험") {
           if sessions?.isEmpty == true {
             Text("아직 탐험이 없어요. 검색에서 아티스트를 고르거나 앨범의 DIG 버튼으로 시작해 보세요.")
