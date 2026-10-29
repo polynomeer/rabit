@@ -2,6 +2,7 @@
 
 - Status: Phase 17 (2026-10-04). **Design only — not implemented.** Requirements: ATL-001..018, LOC-001..011. Source: AP-03, AP-08, AP-10, BRD §9, DIG §5.
 - Proposed ADR to write when work starts: regional aggregation and privacy (source ADR-09).
+- The live city layer ("지금 들리는 음악", 15-minute delayed aggregates) and the map base are proposed in [ADR-0037](../adr/ADR-0037-live-listening-regions.md).
 
 ## 1. Principle: popularity here ≠ music of here
 

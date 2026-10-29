@@ -49,12 +49,13 @@
 | [0034](ADR-0034-time-radio-queue.md) | Time Radio through the account play queue | Accepted | EXP-021, EXP-027 |
 | [0035](ADR-0035-last-played-summary.md) | Last-played summary for rediscovery | Accepted | EXP-015, EXP-023 |
 | [0036](ADR-0036-exploration-progress.md) | Exploration progress: bounded collections, opt-in quests, award ledger | Proposed (E1) | EXP-010, EXP-011 |
+| [0037](ADR-0037-live-listening-regions.md) | Live listening by city: opt-in, 15-minute delayed, thresholded aggregates; self-hosted map | Proposed (Legal pending) | ATL-008–011, LOC-001–004 |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 
 | Source | Topic | Planned in |
 |---|---|---|
-| ADR-09 | Regional aggregation and privacy | Phase 17 spec ([atlas](../03-architecture/music-atlas.md)) |
+| ADR-09 | Regional aggregation and privacy (30-day charts; the live layer is ADR-0037) | Phase 17 spec ([atlas](../03-architecture/music-atlas.md)) |
 | ADR-11 | DSP execution location | Phase 18 ([advanced playback](../08-audio-ai/advanced-playback.md)) |
 | ADR-12 | Perceptual ABR | Phase 18 |
 | ADR-13 | Transition and stems | Phase 18 |
