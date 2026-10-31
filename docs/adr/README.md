@@ -49,7 +49,8 @@
 | [0034](ADR-0034-time-radio-queue.md) | Time Radio through the account play queue | Accepted | EXP-021, EXP-027 |
 | [0035](ADR-0035-last-played-summary.md) | Last-played summary for rediscovery | Accepted | EXP-015, EXP-023 |
 | [0036](ADR-0036-exploration-progress.md) | Exploration progress: bounded collections, opt-in quests, award ledger | Proposed (E1) | EXP-010, EXP-011 |
-| [0037](ADR-0037-live-listening-regions.md) | Live listening by city: opt-in, 15-minute delayed, thresholded aggregates; self-hosted map | Proposed (Legal pending) | ATL-008–011, LOC-001–004 |
+| [0037](ADR-0037-live-listening-regions.md) | Live listening by city: opt-in, 15-minute delayed, thresholded and noised aggregates | Proposed (Legal pending) | ATL-008–011, LOC-001–004 |
+| [0038](ADR-0038-map-base.md) | Map base: MapLibre + self-hosted OSM tiles on web, MapKit on iOS, city-level zoom cap | Accepted | ATL-001, ATL-017 |
 
 ### Source ADRs not yet written (P2, Proposed when work starts)
 

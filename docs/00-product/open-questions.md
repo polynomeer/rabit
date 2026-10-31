@@ -17,7 +17,7 @@
 | Q06 | 지원 모바일·웹·desktop·기기와 offline 범위는? | 기술·제품 | player 구현 전 | PLY-001, PLY-012, ADR(client) | 일부 decided — **iOS 네이티브 (SwiftUI, iOS 26 이상)** (2026-10-15, 소유자 결정, [ADR-0023](../adr/ADR-0023-ios-client.md)). Android·desktop·offline은 open |
 | Q07 | 무료 공개 Studio 재생·공개 릴리스 심사·판매자 자격은? | 제품·권리 | 공개 기능 전 | STU-006, STU-009 | open |
 | Q08 | Human Only의 assisted·unknown·증거 충족 기준은? | Trust·제품 | M1 추천 전 | TRU-003, TRU-006 | open |
-| Q09 | 지역 차트의 현지인 정의·기여 동의·k threshold는? (실시간 도시 레이어 제안: k=20, ADR-0037) | 데이터·개인정보 | M2 수집 전 | ATL-010, ATL-012 | open |
+| Q09 | 지역 차트의 현지인 정의·기여 동의·k threshold는? (실시간 도시 레이어는 k=20으로 정함, ADR-0037) | 데이터·개인정보 | M2 수집 전 | ATL-010, ATL-012 | open |
 | Q10 | Legends·Decades의 적법한 과거 자료 출처는? | 콘텐츠·권리 | M2 공개 전 | ATL-006, ATL-017 | open |
 | Q11 | CD 리핑·matching·판본·Upgrade 계약 조건은? | 법무·권리 | 해당 기능 전 | COL-005, COL-006 | open |
 | Q12 | MG·선급·무료 비용·GPU·CAC·현금 runway 승인 상한은? | 경영·재무 | 상업 계약 전 | NFR-COST 전반 | open |
