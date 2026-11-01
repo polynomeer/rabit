@@ -37,12 +37,13 @@ struct MusicMapView: View {
       Section {
         Map(position: $position, bounds: MapZoom.bounds, interactionModes: [.pan, .zoom])
           .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll, showsTraffic: false))
+          .accessibilityLabel("지도 화면")
           .onMapCameraChange { context in camera = context.camera }
+          // The zoom buttons stay their own accessibility elements, outside the map's.
           .overlay(alignment: .topTrailing) { zoomButtons.padding(10) }
           .frame(height: 420)
           .clipShape(RoundedRectangle(cornerRadius: 20))
           .listRowInsets(EdgeInsets())
-          .accessibilityLabel("지도 화면")
       } footer: {
         Text("세계에서 도시까지 확대해 볼 수 있어요. 도시보다 더 가까이는 보지 않아요. 내 위치는 쓰지 않아요.")
       }
