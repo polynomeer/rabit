@@ -371,6 +371,19 @@ resource "aws_cloudfront_distribution" "web" {
     origin_access_control_id = aws_cloudfront_origin_access_control.web.id
   }
 
+  # Map base (ADR-0038): the PMTiles file is read in byte ranges, so the CDN must not
+  # compress it; glyphs live beside it. Uploaded by infra/aws/scripts/publish-basemap.sh.
+  ordered_cache_behavior {
+    path_pattern               = "/map/*"
+    target_origin_id           = "web"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.web.id
+    compress                   = false
+  }
+
   default_cache_behavior {
     target_origin_id           = "web"
     viewer_protocol_policy     = "redirect-to-https"

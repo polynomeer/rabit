@@ -2979,3 +2979,48 @@ form.inline input:not([type='checkbox']):not([type='radio']) {
 .rd-memo {
   color: var(--accent);
 }
+
+/* DIG map (ADR-0038): MapLibre fills the frame; its controls follow the page theme. */
+.atlas {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.map-base {
+  position: relative;
+}
+.map-canvas {
+  height: min(62vh, 560px);
+  min-height: 320px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.map-problem {
+  position: absolute;
+  left: 16px;
+  right: 64px; /* clear of the zoom buttons */
+  top: 16px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.map-canvas .maplibregl-ctrl-group {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+.map-canvas .maplibregl-ctrl-group button + button {
+  border-top-color: var(--line);
+}
+.map-canvas .maplibregl-ctrl-attrib {
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+}
+.map-canvas .maplibregl-ctrl-attrib a {
+  color: var(--muted);
+}

@@ -122,3 +122,10 @@ Release covers (ADR-0031). A release whose cover failed keeps the stand-in; `rel
 2. Jobs `catalog.process_artwork` that keep failing on storage are retried; dead ones are in the operator console (작업 큐).
 3. A cover that must disappear now: deliver a replacement (new version; old URLs stop at the origin, CDN copies expire only with their year-long cache, so also invalidate `/artwork/v1/*` for that token if it matters).
 
+
+## map-base
+DIG map base (ADR-0038): `infra/aws/scripts/publish-basemap.sh <source.pmtiles> <basemaps-assets dir> <web bucket> <web distribution id>`, run by an operator. It prints the extract size (`--dry-run`) and asks before uploading to `map/v1/` in the web bucket.
+1. Source: a Protomaps daily build (`https://build.protomaps.com/<YYYYMMDD>.pmtiles`); glyphs from a checkout of `protomaps/basemaps-assets` (fonts `Noto Sans Regular` and `Noto Sans Medium`). The script refuses `MAXZOOM` above 10 (city level). `BBOX` narrows the area if the world extract is too large for the budget.
+2. Refresh quarterly (borders and city names change rarely). `map/v1/SOURCE.txt` records the build used.
+3. "지도 바탕을 불러오지 못했어요" on the map screen: the tile file is missing or unreadable. Check `GET /map/v1/basemap.pmtiles` with a `Range: bytes=0-16383` header returns 206 from CloudFront; the `/map/*` behavior must not compress.
+4. The map screen is behind `exploration_map` (default off); switch it off with the [feature-flags](#feature-flags) kill switch. Playback and the list views do not depend on the map.

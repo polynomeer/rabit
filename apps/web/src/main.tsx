@@ -6,6 +6,7 @@ import { EntityDetail, RecordingDetail, ReleaseDetail } from './details';
 import { DigHome, DigSessionView, DigStart } from './dig';
 import { CompareView, JourneyView } from './journey';
 import { RediscoverView, TimeMachineSetup } from './explore';
+import { MapView } from './atlas';
 import { LineageView } from './lineage';
 import { PlayerProvider } from './player';
 import {
@@ -267,7 +268,8 @@ function App() {
           route.kind === 'journey' ||
           route.kind === 'compare' ||
           route.kind === 'time-machine' ||
-          route.kind === 'rediscover'
+          route.kind === 'rediscover' ||
+          route.kind === 'map'
         ? 'DIG'
         : null;
   return (
@@ -320,6 +322,7 @@ function App() {
           {route.kind === 'journey' ? <JourneyView artistId={route.id} /> : null}
           {route.kind === 'time-machine' ? <TimeMachineSetup /> : null}
           {route.kind === 'rediscover' ? <RediscoverView /> : null}
+          {route.kind === 'map' ? <MapView /> : null}
           {route.kind === 'compare' ? (
             <CompareView artistId={route.id} a={route.a} b={route.b} />
           ) : null}
