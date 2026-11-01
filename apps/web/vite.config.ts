@@ -27,9 +27,10 @@ export default defineConfig({
   oxc: { jsx: { runtime: 'automatic' } },
   server: { port: 5173, strictPort: true },
   define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion) },
-  // hls.js is a lazily loaded chunk (~575 kB); the entry bundle stays small.
+  // hls.js (~575 kB) and the map (MapLibre, ~1.1 MB, ADR-0038) are lazily loaded chunks;
+  // the entry bundle stays small. scripts/bundle-budget.mjs holds the gzip limits.
   // Source maps are written but not linked from the bundles: they map reported stack
   // frames back to the source and are never published (publish-web.sh).
-  build: { chunkSizeWarningLimit: 600, sourcemap: 'hidden' },
+  build: { chunkSizeWarningLimit: 1200, sourcemap: 'hidden' },
   preview: { headers: previewHeaders },
 });

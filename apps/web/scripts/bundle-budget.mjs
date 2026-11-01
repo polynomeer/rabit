@@ -15,6 +15,8 @@ const ENTRY_JS = 140 * KB;
 const CSS = 40 * KB;
 /** Any chunk loaded later (hls.js, the operator console). */
 const LAZY_CHUNK = 200 * KB;
+/** The map screen's chunk (MapLibre + PMTiles reader, ADR-0038), loaded only on the map. */
+const MAP_CHUNK = 320 * KB;
 
 const dist = new URL('../dist/', import.meta.url).pathname;
 if (!existsSync(join(dist, 'index.html'))) {
@@ -37,7 +39,10 @@ const check = (file, size, limit) => {
 };
 
 for (const f of readdirSync(join(dist, 'assets'))) {
-  if (f.endsWith('.js')) check(f, gz(f), f === entry ? ENTRY_JS : LAZY_CHUNK);
+  if (f.endsWith('.js'))
+    check(f, gz(f), f === entry ? ENTRY_JS : f.startsWith('MapBase-') ? MAP_CHUNK : LAZY_CHUNK);
+  // Worker modules (MapLibre's) are lazy chunks too.
+  else if (f.endsWith('.mjs')) check(f, gz(f), LAZY_CHUNK);
   else if (f.endsWith('.css')) check(f, gz(f), CSS);
 }
 if (!entry) failures.push('index.html names no entry script');

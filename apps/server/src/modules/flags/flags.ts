@@ -19,7 +19,8 @@ export type FlagKey =
   | 'exploration_time_machine'
   | 'exploration_journey'
   | 'exploration_compare'
-  | 'exploration_rediscover';
+  | 'exploration_rediscover'
+  | 'exploration_map';
 
 export const FLAGS: Record<FlagKey, FlagDefinition> = {
   client_diagnostics: {
@@ -44,6 +45,11 @@ export const FLAGS: Record<FlagKey, FlagDefinition> = {
   },
   exploration_rediscover: {
     description: 'Rediscover: saved items not played for a long time (ADR-0035).',
+    default: false,
+    client: true,
+  },
+  exploration_map: {
+    description: 'DIG map: self-hosted map base, zoom capped at city level (ADR-0038).',
     default: false,
     client: true,
   },

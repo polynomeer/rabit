@@ -4,7 +4,14 @@ import { featureOn } from './features';
 import { formatDate, t } from './i18n';
 import { preciseDate } from './journey';
 import { usePlayer, type TimeMachine } from './player';
-import { entityHref, navigate, nowPlayingHref, rediscoverHref, timeMachineHref } from './route';
+import {
+  entityHref,
+  mapHref,
+  navigate,
+  nowPlayingHref,
+  rediscoverHref,
+  timeMachineHref,
+} from './route';
 
 /**
  * Exploration inside DIG (D10): Time Radio (ADR-0034) plays music that was out by a
@@ -32,7 +39,8 @@ function endOfDay(date: string): string {
 export function ExplorePanel() {
   const time = featureOn('exploration_time_machine', false);
   const again = featureOn('exploration_rediscover', false);
-  if (!time && !again) return null;
+  const map = featureOn('exploration_map', false);
+  if (!time && !again && !map) return null;
   return (
     <section aria-labelledby="explore-h" className="card explore-card">
       <h3 id="explore-h">{t('explore.title')}</h3>
@@ -46,6 +54,11 @@ export function ExplorePanel() {
         {again ? (
           <a className="button" href={rediscoverHref}>
             {t('explore.rediscover')}
+          </a>
+        ) : null}
+        {map ? (
+          <a className="button" href={mapHref}>
+            {t('explore.map')}
           </a>
         ) : null}
       </div>

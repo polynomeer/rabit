@@ -30,3 +30,10 @@ The era map and the live city layer need real geography: coastlines, borders and
 
 ## Revisit trigger
 Tile hosting cost beyond budget, a need for detail below city level (which would also need a privacy decision), or MapKit limits on styling.
+
+## Implementation notes
+- Web (2026-11-01): `apps/web/src/map/` — `style.ts` builds the style from `@protomaps/basemaps` layers, keeping only background, earth, water, boundaries and country/region/locality labels (no neighbourhood labels), Korean names, tile `maxzoom` 10; `MapBase.tsx` sets `maxZoom` 10, no rotation or pitch, OSM attribution always shown (also before the tile file loads), follows the page theme, and reports "no WebGL" or "tiles missing" while the page keeps its list. The screen `#/explore/map` is behind the client flag `exploration_map` (default off) and lazy-loads MapLibre 6.15 + PMTiles 4.5.
+- Bundle: the map chunk has its own gzip budget (320 kB, `scripts/bundle-budget.mjs`); the entry bundle is unchanged. The MapLibre worker ships as a hashed `.mjs` from our origin; `publish-web.sh` uploads it as `text/javascript`.
+- Hosting: tiles and glyphs in the web bucket under `map/v1/`, CloudFront behavior `/map/*` without compression (byte ranges). Published by `infra/aws/scripts/publish-basemap.sh` (operator runbook `map-base`). No extract has been published yet.
+- Tests: `scripts/map-style.test.mjs` (own origin only, kept layers, city cap); e2e `map.spec.ts` runs the screen under the production CSP and asserts no third-party request and no violation.
+- Not yet built: iOS (MapKit).

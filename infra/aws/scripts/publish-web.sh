@@ -14,6 +14,9 @@ KEEP_DAYS=${KEEP_DAYS:-14}
 # Content-hashed files never change under their name.
 aws s3 sync "$DIST/assets" "s3://$BUCKET/assets" --exclude '*.map' \
   --cache-control 'public, max-age=31536000, immutable'
+# Module workers (MapLibre's, ADR-0038) need a JavaScript type, which the CLI may not guess for .mjs.
+aws s3 cp "$DIST/assets" "s3://$BUCKET/assets" --recursive --exclude '*' --include '*.mjs' \
+  --content-type 'text/javascript' --cache-control 'public, max-age=31536000, immutable'
 # Icons and the manifest keep their names: short cache, replaced in place.
 aws s3 sync "$DIST" "s3://$BUCKET" --exclude 'assets/*' --exclude index.html \
   --cache-control 'public, max-age=3600'

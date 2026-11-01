@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
  *   #/home  #/studio  #/archive  #/playlists  #/search  #/search/<query>  #/account
  *   #/dig  #/dig/<entity id> (starts a session)  #/dig-session/<session id>
  *   #/recording/<id>  #/release/<id>  #/entity/<id>  #/lineage/<recording id>  #/now (Now Playing)
- *   #/journey/<artist id>  #/compare/<artist id>/<release id>/<release id>  #/explore/time  #/explore/rediscover
+ *   #/journey/<artist id>  #/compare/<artist id>/<release id>/<release id>  #/explore/time  #/explore/rediscover  #/explore/map
  *   #/ops/<users|reports|jobs|rights|sales|editorial|metrics> (operators)
  */
 export const TABS = ['Home', 'Search', 'DIG', 'Archive', 'Studio', 'Playlists', 'Account'] as const;
@@ -30,7 +30,8 @@ export type Route =
   | { kind: 'ops'; section: OpsSection }
   | { kind: 'now' }
   | { kind: 'time-machine' }
-  | { kind: 'rediscover' };
+  | { kind: 'rediscover' }
+  | { kind: 'map' };
 
 export const OPS_SECTIONS = [
   'users',
@@ -62,6 +63,7 @@ export function parseHash(hash: string): Route {
   if (first === 'now') return { kind: 'now' };
   if (first === 'explore' && second === 'time') return { kind: 'time-machine' };
   if (first === 'explore' && second === 'rediscover') return { kind: 'rediscover' };
+  if (first === 'explore' && second === 'map') return { kind: 'map' };
   if (first === 'ops') {
     const section = OPS_SECTIONS.find((s) => s === second) ?? 'users';
     return { kind: 'ops', section };
@@ -86,6 +88,8 @@ export const nowPlayingHref = '#/now';
 export const timeMachineHref = '#/explore/time';
 /** Rediscover (EX-06): saved tracks not played for a while. */
 export const rediscoverHref = '#/explore/rediscover';
+/** The DIG map (ADR-0038). */
+export const mapHref = '#/explore/map';
 export const opsHref = (section: OpsSection) => `#/ops/${section}`;
 
 /** The detail page for any catalog id: recordings and releases have their own pages. */
