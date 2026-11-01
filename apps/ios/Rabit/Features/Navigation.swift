@@ -17,6 +17,8 @@ nonisolated enum DigRoute: Hashable {
   case timeMachine
   /// Rediscover (EX-06): saved tracks not played for a while.
   case rediscover
+  /// The DIG map (ADR-0038).
+  case map
 }
 
 extension View {
@@ -33,6 +35,7 @@ extension View {
         case .compare(let artist, let a, let b): CompareView(artist: artist, a: a, b: b)
         case .timeMachine: TimeMachineSetupView()
         case .rediscover: RediscoverView()
+        case .map: MusicMapView()
         }
       }
   }

@@ -13,7 +13,7 @@
 
     private static let routes: [String: (Int, String)] = [
       "POST /dev/token": (200, #"{"access_token":"ui-test"}"#),
-      "GET /v1/features": (200, #"{"features":{"client_diagnostics":false}}"#),
+      "GET /v1/features": (200, #"{"features":{"client_diagnostics":false,"exploration_map":true}}"#),
       "GET /v1/library": (200, #"{"items":[],"next_cursor":null}"#),
       "GET /v1/dig-sessions": (200, #"{"items":[],"next_cursor":null}"#),
       "GET /v1/queue": (

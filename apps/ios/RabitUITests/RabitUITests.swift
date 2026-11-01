@@ -1,7 +1,7 @@
 import XCTest
 
 /// UI tests (CQ-IOS-3) against canned API answers (`FixtureTransport`): sign in, the
-/// editors' shelf on Home, an album from it, and the account's playback settings.
+/// editors' shelf on Home, an album from it, the account's playback settings and the DIG map.
 final class RabitUITests: XCTestCase {
   @MainActor
   private func signedIn() -> XCUIApplication {
@@ -45,5 +45,18 @@ final class RabitUITests: XCTestCase {
       list.swipeUp()
     }
     XCTAssertTrue(settings.waitForExistence(timeout: 5))
+  }
+
+  @MainActor
+  func testDigMapOpensWithItsList() {
+    let app = signedIn()
+    let dig = app.buttons["DIG"]
+    XCTAssertTrue(dig.waitForExistence(timeout: 15), "DIG tab")
+    dig.tap()
+    let link = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "음악 지도")).firstMatch
+    XCTAssertTrue(link.waitForExistence(timeout: 15), "map link in 탐험")
+    link.tap()
+    XCTAssertTrue(app.staticTexts["목록으로 보기"].waitForExistence(timeout: 15), "list section")
+    XCTAssertTrue(app.buttons["확대"].waitForExistence(timeout: 5), "zoom-in button")
   }
 }
