@@ -45,7 +45,7 @@ test('the map loads only from our origins and degrades to the list', async ({ pa
       /브라우저에서는 지도를 그릴 수 없어요|지도 바탕을 불러오지 못했어요/,
     );
     if ((await page.locator('canvas.maplibregl-canvas').count()) > 0) {
-      await expect(page.getByRole('region', { name: '음악 지도' })).toBeVisible();
+      await expect(page.getByRole('region', { name: '지도 화면' })).toBeVisible();
       await expect(page.getByRole('link', { name: '© OpenStreetMap 기여자' })).toBeVisible();
       await expect(page.getByRole('button', { name: '확대' })).toBeVisible();
     }

@@ -961,7 +961,7 @@ export const ko = {
   'explore.map': '음악 지도',
   'map.title': '음악 지도',
   'map.lede': '세계에서 도시까지 확대해 볼 수 있어요. 도시보다 더 가까이는 보지 않아요.',
-  'map.region': '음악 지도',
+  'map.region': '지도 화면',
   'map.loading': '지도를 불러오는 중…',
   'map.zoomIn': '확대',
   'map.zoomOut': '축소',
