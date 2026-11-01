@@ -32,19 +32,21 @@ struct DigHomeView: View {
             }
           }
         }
-        if model.isOn("exploration_time_machine") || model.isOn("exploration_rediscover") {
+        if model.isOn("exploration_time_machine") || model.isOn("exploration_rediscover") || model.isOn("exploration_map") {
           Section("탐험") {
-            NavigationLink(value: DigRoute.timeMachine) {
-              Label {
-                VStack(alignment: .leading, spacing: 2) {
-                  Text("타임머신").font(.body.weight(.semibold))
-                  Text("고른 날짜까지 나온 음악만 듣기").font(.footnote).foregroundStyle(Palette.muted)
+            if model.isOn("exploration_time_machine") || model.isOn("exploration_rediscover") {
+              NavigationLink(value: DigRoute.timeMachine) {
+                Label {
+                  VStack(alignment: .leading, spacing: 2) {
+                    Text("타임머신").font(.body.weight(.semibold))
+                    Text("고른 날짜까지 나온 음악만 듣기").font(.footnote).foregroundStyle(Palette.muted)
+                  }
+                } icon: {
+                  Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
                 }
-              } icon: {
-                Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
               }
+              .disabled(!model.isOn("exploration_time_machine"))
             }
-            .disabled(!model.isOn("exploration_time_machine"))
             if model.isOn("exploration_rediscover") {
               NavigationLink(value: DigRoute.rediscover) {
                 Label {
@@ -54,6 +56,18 @@ struct DigHomeView: View {
                   }
                 } icon: {
                   Image(systemName: "arrow.counterclockwise.heart")
+                }
+              }
+            }
+            if model.isOn("exploration_map") {
+              NavigationLink(value: DigRoute.map) {
+                Label {
+                  VStack(alignment: .leading, spacing: 2) {
+                    Text("음악 지도").font(.body.weight(.semibold))
+                    Text("세계에서 도시까지 둘러보기").font(.footnote).foregroundStyle(Palette.muted)
+                  }
+                } icon: {
+                  Image(systemName: "map")
                 }
               }
             }
@@ -349,7 +363,7 @@ struct DigSessionView: View {
       switch route {
       case .start(let entity): session = try await model.dig.start(from: entity)
       case .session(let id): session = try await model.dig.session(id)
-      case .blind, .crate, .label, .journey, .compare, .timeMachine, .rediscover: return  // own screens
+      case .blind, .crate, .label, .journey, .compare, .timeMachine, .rediscover, .map: return  // own screens
       }
       await loadAxes()
     } catch {
