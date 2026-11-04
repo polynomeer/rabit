@@ -71,5 +71,5 @@ Step-by-step guide: [App Store setup and operations](../09-operations/app-store.
 
 ## 4. Scheduled engineering items (no owner action, listed for visibility)
 
-- Node 26 switch after its LTS date (2026-10-28), with Dependabot #2 and #7.
+- ~~Node 26 switch after its LTS date (2026-10-28)~~ **Done 2026-11-04** (26.13.0 is LTS); developers install Node 26 (`.nvmrc`).
 - Re-measure the performance baseline on an idle machine or on staging (R16).

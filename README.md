@@ -26,15 +26,15 @@ docs/                 product, architecture, API, security, rights, ADRs
 
 | Tool | Version |
 |---|---|
-| Node.js | 24 LTS (`.nvmrc`; 22.12+ works) |
-| pnpm | 11 (`corepack enable` picks the pinned version) |
+| Node.js | 26 LTS (`.nvmrc`) |
+| pnpm | 11 (the version pinned in `package.json`; Node 26 no longer bundles corepack) |
 | Docker | with Compose v2 |
 | ffmpeg / ffprobe | 6+ on `PATH` (worker and tests) |
 
 ## Run from a clean clone
 
 ```bash
-corepack enable
+npm install -g "$(node -p "require('./package.json').packageManager")"
 pnpm install
 pnpm dev            # first run sets up (.env, Postgres + S3, migrations, demo catalog), then
                     # api + worker + media + web in one terminal; Ctrl-C or `pnpm stop` ends it
