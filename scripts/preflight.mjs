@@ -30,18 +30,22 @@ export async function preflight({ quiet = false } = {}) {
   const note = (msg, fix) => warn(`${msg}${fix ? dim(`  → ${fix}`) : ''}`);
   if (!quiet) say(bold('Rabit — local environment check\n'));
 
-  const [major, minor] = process.versions.node.split('.').map(Number);
+  const [major] = process.versions.node.split('.').map(Number);
   const wanted = readFileSync(resolve(ROOT, '.nvmrc'), 'utf8').trim();
-  if (major < 22 || (major === 22 && minor < 12))
+  if (major < Number(wanted))
     bad(
-      `Node ${process.versions.node} is too old (needs >= 22.12)`,
+      `Node ${process.versions.node} is too old (needs >= ${wanted})`,
       `install Node ${wanted} (.nvmrc)`,
     );
   else if (String(major) !== wanted) note(`Node ${process.versions.node} (CI uses ${wanted})`);
   else ok(`Node ${process.versions.node}`);
 
   if (has('pnpm')) ok(`pnpm ${run('pnpm', ['--version']).stdout.trim()}`);
-  else bad('pnpm not found', 'corepack enable');
+  else
+    bad(
+      'pnpm not found',
+      `npm install -g ${JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')).packageManager}`,
+    );
 
   if (
     existsSync(resolve(ROOT, 'node_modules')) &&
